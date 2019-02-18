@@ -47,13 +47,18 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="SampleApp\SqlBulkHelpersSample.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SqlBulkHelpersSample.cs" />
+    <Compile Include="SampleApp\SqlBulkHelpersSampleSynchronous.cs" />
+    <Compile Include="SampleApp\SqlBulkHelpersSampleAsync.cs" />
     <Compile Include="SqlBulkHelpers\BaseSqlBulkHelper.cs" />
     <Compile Include="SqlBulkHelpers\ISqlBulkHelper.cs" />
     <Compile Include="SqlBulkHelpers\SqlBulkBasicHelper.cs" />
+    <Compile Include="SqlBulkHelpers\SqlBulkCopyFactory.cs" />
+    <Compile Include="SqlBulkHelpers\SqlBulkHelpersDBSchemaModels.cs" />
     <Compile Include="SqlBulkHelpers\SqlBulkHelpersMergeAction.cs" />
+    <Compile Include="SqlBulkHelpers\SqlBulkHelpersMergeQueryBuilder.cs" />
     <Compile Include="SqlBulkHelpers\SqlBulkIdentityHelper.cs" />
     <Compile Include="SqlBulkHelpers\SqlBulkHelpersCustomExtensions.cs" />
     <Compile Include="SqlBulkHelpers\SqlBulkHelpersDBSchemaLoader.cs" />

@@ -8,8 +8,14 @@ namespace SqlBulkHelpers
 {
     public class SqlBulkHelpersObjectMapper
     {
-        public DataTable ConvertEntitiesToDatatable<T>(List<T> entityList, String identityColumnName = SqlBulkHelpersConstants.DEFAULT_IDENTITY_COLUMN_NAME)
+        //TODO: BBernard - If beneficial (Need to Add Timers) we can improve the Reflection Performance here with Caching of PropertyInfo results, 
+        //          use of Delegates for FASTer access to model members, etc. (IF practical and/or needed).
+        public DataTable ConvertEntitiesToDatatable<T>(List<T> entityList, SqlBulkHelpersColumnDefinition identityColumnDefinition)
         {
+            //Get the name of hte Identity Column
+            //NOTE: BBernard - We take in the strongly typed class (immutable) to ensure that we have validated Parameter vs raw string!
+            var identityColumnName = identityColumnDefinition.ColumnName;
+
             //TODO: BBERNARD - Optimilze this with internal Type level caching and possbily mapping these to Delegates for faster execution!
             //NOTE: We Map all Properties to an anonymous type with Index, Name, and base PropInfo here for easier logic below,
             //          and we ALWAYS convert to a List<> so that we always preserve the critical order of the PropertyInfo items!

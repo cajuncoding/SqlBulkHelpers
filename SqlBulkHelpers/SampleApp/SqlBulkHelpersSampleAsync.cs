@@ -12,7 +12,7 @@ using SqlBulkHelpers;
 
 namespace Debug.ConsoleApp
 {
-    public class SqlBulkHelpersSample
+    public class SqlBulkHelpersSampleAsync
     {
         public static async Task Run()
         {
@@ -21,13 +21,13 @@ namespace Debug.ConsoleApp
                 using (SqlTransaction transaction = conn.BeginTransaction())
                 {
                     var tableName = "__BBERNARD_TEST";
-                    var sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>();
+                    ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>();
 
                     var timer = new Stopwatch();
 
                     //WARM UP THE CODE and initialize all CACHES!
                     timer.Start();
-                    var testData = CreateTestData(1);
+                    var testData = SqlBulkHelpersSample.CreateTestData(1);
 
                     await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(testData, tableName, transaction);
                     await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(testData, tableName, transaction);
@@ -64,29 +64,6 @@ namespace Debug.ConsoleApp
                     Console.ReadKey();
                 }
             }
-        }
-
-        public static List<TestElement> CreateTestData(int dataSize)
-        {
-
-            var list = new List<TestElement>();
-            for (var x = 1; x <= dataSize; x++)
-            {
-                list.Add(new TestElement()
-                {
-                    Id = default(int),
-                    Key = $"TEST_CSHARP_{Guid.NewGuid()}_{x}",
-                    Value = $"VALUE_{x}"
-                });
-            }
-
-            return list;
-        }
-
-        public class TestElement : BaseIdentityIdModel
-        {
-            public String Key { get; set; }
-            public String Value { get; set; }
         }
     }
 }
