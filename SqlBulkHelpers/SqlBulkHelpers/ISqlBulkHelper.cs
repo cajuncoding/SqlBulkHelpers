@@ -7,18 +7,18 @@ using System.Threading.Tasks;
 
 namespace SqlBulkHelpers
 {
-    public interface ISqlBulkHelper<T> where T : BaseIdentityIdModel
+    public interface ISqlBulkHelper<T> where T: class
     {
         #region Async Methods
-        Task<List<T>> BulkInsertAsync(List<T> entityList, String tableName, SqlTransaction transaction);
-        Task<List<T>> BulkUpdateAsync(List<T> entityList, String tableName, SqlTransaction transaction);
-        Task<List<T>> BulkInsertOrUpdateAsync(List<T> entityList, String tableName, SqlTransaction transaction);
+        Task<IEnumerable<T>> BulkInsertAsync(IEnumerable<T> entityList, String tableName, SqlTransaction transaction);
+        Task<IEnumerable<T>> BulkUpdateAsync(IEnumerable<T> entityList, String tableName, SqlTransaction transaction);
+        Task<IEnumerable<T>> BulkInsertOrUpdateAsync(IEnumerable<T> entityList, String tableName, SqlTransaction transaction);
         #endregion
 
         #region Synchronous Methods
-        List<T> BulkInsert(List<T> entityList, String tableName, SqlTransaction transaction);
-        List<T> BulkUpdate(List<T> entityList, String tableName, SqlTransaction transaction);
-        List<T> BulkInsertOrUpdate(List<T> entityList, String tableName, SqlTransaction transaction);
+        IEnumerable<T> BulkInsert(IEnumerable<T> entityList, String tableName, SqlTransaction transaction);
+        IEnumerable<T> BulkUpdate(IEnumerable<T> entityList, String tableName, SqlTransaction transaction);
+        IEnumerable<T> BulkInsertOrUpdate(IEnumerable<T> entityList, String tableName, SqlTransaction transaction);
         #endregion
     }
 }

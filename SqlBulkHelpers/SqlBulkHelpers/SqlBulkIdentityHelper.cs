@@ -19,32 +19,32 @@ namespace SqlBulkHelpers
     public class SqlBulkIdentityHelper<T> : BaseSqlBulkHelper<T>, ISqlBulkHelper<T> where T : BaseIdentityIdModel
     {
         #region ISqlBulkHelper<T> implemenetations
-        public async Task<List<T>> BulkInsertAsync(List<T> entityList, string tableName, SqlTransaction transaction)
+        public async Task<IEnumerable<T>> BulkInsertAsync(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
         {
             return await BulkInsertOrUpdateWithIdentityColumnAsync(entityList, tableName, SqlBulkHelpersMergeAction.Insert, transaction);
         }
 
-        public async Task<List<T>> BulkUpdateAsync(List<T> entityList, string tableName, SqlTransaction transaction)
+        public async Task<IEnumerable<T>> BulkUpdateAsync(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
         {
             return await BulkInsertOrUpdateWithIdentityColumnAsync(entityList, tableName, SqlBulkHelpersMergeAction.Update, transaction);
         }
 
-        public async Task<List<T>> BulkInsertOrUpdateAsync(List<T> entityList, string tableName, SqlTransaction transaction)
+        public async Task<IEnumerable<T>> BulkInsertOrUpdateAsync(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
         {
             return await BulkInsertOrUpdateWithIdentityColumnAsync(entityList, tableName, SqlBulkHelpersMergeAction.InsertOrUpdate, transaction);
         }
 
-        public List<T> BulkInsert(List<T> entityList, string tableName, SqlTransaction transaction)
+        public IEnumerable<T> BulkInsert(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
         {
             return BulkInsertOrUpdateWithIdentityColumn(entityList, tableName, SqlBulkHelpersMergeAction.Insert, transaction);
         }
 
-        public List<T> BulkUpdate(List<T> entityList, string tableName, SqlTransaction transaction)
+        public IEnumerable<T> BulkUpdate(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
         {
             return BulkInsertOrUpdateWithIdentityColumn(entityList, tableName, SqlBulkHelpersMergeAction.Update, transaction);
         }
 
-        public List<T> BulkInsertOrUpdate(List<T> entityList, string tableName, SqlTransaction transaction)
+        public IEnumerable<T> BulkInsertOrUpdate(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
         {
             return BulkInsertOrUpdateWithIdentityColumn(entityList, tableName, SqlBulkHelpersMergeAction.InsertOrUpdate, transaction);
         }
@@ -61,7 +61,7 @@ namespace SqlBulkHelpers
         /// <param name="mergeAction"></param>
         /// <param name="transaction"></param>
         /// <returns></returns>
-        private async Task<List<T>> BulkInsertOrUpdateWithIdentityColumnAsync(List<T> entityList, String tableName, SqlBulkHelpersMergeAction mergeAction, SqlTransaction transaction)
+        private async Task<IEnumerable<T>> BulkInsertOrUpdateWithIdentityColumnAsync(IEnumerable<T> entityList, String tableName, SqlBulkHelpersMergeAction mergeAction, SqlTransaction transaction)
         {
             using (ProcessHelper processHelper = this.CreateProcessHelper(entityList, tableName, mergeAction, transaction))
             {
@@ -98,10 +98,10 @@ namespace SqlBulkHelpers
                 }
 
                 //***STEP #7: FINALLY Update all of the original Entities with INSERTED/New Identity Values
-                var updatedEntityList = this.PostProcessEntitiesWithMergeResults(entityList, mergeResultsList);
+                var updatedEntityList = this.PostProcessEntitiesWithMergeResults(entityList.ToList(), mergeResultsList);
 
                 //FINALLY Return the updated Entities with the Identity Id if it was Inserted!
-                return entityList;
+                return updatedEntityList;
             }
         }
 
@@ -114,7 +114,7 @@ namespace SqlBulkHelpers
         /// <param name="mergeAction"></param>
         /// <param name="transaction"></param>
         /// <returns></returns>
-        private List<T> BulkInsertOrUpdateWithIdentityColumn(List<T> entityList, String tableName, SqlBulkHelpersMergeAction mergeAction, SqlTransaction transaction)
+        private IEnumerable<T> BulkInsertOrUpdateWithIdentityColumn(IEnumerable<T> entityList, String tableName, SqlBulkHelpersMergeAction mergeAction, SqlTransaction transaction)
         {
             using (ProcessHelper processHelper = this.CreateProcessHelper(entityList, tableName, mergeAction, transaction))
             {
@@ -146,10 +146,10 @@ namespace SqlBulkHelpers
                 }
 
                 //***STEP #7: FINALLY Update all of the original Entities with INSERTED/New Identity Values
-                var updatedEntityList = this.PostProcessEntitiesWithMergeResults(entityList, mergeResultsList);
+                var updatedEntityList = this.PostProcessEntitiesWithMergeResults(entityList.ToList(), mergeResultsList);
 
                 //FINALLY Return the updated Entities with the Identity Id if it was Inserted!
-                return entityList;
+                return updatedEntityList;
             }
         }
 
@@ -174,7 +174,7 @@ namespace SqlBulkHelpers
         /// <param name="mergeAction"></param>
         /// <param name="transaction"></param>
         /// <returns></returns>
-        private ProcessHelper CreateProcessHelper(List<T> entityList, String tableName, SqlBulkHelpersMergeAction mergeAction, SqlTransaction transaction)
+        private ProcessHelper CreateProcessHelper(IEnumerable<T> entityList, String tableName, SqlBulkHelpersMergeAction mergeAction, SqlTransaction transaction)
         {
             //***STEP #1: Load the Table Schema Definitions (cached after initial Load)!!!
             //BBernard

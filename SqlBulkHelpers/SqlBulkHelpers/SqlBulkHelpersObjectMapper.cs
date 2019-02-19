@@ -10,7 +10,7 @@ namespace SqlBulkHelpers
     {
         //TODO: BBernard - If beneficial (Need to Add Timers) we can improve the Reflection Performance here with Caching of PropertyInfo results, 
         //          use of Delegates for FASTer access to model members, etc. (IF practical and/or needed).
-        public DataTable ConvertEntitiesToDatatable<T>(List<T> entityList, SqlBulkHelpersColumnDefinition identityColumnDefinition)
+        public DataTable ConvertEntitiesToDatatable<T>(IEnumerable<T> entityList, SqlBulkHelpersColumnDefinition identityColumnDefinition)
         {
             //Get the name of hte Identity Column
             //NOTE: BBernard - We take in the strongly typed class (immutable) to ensure that we have validated Parameter vs raw string!

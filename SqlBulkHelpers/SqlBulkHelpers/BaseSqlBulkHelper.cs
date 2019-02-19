@@ -16,7 +16,7 @@ namespace SqlBulkHelpers
             return tableDefinition;
         }
 
-        protected DataTable ConvertEntitiesToDatatableHelper(List<T> entityList, SqlBulkHelpersColumnDefinition identityColumnDefinition)
+        protected DataTable ConvertEntitiesToDatatableHelper(IEnumerable<T> entityList, SqlBulkHelpersColumnDefinition identityColumnDefinition)
         {
             var SqlBulkHelpersMapper = new SqlBulkHelpersObjectMapper();
             var dataTable = SqlBulkHelpersMapper.ConvertEntitiesToDatatable(entityList, identityColumnDefinition);
