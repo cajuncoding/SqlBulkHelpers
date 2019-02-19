@@ -27,8 +27,9 @@ namespace Debug.ConsoleApp
         }
     }
 
-    public class TestElement : BaseIdentityIdModel
+    public class TestElement
     {
+        public int Id { get; set; }
         public String Key { get; set; }
         public String Value { get; set; }
     }

@@ -7,7 +7,7 @@ using System.Data.SqlClient;
 namespace SqlBulkHelpers
 {
     //BBernard - Base Class for future flexibility...
-    public abstract class BaseSqlBulkHelper<T> where T: BaseIdentityIdModel
+    public abstract class BaseSqlBulkHelper<T> where T: class
     {
         protected SqlBulkHelpersTableDefinition GetTableSchemaDefinitionHelper(String tableName)
         {
@@ -18,8 +18,8 @@ namespace SqlBulkHelpers
 
         protected DataTable ConvertEntitiesToDatatableHelper(IEnumerable<T> entityList, SqlBulkHelpersColumnDefinition identityColumnDefinition)
         {
-            var SqlBulkHelpersMapper = new SqlBulkHelpersObjectMapper();
-            var dataTable = SqlBulkHelpersMapper.ConvertEntitiesToDatatable(entityList, identityColumnDefinition);
+            SqlBulkHelpersObjectMapper _sqlBulkHelperModelMapper = new SqlBulkHelpersObjectMapper();
+            var dataTable = _sqlBulkHelperModelMapper.ConvertEntitiesToDatatable(entityList, identityColumnDefinition);
             return dataTable;
         }
 
@@ -47,13 +47,22 @@ namespace SqlBulkHelpers
             public SqlBulkHelpersMergeAction MergeAction { get; set; }
         }
 
-        protected List<T> PostProcessEntitiesWithMergeResults(List<T> entityList, List<MergeResult> mergeResultsList)
+        protected List<T> PostProcessEntitiesWithMergeResults(List<T> entityList, List<MergeResult> mergeResultsList, SqlBulkHelpersColumnDefinition identityColumnDefinition)
         {
+            var propDefs = SqlBulkHelpersObjectReflectionFactory.GetPropertyDefinitions<T>(identityColumnDefinition);
+            var identityPropDef = propDefs.FirstOrDefault(pi => pi.IsIdentityProperty);
+            var identityPropInfo = identityPropDef.PropInfo;
+
             foreach (var mergeResult in mergeResultsList.Where(r => r.MergeAction.HasFlag(SqlBulkHelpersMergeAction.Insert)))
             {
                 //NOTE: List is 0 (zero) based, but our RowNumber is 1 (one) based.
                 var entity = entityList[mergeResult.RowNumber - 1];
-                entity.Id = mergeResult.IdentityId;
+                
+                //BBernard
+                //GENERICALLY Set the Identity Value to the Int value returned, this eliminates any dependency on a Base Class!
+                //TODO: If needed we can optimize this with a Delegate for faster property access (vs pure Reflection).
+                //(entity as Debug.ConsoleApp.TestElement).Id = mergeResult.IdentityId;
+                identityPropInfo.SetValue(entity, mergeResult.IdentityId);
             }
 
             //Return the Updated Entities List (for chainability) and easier to read code

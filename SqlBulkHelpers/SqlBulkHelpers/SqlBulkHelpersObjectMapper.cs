@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Data;
+using System.Collections.Concurrent;
 using System.Reflection;
 
 namespace SqlBulkHelpers
@@ -20,15 +21,10 @@ namespace SqlBulkHelpers
             //NOTE: We Map all Properties to an anonymous type with Index, Name, and base PropInfo here for easier logic below,
             //          and we ALWAYS convert to a List<> so that we always preserve the critical order of the PropertyInfo items!
             //          to simplify all following code.
-            var propertyInfos = typeof(T).GetProperties().Select((pi) => new {
-                Name = pi.Name,
-                //Early determination if a Property is an Identity Property for Fast processing later.
-                IsIdentityProperty = pi.Name.Equals(identityColumnName, StringComparison.OrdinalIgnoreCase),
-                PropInfo = pi
-            }).ToList();
+            var propertyDefs = SqlBulkHelpersObjectReflectionFactory.GetPropertyDefinitions<T>(identityColumnDefinition);
 
             DataTable dataTable = new DataTable();
-            dataTable.Columns.AddRange(propertyInfos.Select(pi => new DataColumn
+            dataTable.Columns.AddRange(propertyDefs.Select(pi => new DataColumn
             {
                 ColumnName = pi.Name,
                 DataType = Nullable.GetUnderlyingType(pi.PropInfo.PropertyType) ?? pi.PropInfo.PropertyType,
@@ -49,7 +45,7 @@ namespace SqlBulkHelpers
             int idenityIdFakeCounter = -1;
             foreach (T entity in entityList)
             {
-                var rowValues = propertyInfos.Select(p => {
+                var rowValues = propertyDefs.Select(p => {
                     var value = p.PropInfo.GetValue(entity);
 
                     //Handle special cases to ensure that Identity values are mapped to unique invalid values.

@@ -59,6 +59,7 @@
     <Compile Include="SqlBulkHelpers\SqlBulkHelpersDBSchemaModels.cs" />
     <Compile Include="SqlBulkHelpers\SqlBulkHelpersMergeAction.cs" />
     <Compile Include="SqlBulkHelpers\SqlBulkHelpersMergeQueryBuilder.cs" />
+    <Compile Include="SqlBulkHelpers\SqlBulkHelpersObjectReflectionFactory.cs" />
     <Compile Include="SqlBulkHelpers\SqlBulkIdentityHelper.cs" />
     <Compile Include="SqlBulkHelpers\SqlBulkHelpersCustomExtensions.cs" />
     <Compile Include="SqlBulkHelpers\SqlBulkHelpersDBSchemaLoader.cs" />

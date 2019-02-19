@@ -37,7 +37,7 @@ namespace Debug.ConsoleApp
 
 
                     //NOW RUN BENCHMARK LOOPS
-                    int itemCounter = 0, batchCounter = 1, dataSize = 1000;
+                    int itemCounter = 0, batchCounter = 1, dataSize = 5000;
                     timer.Reset();
                     for (; batchCounter < 20; batchCounter++)
                     {

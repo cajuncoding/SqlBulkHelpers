@@ -10,7 +10,7 @@ namespace SqlBulkHelpers
     //TODO: BBenard - IF Needed (for performance of non-identity tables) WE COULD IMPLEMENT this as a SqlBulkHelper 
     //          that simply inserts raw data with NO help for Identity Data!  Initial benchmarks show that there is little practical
     //          value in this for normal application usages . . . likely more valuable for Data Migration Activities, etc.
-    public class SqlBulkBasicHelper<T> : BaseSqlBulkHelper<T>, ISqlBulkHelper<T> where T: BaseIdentityIdModel
+    public class SqlBulkBasicHelper<T> : BaseSqlBulkHelper<T>, ISqlBulkHelper<T> where T: class
     {
         public Task<IEnumerable<T>> BulkInsertAsync(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
         {

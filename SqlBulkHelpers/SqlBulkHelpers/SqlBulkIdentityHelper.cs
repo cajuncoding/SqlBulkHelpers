@@ -10,13 +10,7 @@ using System.Diagnostics;
 
 namespace SqlBulkHelpers
 {
-    //TODO: REMOVE WHEN NOT NEEDED ANYMORE AFTER ENHANCING TO DYNAMICALLY RESOLVE THE CORRECT PROPERTY FOR THE Identity value!
-    public class BaseIdentityIdModel
-    {
-        public int Id { get; set; }
-    }
-
-    public class SqlBulkIdentityHelper<T> : BaseSqlBulkHelper<T>, ISqlBulkHelper<T> where T : BaseIdentityIdModel
+    public class SqlBulkIdentityHelper<T> : BaseSqlBulkHelper<T>, ISqlBulkHelper<T> where T : class
     {
         #region ISqlBulkHelper<T> implemenetations
         public async Task<IEnumerable<T>> BulkInsertAsync(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
@@ -98,7 +92,7 @@ namespace SqlBulkHelpers
                 }
 
                 //***STEP #7: FINALLY Update all of the original Entities with INSERTED/New Identity Values
-                var updatedEntityList = this.PostProcessEntitiesWithMergeResults(entityList.ToList(), mergeResultsList);
+                var updatedEntityList = this.PostProcessEntitiesWithMergeResults(entityList.ToList(), mergeResultsList, processHelper.TableDefinition.IdentityColumn);
 
                 //FINALLY Return the updated Entities with the Identity Id if it was Inserted!
                 return updatedEntityList;
@@ -146,7 +140,7 @@ namespace SqlBulkHelpers
                 }
 
                 //***STEP #7: FINALLY Update all of the original Entities with INSERTED/New Identity Values
-                var updatedEntityList = this.PostProcessEntitiesWithMergeResults(entityList.ToList(), mergeResultsList);
+                var updatedEntityList = this.PostProcessEntitiesWithMergeResults(entityList.ToList(), mergeResultsList, processHelper.TableDefinition.IdentityColumn);
 
                 //FINALLY Return the updated Entities with the Identity Id if it was Inserted!
                 return updatedEntityList;
