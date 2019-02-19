@@ -41,5 +41,65 @@ namespace SqlBulkHelpers
         {
             throw new NotImplementedException();
         }
+
+        //public virtual async void BulkDeleteAsync(IEnumerable<T> entities)
+        //{
+        //    string idProperty = Activator.CreateInstance<T>().GetIdProperty();
+
+        //    String ids = String.Join(",", entities.Select(e => e.Id));
+
+        //    String sql = $"DELETE FROM {RepositoryTypeName} WHERE {idProperty} IN ({ids})";
+
+        //    await _connection.ExecuteAsync(sql, null, _transaction);
+        //}
+
+
+        //public virtual IEnumerable<T> BulkInsertWithoutIdentity(IEnumerable<T> entities)
+        //{
+        //    DataTable dataTable = new DataTable();
+        //    dataTable.AddIntoTable(entities);
+
+        //    using (SqlBulkCopy sqlBulk = CreateSqlBulkCopyHelper(dataTable))
+        //    {
+        //        sqlBulk.DestinationTableName = RepositoryTypeName;
+        //        sqlBulk.WriteToServer(dataTable);
+        //    }
+
+        //    return entities;
+        //}
+
+        //public virtual async Task<IEnumerable<T>> BulkInsertWithoutIdentityAsync(IEnumerable<T> entities)
+        //{
+        //    DataTable dataTable = new DataTable();
+        //    dataTable.AddIntoTable(entities);
+
+        //    using (SqlBulkCopy sqlBulk = CreateSqlBulkCopyHelper(dataTable))
+        //    {
+        //        sqlBulk.DestinationTableName = RepositoryTypeName;
+        //        await sqlBulk.WriteToServerAsync(dataTable);
+        //    }
+
+        //    return entities;
+        //}
+
+        //private SqlBulkCopy CreateSqlBulkCopyHelper(DataTable dataTable)
+        //{
+        //    SqlBulkCopy sqlBulk = new SqlBulkCopy((SqlConnection)_connection, SqlBulkCopyOptions.Default, (SqlTransaction)_transaction);
+
+        //    //TODO: BBernard - REFACTOR to use the SqlBulkHelpers class SqlBulkHelpersDBSchemaLoader
+        //    foreach (string destinationColumn in Constants.DatabaseTablesAndColumns[RepositoryTypeName])
+        //    {
+        //        //TODO: Refactor this loop which is inefficient becasue it loops/casts the DataColumns every time inside the parent loop.
+        //        DataColumn sourceColumn = dataTable.Columns.Cast<DataColumn>()
+        //                .FirstOrDefault(c => c.ColumnName.ToLower().Equals(destinationColumn.ToLower()));
+
+        //        if (sourceColumn != null)
+        //        {
+        //            sqlBulk.ColumnMappings.Add(sourceColumn.ColumnName, destinationColumn);
+        //        }
+        //    }
+
+        //    return sqlBulk;
+        //}
     }
 }
