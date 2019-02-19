@@ -54,7 +54,7 @@
     <Compile Include="SampleApp\SqlBulkHelpersSampleAsync.cs" />
     <Compile Include="SqlBulkHelpers\BaseSqlBulkHelper.cs" />
     <Compile Include="SqlBulkHelpers\ISqlBulkHelper.cs" />
-    <Compile Include="SqlBulkHelpers\SqlBulkBasicHelper.cs" />
+    <Compile Include="SqlBulkHelpers\SqlBulkNaturalKeyHelper.cs" />
     <Compile Include="SqlBulkHelpers\SqlBulkCopyFactory.cs" />
     <Compile Include="SqlBulkHelpers\SqlBulkHelpersDBSchemaModels.cs" />
     <Compile Include="SqlBulkHelpers\SqlBulkHelpersMergeAction.cs" />

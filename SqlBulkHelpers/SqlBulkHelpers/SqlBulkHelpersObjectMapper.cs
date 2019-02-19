@@ -9,9 +9,10 @@ namespace SqlBulkHelpers
 {
     public class SqlBulkHelpersObjectMapper
     {
+
         //TODO: BBernard - If beneficial (Need to Add Timers) we can improve the Reflection Performance here with Caching of PropertyInfo results, 
         //          use of Delegates for FASTer access to model members, etc. (IF practical and/or needed).
-        public DataTable ConvertEntitiesToDatatable<T>(IEnumerable<T> entityList, SqlBulkHelpersColumnDefinition identityColumnDefinition)
+        public DataTable ConvertEntitiesToDataTable<T>(IEnumerable<T> entityList, SqlBulkHelpersColumnDefinition identityColumnDefinition)
         {
             //Get the name of hte Identity Column
             //NOTE: BBernard - We take in the strongly typed class (immutable) to ensure that we have validated Parameter vs raw string!
@@ -42,7 +43,7 @@ namespace SqlBulkHelpers
             });
 
             int rowCounter = 1;
-            int idenityIdFakeCounter = -1;
+            int identityIdFakeCounter = -1;
             foreach (T entity in entityList)
             {
                 var rowValues = propertyDefs.Select(p => {
@@ -52,7 +53,7 @@ namespace SqlBulkHelpers
                     if (p.IsIdentityProperty && (int)value <= 0)
                     {
                         //Create a Unique but Invalid Fake Identity Id (e.g. negative number)!
-                        value = idenityIdFakeCounter--;
+                        value = identityIdFakeCounter--;
                     }
 
                     return value;

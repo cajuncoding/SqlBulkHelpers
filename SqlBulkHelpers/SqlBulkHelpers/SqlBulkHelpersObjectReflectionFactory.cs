@@ -10,11 +10,11 @@ namespace SqlBulkHelpers
     {
         private static ConcurrentDictionary<String, Lazy<List<PropInfoDefinition>>> _propInfoLazyCache = new ConcurrentDictionary<String, Lazy<List<PropInfoDefinition>>>();
 
-        public static List<PropInfoDefinition> GetPropertyDefinitions<T>(SqlBulkHelpersColumnDefinition identityColumnDefinition)
+        public static List<PropInfoDefinition> GetPropertyDefinitions<T>(SqlBulkHelpersColumnDefinition identityColumnDefinition = null)
         {
             var type = typeof(T);
             var propInfoLazy = _propInfoLazyCache.GetOrAdd(
-                    $"[Type={type.Name}][Identity={identityColumnDefinition.ColumnName}]",  //Cache Key
+                    $"[Type={type.Name}][Identity={identityColumnDefinition?.ColumnName ?? "N/A"}]",  //Cache Key
                     new Lazy<List<PropInfoDefinition>>(() =>    //Lazy (Thread Safe Lazy Loader)
                     {
                         var propertyInfos = type.GetProperties().Select((pi) => new PropInfoDefinition(pi, identityColumnDefinition)).ToList();
@@ -28,13 +28,13 @@ namespace SqlBulkHelpers
 
     public class PropInfoDefinition
     {
-        public PropInfoDefinition(PropertyInfo propInfo, SqlBulkHelpersColumnDefinition identityColumnDef)
+        public PropInfoDefinition(PropertyInfo propInfo, SqlBulkHelpersColumnDefinition identityColumnDef = null)
         {
             this.PropInfo = propInfo;
             this.Name = propInfo.Name;
             this.PropertyType = propInfo.PropertyType;
             //Early determination if a Property is an Identity Property for Fast processing later.
-            this.IsIdentityProperty = propInfo.Name.Equals(identityColumnDef.ColumnName, StringComparison.OrdinalIgnoreCase);
+            this.IsIdentityProperty = identityColumnDef?.ColumnName?.Equals(propInfo.Name, StringComparison.OrdinalIgnoreCase) ?? false;
         }
 
         public String Name { get; private set; }

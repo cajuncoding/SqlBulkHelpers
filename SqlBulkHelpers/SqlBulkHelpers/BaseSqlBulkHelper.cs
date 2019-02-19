@@ -11,15 +11,18 @@ namespace SqlBulkHelpers
     {
         protected SqlBulkHelpersTableDefinition GetTableSchemaDefinitionHelper(String tableName)
         {
+            //BBernard
+            //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
+            //      we eliminate risk of Sql Injection.
             var tableDefinition = SqlBulkHelpersDBSchemaLoader.GetTableSchemaDefinition(tableName);
             if (tableDefinition == null) throw new ArgumentOutOfRangeException(nameof(tableName), $"The specified argument [{tableName}] is invalid.");
             return tableDefinition;
         }
 
-        protected DataTable ConvertEntitiesToDatatableHelper(IEnumerable<T> entityList, SqlBulkHelpersColumnDefinition identityColumnDefinition)
+        protected DataTable ConvertEntitiesToDataTableHelper(IEnumerable<T> entityList, SqlBulkHelpersColumnDefinition identityColumnDefinition = null)
         {
             SqlBulkHelpersObjectMapper _sqlBulkHelperModelMapper = new SqlBulkHelpersObjectMapper();
-            var dataTable = _sqlBulkHelperModelMapper.ConvertEntitiesToDatatable(entityList, identityColumnDefinition);
+            DataTable dataTable = _sqlBulkHelperModelMapper.ConvertEntitiesToDataTable(entityList, identityColumnDefinition);
             return dataTable;
         }
 

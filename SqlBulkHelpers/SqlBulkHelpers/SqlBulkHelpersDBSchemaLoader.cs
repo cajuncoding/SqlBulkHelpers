@@ -24,6 +24,9 @@ namespace SqlBulkHelpers
 
         static SqlBulkHelpersDBSchemaLoader()
         {
+            //NOTE: WE MUST LOAD the Table Definitions in the Static Constructor to guarantee Thread Safety
+            //          while allowing us to eagerly load all data in one fetch for future performance of all
+            //          subsequent calls.
             _tableDefinitionsLookup = LoadSqlBulkHelpersDBSchemaHelper();
         }
 

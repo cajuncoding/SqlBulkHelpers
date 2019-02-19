@@ -17,10 +17,11 @@ namespace SqlBulkHelpers
             var sqlBulk = new SqlBulkCopy(transaction.Connection, this.BulkCopyOptions, transaction);
             //Always initialize a Batch size & Timeout
             sqlBulk.BatchSize = this.BulkCopyBatchSize; 
-            sqlBulk.BulkCopyTimeout = this.BulkCopyTimeoutSeconds; 
+            sqlBulk.BulkCopyTimeout = this.BulkCopyTimeoutSeconds;
 
             //First initilize the Column Mappings for the SqlBulkCopy
-            //NOTE: BBernard - We EXCLUDE the Identity Column so that it is handled Completely by Sql Server!
+            //NOTE: BBeranrd - We only map valid colums that exist in both the Model & the Table Schema!
+            //NOTE: BBernard - We Map All valid columns (including Identity Key column) to support Insert or Updates!
             var dataTableColumnNames = dataTable.Columns.Cast<DataColumn>().Select(c => c.ColumnName);
             foreach (var dataTableColumnName in dataTableColumnNames)
             {
@@ -31,9 +32,13 @@ namespace SqlBulkHelpers
                 }
             }
 
+            //BBernard
             //Now that we konw we have only valid columns from the Model/DataTable, we must manually add a mapping
-            //      for the Row Number Column for Bulk Loading . . .
-            sqlBulk.ColumnMappings.Add(SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME, SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME);
+            //      for the Row Number Column for Bulk Loading . . . but Only if the data table has a RowNumber column defined.
+            if (dataTable.Columns.Contains(SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME))
+            {
+                sqlBulk.ColumnMappings.Add(SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME, SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME);
+            }
 
             return sqlBulk;
         }

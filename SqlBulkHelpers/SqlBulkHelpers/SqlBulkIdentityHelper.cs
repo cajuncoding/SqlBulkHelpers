@@ -178,7 +178,7 @@ namespace SqlBulkHelpers
             SqlBulkHelpersTableDefinition tableDefinition = this.GetTableSchemaDefinitionHelper(tableName);
 
             //***STEP #2: Dynamically Convert All Entities to a DataTable for consumption by the SqlBulkCopy class...
-            DataTable dataTable = this.ConvertEntitiesToDatatableHelper(entityList, tableDefinition.IdentityColumn);
+            DataTable dataTable = this.ConvertEntitiesToDataTableHelper(entityList, tableDefinition.IdentityColumn);
 
             //***STEP #3: Build all of the Sql Scripts needed to Process the entitiees based on the specified Table definition.
             SqlMergeScriptResults sqlScripts = this.BuildSqlMergeScriptsHelper(tableDefinition, mergeAction);

@@ -14,7 +14,8 @@ namespace SqlBulkHelpers
         {
             this.TableSchema = tableSchema;
             this.TableName = tableName;
-            this.Columns = columns ?? new List<SqlBulkHelpersColumnDefinition>();
+            //Ensure that the Columns Collection is always NullSafe and is Immutable/ReadOnly!
+            this.Columns = (columns ?? new List<SqlBulkHelpersColumnDefinition>()).AsReadOnly();
 
             //Initialize Helper Elements for Fast Processing (Cached Immutable data references)
             this.IdentityColumn = this.Columns.FirstOrDefault(c => c.IsIdentityColumn);
@@ -22,19 +23,17 @@ namespace SqlBulkHelpers
         }
         public String TableSchema { get; private set; }
         public String TableName { get; private set; }
-        public List<SqlBulkHelpersColumnDefinition> Columns { get; private set; }
+        public IList<SqlBulkHelpersColumnDefinition> Columns { get; private set; }
         public SqlBulkHelpersColumnDefinition IdentityColumn { get; private set; }
 
-        public List<String> GetColumnNames(bool includeIdentityColumn = true)
+        public IList<String> GetColumnNames(bool includeIdentityColumn = true)
         {
-            if (includeIdentityColumn)
-            {
-                return this.Columns.Select(c => c.ColumnName).ToList();
-            }
-            else
-            {
-                return this.Columns.Where(c => !c.IsIdentityColumn).Select(c => c.ColumnName).ToList();
-            }
+            IEnumerable<String> results = includeIdentityColumn 
+                                            ? this.Columns.Select(c => c.ColumnName)
+                                            : this.Columns.Where(c => !c.IsIdentityColumn).Select(c => c.ColumnName);
+
+            //Ensure that our List is Immutable/ReadOnly!
+            return results.ToList().AsReadOnly();
         }
 
         public SqlBulkHelpersColumnDefinition FindColumnCaseInsensitive(String columnName)
