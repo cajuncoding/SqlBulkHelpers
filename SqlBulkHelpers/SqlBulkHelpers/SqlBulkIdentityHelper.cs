@@ -209,9 +209,15 @@ namespace SqlBulkHelpers
             /// </summary>
             public void Dispose()
             {
+                //Always clean up DataTables (as they can be heavy on memory until Garbage collection runs)
+                (this.DataTable as IDisposable)?.Dispose();
+                this.DataTable = null;
+
+                //Always clean up Sql Connection/Command objects as they can hold onto precious resources...
                 (this.SqlCommand as IDisposable)?.Dispose();
                 this.SqlCommand = null;
 
+                //Always clean up SqlBulkCopy object (as it also can hold onto connections/commands)...
                 (this.SqlBulkCopy as IDisposable)?.Dispose();
                 this.SqlBulkCopy = null;
             }

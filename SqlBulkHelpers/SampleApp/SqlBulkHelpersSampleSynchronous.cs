@@ -37,15 +37,25 @@ namespace Debug.ConsoleApp
 
 
                     //NOW RUN BENCHMARK LOOPS
-                    int itemCounter = 0, batchCounter = 1, dataSize = 5000;
+                    int itemCounter = 0, batchCounter = 1, dataSize = 1000;
                     timer.Reset();
                     for (; batchCounter < 20; batchCounter++)
                     {
                         testData = SqlBulkHelpersSample.CreateTestData(dataSize);
 
                         timer.Start();
-                        sqlBulkIdentityHelper.BulkInsert(testData, tableName, transaction);
+                        var results = sqlBulkIdentityHelper.BulkInsert(testData, tableName, transaction);
                         timer.Stop();
+
+                        if(results.Count() != dataSize)
+                        {
+                            Console.WriteLine($"The results count of [{results.Count()}] does not match the expected count of [{dataSize}]!!!");
+                        }
+
+                        if (results.Any(t => t.Id <= 0))
+                        {
+                            Console.WriteLine($"Some items were returned with an invalid Identity Value (e.g. may still be initialized to default value [{default(int)})");
+                        }
 
                         itemCounter += testData.Count;
                     }

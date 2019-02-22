@@ -7,7 +7,7 @@ namespace SqlBulkHelpers
 {
     public class SqlBulkCopyFactory
     {
-        public int BulkCopyBatchSize { get; set; } = 1000; //General guidance is that 1000-5000 is efficient enough.
+        public int BulkCopyBatchSize { get; set; } = 2000; //General guidance is that 2000-5000 is efficient enough.
         public int BulkCopyTimeoutSeconds { get; set; } = 60; //Default is only 30 seconds, but we can wait a bit longer if needed.
 
         public SqlBulkCopyOptions BulkCopyOptions { get; set; } = SqlBulkCopyOptions.Default;
