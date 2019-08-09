@@ -4,16 +4,16 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{3ABF8F4C-6371-419E-B104-2DB62B2F643D}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>SqlBulkHelpers</RootNamespace>
-    <AssemblyName>SqlBulkHelpers</AssemblyName>
+    <ProjectGuid>{1317662E-BDB5-4E83-BE8F-56DCB955141A}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>SqlBulkHelpers.ConsoleApp</RootNamespace>
+    <AssemblyName>SqlBulkHelpers.ConsoleApp</AssemblyName>
     <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <Deterministic>true</Deterministic>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
@@ -21,8 +21,10 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <LangVersion>7.1</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
@@ -32,7 +34,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Newtonsoft.Json, Version=12.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>..\packages\Newtonsoft.Json.12.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <HintPath>..\packages\Newtonsoft.Json.12.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
@@ -45,23 +47,21 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="SampleApp\SqlBulkHelpersSample.cs" />
+    <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SqlBulkHelpers\BaseSqlBulkHelper.cs" />
-    <Compile Include="SqlBulkHelpers\ISqlBulkHelper.cs" />
-    <Compile Include="SqlBulkHelpers\SqlBulkCopyFactory.cs" />
-    <Compile Include="SqlBulkHelpers\SqlBulkHelpersConnectionProvider.cs" />
-    <Compile Include="SqlBulkHelpers\SqlBulkHelpersCustomExtensions.cs" />
-    <Compile Include="SqlBulkHelpers\SqlBulkHelpersDBSchemaLoader.cs" />
-    <Compile Include="SqlBulkHelpers\SqlBulkHelpersDBSchemaModels.cs" />
-    <Compile Include="SqlBulkHelpers\SqlBulkHelpersMergeAction.cs" />
-    <Compile Include="SqlBulkHelpers\SqlBulkHelpersMergeQueryBuilder.cs" />
-    <Compile Include="SqlBulkHelpers\SqlBulkHelpersObjectMapper.cs" />
-    <Compile Include="SqlBulkHelpers\SqlBulkHelpersObjectReflectionFactory.cs" />
-    <Compile Include="SqlBulkHelpers\SqlBulkIdentityHelper.cs" />
-    <Compile Include="SqlBulkHelpers\SqlBulkNaturalKeyHelper.cs" />
+    <Compile Include="SampleApp\SqlBulkHelpersSampleSynchronous.cs" />
+    <Compile Include="SampleApp\SqlBulkHelpersSampleAsync.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="App.config" />
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SqlBulkHelpers\SqlBulkHelpers.csproj">
+      <Project>{3abf8f4c-6371-419e-b104-2db62b2f643d}</Project>
+      <Name>SqlBulkHelpers</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SqlBulkHelpers
 {
@@ -38,7 +35,7 @@ namespace SqlBulkHelpers
 
 
             //NOTE: This is ALL now completed very efficiently on the Sql Server Database side with
-            //          NO unnecessary round trips to the Datbase!
+            //          NO unnecessary round trips to the Database!
             var mergeInsertSql = String.Empty;
             if (mergeAction.HasFlag(SqlBulkHelpersMergeAction.Insert))
             {
@@ -59,9 +56,18 @@ namespace SqlBulkHelpers
             }
 
             //Build the FULL Dynamic Merge Script here...
+            //BBernard - 2019-08-07
+            //NOTE: We now sort on the RowNumber column that we define; this FIXES issue with SqlBulkCopy.WriteToServer()
+            //      where the order of data being written is NOT guaranteed, and there is still no support for the ORDER() hint.
+            //      In general it results in inverting the order of data being sent in Bulk which then resulted in Identity
+            //      values being incorrect based on the order of data specified.
             String sqlScriptToExecuteMergeProcess = $@"
                 MERGE [{tableDefinition.TableName}] as target
-                USING [{tempStagingTableName}] as source
+				USING (
+					SELECT TOP 100 PERCENT * 
+					FROM [{tempStagingTableName}] 
+					ORDER BY [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] ASC
+				) as source
                 ON target.[{identityColumnName}] = source.[{identityColumnName}]
                 {mergeUpdateSql}
                 {mergeInsertSql}
@@ -92,7 +98,7 @@ namespace SqlBulkHelpers
     {
         public SqlMergeScriptResults(String tempStagingTableName, String tempOutputTableName, String tempTableScript, String mergeProcessScript)
         {
-            this.SqlScriptToIntializeTempTables = tempTableScript;
+            this.SqlScriptToInitializeTempTables = tempTableScript;
             this.SqlScriptToExecuteMergeProcess = mergeProcessScript;
             this.TempStagingTableName = tempStagingTableName;
             this.TempOutputTableName = tempOutputTableName;
@@ -100,7 +106,7 @@ namespace SqlBulkHelpers
 
         public String TempOutputTableName { get; private set; }
         public String TempStagingTableName { get; private set; }
-        public String SqlScriptToIntializeTempTables { get; private set; }
+        public String SqlScriptToInitializeTempTables { get; private set; }
         public String SqlScriptToExecuteMergeProcess { get; private set; }
     }
 }

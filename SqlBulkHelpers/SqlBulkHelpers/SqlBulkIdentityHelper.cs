@@ -1,12 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Data;
-using System.Data.Sql;
 using System.Data.SqlClient;
-using System.Diagnostics;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace SqlBulkHelpers
 {
@@ -50,13 +47,16 @@ namespace SqlBulkHelpers
         /// This is the Primary Async method that supports Insert, Update, and InsertOrUpdate via the flexibility of the Sql MERGE query!
         /// </summary>
         /// <typeparam name="T"></typeparam>
-        /// <param name="entityList"></param>
+        /// <param name="entities"></param>
         /// <param name="tableName"></param>
         /// <param name="mergeAction"></param>
         /// <param name="transaction"></param>
         /// <returns></returns>
-        private async Task<IEnumerable<T>> BulkInsertOrUpdateWithIdentityColumnAsync(IEnumerable<T> entityList, String tableName, SqlBulkHelpersMergeAction mergeAction, SqlTransaction transaction)
+        private async Task<IEnumerable<T>> BulkInsertOrUpdateWithIdentityColumnAsync(IEnumerable<T> entities, String tableName, SqlBulkHelpersMergeAction mergeAction, SqlTransaction transaction)
         {
+            //For Performance we ensure the entities are only ever enumerated One Time!
+            var entityList = entities.ToList();
+
             using (ProcessHelper processHelper = this.CreateProcessHelper(entityList, tableName, mergeAction, transaction))
             {
                 var sqlCmd = processHelper.SqlCommand;
@@ -65,7 +65,7 @@ namespace SqlBulkHelpers
 
                 //***STEP #4: Create Tables for Buffering Data & Storing Output values
                 //            NOTE: THIS Step is Unique for Async processing...
-                sqlCmd.CommandText = sqlScripts.SqlScriptToIntializeTempTables;
+                sqlCmd.CommandText = sqlScripts.SqlScriptToInitializeTempTables;
                 await sqlCmd.ExecuteNonQueryAsync();
 
                 //***STEP #5: Write Data to the Staging/Buffer Table as fast as possible!
@@ -74,7 +74,7 @@ namespace SqlBulkHelpers
                 await sqlBulkCopy.WriteToServerAsync(processHelper.DataTable);
 
                 //***STEP #6: Merge Data from the Staging Table into the Real Table
-                //            and simultaneously Ouptut Identity Id values into Output Temp Table!
+                //            and simultaneously Output Identity Id values into Output Temp Table!
                 //            NOTE: THIS Step is Unique for Async processing...
                 sqlCmd.CommandText = sqlScripts.SqlScriptToExecuteMergeProcess;
 
@@ -103,13 +103,16 @@ namespace SqlBulkHelpers
         /// BBernard
         /// This is the Primary Synchronous method that supports Insert, Update, and InsertOrUpdate via the flexibility of the Sql MERGE query!
         /// </summary>
-        /// <param name="entityList"></param>
+        /// <param name="entities"></param>
         /// <param name="tableName"></param>
         /// <param name="mergeAction"></param>
         /// <param name="transaction"></param>
         /// <returns></returns>
-        private IEnumerable<T> BulkInsertOrUpdateWithIdentityColumn(IEnumerable<T> entityList, String tableName, SqlBulkHelpersMergeAction mergeAction, SqlTransaction transaction)
+        private IEnumerable<T> BulkInsertOrUpdateWithIdentityColumn(IEnumerable<T> entities, String tableName, SqlBulkHelpersMergeAction mergeAction, SqlTransaction transaction)
         {
+            //For Performance we ensure the entities are only ever enumerated One Time!
+            var entityList = entities.ToList();
+
             using (ProcessHelper processHelper = this.CreateProcessHelper(entityList, tableName, mergeAction, transaction))
             {
                 var sqlCmd = processHelper.SqlCommand;
@@ -117,7 +120,7 @@ namespace SqlBulkHelpers
                 var sqlScripts = processHelper.SqlMergeScripts;
 
                 //***STEP #4: Create Tables for Buffering Data & Storing Output values
-                sqlCmd.CommandText = sqlScripts.SqlScriptToIntializeTempTables;
+                sqlCmd.CommandText = sqlScripts.SqlScriptToInitializeTempTables;
                 sqlCmd.ExecuteNonQuery();
 
                 //***STEP #5: Write Data to the Staging/Buffer Table as fast as possible!
@@ -125,7 +128,7 @@ namespace SqlBulkHelpers
                 sqlBulkCopy.WriteToServer(processHelper.DataTable);
 
                 //***STEP #6: Merge Data from the Staging Table into the Real Table
-                //          and simultaneously Ouptut Identity Id values into Output Temp Table!
+                //          and simultaneously Output Identity Id values into Output Temp Table!
                 sqlCmd.CommandText = sqlScripts.SqlScriptToExecuteMergeProcess;
 
                 //Execute this script and load the results....
@@ -140,7 +143,7 @@ namespace SqlBulkHelpers
                 }
 
                 //***STEP #7: FINALLY Update all of the original Entities with INSERTED/New Identity Values
-                var updatedEntityList = this.PostProcessEntitiesWithMergeResults(entityList.ToList(), mergeResultsList, processHelper.TableDefinition.IdentityColumn);
+                var updatedEntityList = this.PostProcessEntitiesWithMergeResults(entityList, mergeResultsList, processHelper.TableDefinition.IdentityColumn);
 
                 //FINALLY Return the updated Entities with the Identity Id if it was Inserted!
                 return updatedEntityList;
@@ -168,7 +171,7 @@ namespace SqlBulkHelpers
         /// <param name="mergeAction"></param>
         /// <param name="transaction"></param>
         /// <returns></returns>
-        private ProcessHelper CreateProcessHelper(IEnumerable<T> entityList, String tableName, SqlBulkHelpersMergeAction mergeAction, SqlTransaction transaction)
+        private ProcessHelper CreateProcessHelper(List<T> entityList, String tableName, SqlBulkHelpersMergeAction mergeAction, SqlTransaction transaction)
         {
             //***STEP #1: Load the Table Schema Definitions (cached after initial Load)!!!
             //BBernard
@@ -205,7 +208,7 @@ namespace SqlBulkHelpers
             public SqlBulkCopy SqlBulkCopy { get; set; }
 
             /// <summary>
-            /// IMplement IDisposable to ensrue that we ALWAYS SAFELY CLEAN up our internal IDisposable resources.
+            /// Implement IDisposable to ensure that we ALWAYS SAFELY CLEAN up our internal IDisposable resources.
             /// </summary>
             public void Dispose()
             {

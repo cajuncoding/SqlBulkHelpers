@@ -1,11 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Data;
 using System.Data.SqlClient;
-using System.Threading.Tasks;
-using System.Text;
-using Newtonsoft.Json;
+using System.Linq;
 
 namespace SqlBulkHelpers
 {
@@ -32,7 +28,7 @@ namespace SqlBulkHelpers
 
         /// <summary>
         /// BBernard
-        /// Add all table and their columns from maestro database into the dictionary in a fully Thread Safe manner using
+        /// Add all table and their columns from the database into the dictionary in a fully Thread Safe manner using
         /// the Static Constructor!
         /// </summary>
         private static ILookup<String, SqlBulkHelpersTableDefinition> LoadSqlBulkHelpersDBSchemaHelper()

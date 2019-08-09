@@ -3,7 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.28307.168
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlBulkHelpers", "SqlBulkHelpers\SqlBulkHelpers.csproj", "{1317662E-BDB5-4E83-BE8F-56DCB955141A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlBulkHelpers.SampleApp", "SqlBulkHelpers.SampleApp\SqlBulkHelpers.SampleApp.csproj", "{1317662E-BDB5-4E83-BE8F-56DCB955141A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlBulkHelpers.Tests", "SqlBulkHelpers.Tests\SqlBulkHelpers.Tests.csproj", "{C3E2E92C-2F0C-44C9-B2E5-3CF522534E34}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlBulkHelpers", "SqlBulkHelpers\SqlBulkHelpers.csproj", "{3ABF8F4C-6371-419E-B104-2DB62B2F643D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +19,14 @@ Global
 		{1317662E-BDB5-4E83-BE8F-56DCB955141A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1317662E-BDB5-4E83-BE8F-56DCB955141A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1317662E-BDB5-4E83-BE8F-56DCB955141A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C3E2E92C-2F0C-44C9-B2E5-3CF522534E34}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C3E2E92C-2F0C-44C9-B2E5-3CF522534E34}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C3E2E92C-2F0C-44C9-B2E5-3CF522534E34}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C3E2E92C-2F0C-44C9-B2E5-3CF522534E34}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3ABF8F4C-6371-419E-B104-2DB62B2F643D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3ABF8F4C-6371-419E-B104-2DB62B2F643D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3ABF8F4C-6371-419E-B104-2DB62B2F643D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3ABF8F4C-6371-419E-B104-2DB62B2F643D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
