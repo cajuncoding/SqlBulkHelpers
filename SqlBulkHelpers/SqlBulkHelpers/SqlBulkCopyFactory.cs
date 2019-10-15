@@ -20,7 +20,7 @@ namespace SqlBulkHelpers
             sqlBulk.BulkCopyTimeout = this.BulkCopyTimeoutSeconds;
 
             //First initilize the Column Mappings for the SqlBulkCopy
-            //NOTE: BBeranrd - We only map valid colums that exist in both the Model & the Table Schema!
+            //NOTE: BBernard - We only map valid colums that exist in both the Model & the Table Schema!
             //NOTE: BBernard - We Map All valid columns (including Identity Key column) to support Insert or Updates!
             var dataTableColumnNames = dataTable.Columns.Cast<DataColumn>().Select(c => c.ColumnName);
             foreach (var dataTableColumnName in dataTableColumnNames)

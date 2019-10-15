@@ -92,7 +92,7 @@ namespace SqlBulkHelpers
                 }
 
                 //***STEP #7: FINALLY Update all of the original Entities with INSERTED/New Identity Values
-                var updatedEntityList = this.PostProcessEntitiesWithMergeResults(entityList.ToList(), mergeResultsList, processHelper.TableDefinition.IdentityColumn);
+                var updatedEntityList = this.PostProcessEntitiesWithMergeResults(entityList, mergeResultsList, processHelper.TableDefinition.IdentityColumn);
 
                 //FINALLY Return the updated Entities with the Identity Id if it was Inserted!
                 return updatedEntityList;
