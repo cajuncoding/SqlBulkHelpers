@@ -11,7 +11,9 @@ namespace Debug.ConsoleApp
     {
         public static void Run()
         {
-            using (var conn = SqlBulkHelpersConnectionProvider.NewConnection())
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+
+            using (var conn = sqlConnectionProvider.NewConnection())
             using (SqlTransaction transaction = conn.BeginTransaction())
             {
                 var tableName = "__SQL_BULK_HELPERS_TEST";

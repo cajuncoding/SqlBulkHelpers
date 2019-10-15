@@ -10,7 +10,9 @@ namespace Debug.ConsoleApp
     {
         public static async Task Run()
         {
-            using (var conn = await SqlBulkHelpersConnectionProvider.NewConnectionAsync())
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+
+            using (var conn = await sqlConnectionProvider.NewConnectionAsync())
             using (SqlTransaction transaction = conn.BeginTransaction())
             {
                 var tableName = "__SQL_BULK_HELPERS_TEST";

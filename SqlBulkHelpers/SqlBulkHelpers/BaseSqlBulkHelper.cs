@@ -1,32 +1,52 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Data;
 using System.Data.SqlClient;
+using System.Linq;
 
 namespace SqlBulkHelpers
 {
     //BBernard - Base Class for future flexibility...
     public abstract class BaseSqlBulkHelper<T> where T: class
     {
-        protected SqlBulkHelpersTableDefinition GetTableSchemaDefinitionHelper(String tableName)
+        public virtual ISqlBulkHelpersDBSchemaLoader SqlDbSchemaLoader { get; protected set; }
+
+        /// <summary>
+        /// Constructor that support passing in a customized Sql DB Schema Loader implementation.
+        /// </summary>
+        /// <param name="sqlDbSchemaLoader"></param>
+        protected BaseSqlBulkHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader)
+        {
+            this.SqlDbSchemaLoader = sqlDbSchemaLoader.AssertArgumentNotNull(nameof(sqlDbSchemaLoader));
+        }
+
+        /// <summary>
+        /// Default constructor that will implement the default implementation for Sql Server DB Schema loading that supports static caching/lazy loading for performance.
+        /// </summary>
+        protected BaseSqlBulkHelper()
+        {
+            //Initialize the default Sql DB Schema Loader (which is dependent on the Sql Connection Provider);
+            this.SqlDbSchemaLoader = SqlBulkHelpersDBSchemaStaticLoader.Default;
+        }
+
+        public virtual SqlBulkHelpersTableDefinition GetTableSchemaDefinition(String tableName)
         {
             //BBernard
             //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
             //      we eliminate risk of Sql Injection.
-            var tableDefinition = SqlBulkHelpersDBSchemaLoader.GetTableSchemaDefinition(tableName);
+            var tableDefinition = this.SqlDbSchemaLoader.GetTableSchemaDefinition(tableName);
             if (tableDefinition == null) throw new ArgumentOutOfRangeException(nameof(tableName), $"The specified argument [{tableName}] is invalid.");
             return tableDefinition;
         }
 
-        protected DataTable ConvertEntitiesToDataTableHelper(IEnumerable<T> entityList, SqlBulkHelpersColumnDefinition identityColumnDefinition = null)
+        protected virtual DataTable ConvertEntitiesToDataTableHelper(IEnumerable<T> entityList, SqlBulkHelpersColumnDefinition identityColumnDefinition = null)
         {
             SqlBulkHelpersObjectMapper _sqlBulkHelperModelMapper = new SqlBulkHelpersObjectMapper();
             DataTable dataTable = _sqlBulkHelperModelMapper.ConvertEntitiesToDataTable(entityList, identityColumnDefinition);
             return dataTable;
         }
 
-        protected SqlBulkCopy CreateSqlBulkCopyHelper(DataTable dataTable, SqlBulkHelpersTableDefinition tableDefinition, SqlTransaction transaction)
+        protected virtual SqlBulkCopy CreateSqlBulkCopyHelper(DataTable dataTable, SqlBulkHelpersTableDefinition tableDefinition, SqlTransaction transaction)
         {
             var factory = new SqlBulkCopyFactory(); //Load with all Defaults from our Factory.
             var sqlBulkCopy = factory.CreateSqlBulkCopy(dataTable, tableDefinition, transaction);
@@ -34,7 +54,7 @@ namespace SqlBulkHelpers
         }
 
         //TODO: BBernard - If beneficial, we can Add Caching here at this point to cache the fully formed Merge Queries!
-        protected SqlMergeScriptResults BuildSqlMergeScriptsHelper(SqlBulkHelpersTableDefinition tableDefinition, SqlBulkHelpersMergeAction mergeAction)
+        protected virtual SqlMergeScriptResults BuildSqlMergeScriptsHelper(SqlBulkHelpersTableDefinition tableDefinition, SqlBulkHelpersMergeAction mergeAction)
         {
             var mergeScriptBuilder = new SqlBulkHelpersMergeScriptBuilder();
             var sqlScripts = mergeScriptBuilder.BuildSqlMergeScripts(tableDefinition, mergeAction);
@@ -50,7 +70,7 @@ namespace SqlBulkHelpers
             public SqlBulkHelpersMergeAction MergeAction { get; set; }
         }
 
-        protected List<T> PostProcessEntitiesWithMergeResults(List<T> entityList, List<MergeResult> mergeResultsList, SqlBulkHelpersColumnDefinition identityColumnDefinition)
+        protected virtual List<T> PostProcessEntitiesWithMergeResults(List<T> entityList, List<MergeResult> mergeResultsList, SqlBulkHelpersColumnDefinition identityColumnDefinition)
         {
             var propDefs = SqlBulkHelpersObjectReflectionFactory.GetPropertyDefinitions<T>(identityColumnDefinition);
             var identityPropDef = propDefs.FirstOrDefault(pi => pi.IsIdentityProperty);

@@ -47,16 +47,20 @@
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SqlBulkHelpers\BaseSqlBulkHelper.cs" />
-    <Compile Include="SqlBulkHelpers\ISqlBulkHelper.cs" />
+    <Compile Include="SqlBulkHelpers\CustomExtensions\SystemDataSqlClientCustomExtensions.cs" />
+    <Compile Include="SqlBulkHelpers\Interfaces\ISqlBulkHelper.cs" />
+    <Compile Include="SqlBulkHelpers\Interfaces\ISqlBulkHelpersDBSchemaLoader.cs" />
+    <Compile Include="SqlBulkHelpers\Interfaces\ISqlBulkHelpersConnectionProvider.cs" />
     <Compile Include="SqlBulkHelpers\SqlBulkCopyFactory.cs" />
-    <Compile Include="SqlBulkHelpers\SqlBulkHelpersConnectionProvider.cs" />
-    <Compile Include="SqlBulkHelpers\SqlBulkHelpersCustomExtensions.cs" />
-    <Compile Include="SqlBulkHelpers\SqlBulkHelpersDBSchemaLoader.cs" />
-    <Compile Include="SqlBulkHelpers\SqlBulkHelpersDBSchemaModels.cs" />
-    <Compile Include="SqlBulkHelpers\SqlBulkHelpersMergeAction.cs" />
-    <Compile Include="SqlBulkHelpers\SqlBulkHelpersMergeQueryBuilder.cs" />
-    <Compile Include="SqlBulkHelpers\SqlBulkHelpersObjectMapper.cs" />
-    <Compile Include="SqlBulkHelpers\SqlBulkHelpersObjectReflectionFactory.cs" />
+    <Compile Include="SqlBulkHelpers\Database\SqlBulkHelpersConnectionProvider.cs" />
+    <Compile Include="SqlBulkHelpers\SqlBulkHelpersConstants.cs" />
+    <Compile Include="SqlBulkHelpers\CustomExtensions\SqlBulkHelpersCustomExtensions.cs" />
+    <Compile Include="SqlBulkHelpers\Database\SqlBulkHelpersDBSchemaLoader.cs" />
+    <Compile Include="SqlBulkHelpers\Database\SqlBulkHelpersDBSchemaModels.cs" />
+    <Compile Include="SqlBulkHelpers\QueryProcessing\SqlBulkHelpersMergeAction.cs" />
+    <Compile Include="SqlBulkHelpers\QueryProcessing\SqlBulkHelpersMergeQueryBuilder.cs" />
+    <Compile Include="SqlBulkHelpers\QueryProcessing\SqlBulkHelpersObjectMapper.cs" />
+    <Compile Include="SqlBulkHelpers\QueryProcessing\SqlBulkHelpersObjectReflectionFactory.cs" />
     <Compile Include="SqlBulkHelpers\SqlBulkIdentityHelper.cs" />
     <Compile Include="SqlBulkHelpers\SqlBulkNaturalKeyHelper.cs" />
   </ItemGroup>

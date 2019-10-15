@@ -1,27 +1,12 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Text;
-using System.Collections.Generic;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
 
 namespace SqlBulkHelpers
 {
-    public static class SqlBulkHelpersCustomExtensions
-    {
-        public static TValue GetValueOrDefault<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key)
-        {
-            TValue value;
-            return dictionary.TryGetValue(key, out value) ? value : default(TValue);
-        }
-
-        public static String ToCSV(this IEnumerable<String> enumerableList)
-        {
-            return String.Join(", ", enumerableList);
-        }
-    }
-
     public static class SystemDataSqlClientCustomExtensions
     {
         public static IEnumerable<T> Enumerate<T>(this T reader) where T : IDataReader

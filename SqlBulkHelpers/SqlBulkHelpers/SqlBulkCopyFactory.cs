@@ -1,26 +1,25 @@
-﻿using System;
-using System.Linq;
-using System.Data;
+﻿using System.Data;
 using System.Data.SqlClient;
+using System.Linq;
 
 namespace SqlBulkHelpers
 {
     public class SqlBulkCopyFactory
     {
-        public int BulkCopyBatchSize { get; set; } = 2000; //General guidance is that 2000-5000 is efficient enough.
-        public int BulkCopyTimeoutSeconds { get; set; } = 60; //Default is only 30 seconds, but we can wait a bit longer if needed.
+        public virtual int BulkCopyBatchSize { get; set; } = 2000; //General guidance is that 2000-5000 is efficient enough.
+        public virtual int BulkCopyTimeoutSeconds { get; set; } = 60; //Default is only 30 seconds, but we can wait a bit longer if needed.
 
-        public SqlBulkCopyOptions BulkCopyOptions { get; set; } = SqlBulkCopyOptions.Default;
+        public virtual SqlBulkCopyOptions BulkCopyOptions { get; set; } = SqlBulkCopyOptions.Default;
 
-        public SqlBulkCopy CreateSqlBulkCopy(DataTable dataTable, SqlBulkHelpersTableDefinition tableDefinition, SqlTransaction transaction)
+        public virtual SqlBulkCopy CreateSqlBulkCopy(DataTable dataTable, SqlBulkHelpersTableDefinition tableDefinition, SqlTransaction transaction)
         {
             var sqlBulk = new SqlBulkCopy(transaction.Connection, this.BulkCopyOptions, transaction);
             //Always initialize a Batch size & Timeout
             sqlBulk.BatchSize = this.BulkCopyBatchSize; 
             sqlBulk.BulkCopyTimeout = this.BulkCopyTimeoutSeconds;
 
-            //First initilize the Column Mappings for the SqlBulkCopy
-            //NOTE: BBernard - We only map valid colums that exist in both the Model & the Table Schema!
+            //First initialize the Column Mappings for the SqlBulkCopy
+            //NOTE: BBernard - We only map valid columns that exist in both the Model & the Table Schema!
             //NOTE: BBernard - We Map All valid columns (including Identity Key column) to support Insert or Updates!
             var dataTableColumnNames = dataTable.Columns.Cast<DataColumn>().Select(c => c.ColumnName);
             foreach (var dataTableColumnName in dataTableColumnNames)

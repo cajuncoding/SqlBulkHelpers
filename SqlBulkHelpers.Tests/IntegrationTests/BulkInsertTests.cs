@@ -16,7 +16,9 @@ namespace SqlBulkHelpers.IntegrationTests
 
             List<TestElement> testData = TestHelpers.CreateTestData(10);
 
-            using (var conn = await SqlBulkHelpersConnectionProvider.NewConnectionAsync())
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+
+            using (var conn = await sqlConnectionProvider.NewConnectionAsync())
             using (SqlTransaction transaction = conn.BeginTransaction())
             {
                 ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>();

@@ -9,33 +9,47 @@ namespace SqlBulkHelpers
 {
     public class SqlBulkIdentityHelper<T> : BaseSqlBulkHelper<T>, ISqlBulkHelper<T> where T : class
     {
+        #region Constructors
+
+        public SqlBulkIdentityHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader)
+            : base(sqlDbSchemaLoader)
+        {
+        }
+
+        public SqlBulkIdentityHelper()
+            : base()
+        {
+        }
+
+        #endregion
+
         #region ISqlBulkHelper<T> implemenetations
-        public async Task<IEnumerable<T>> BulkInsertAsync(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
+        public virtual async Task<IEnumerable<T>> BulkInsertAsync(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
         {
             return await BulkInsertOrUpdateWithIdentityColumnAsync(entityList, tableName, SqlBulkHelpersMergeAction.Insert, transaction);
         }
 
-        public async Task<IEnumerable<T>> BulkUpdateAsync(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
+        public virtual async Task<IEnumerable<T>> BulkUpdateAsync(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
         {
             return await BulkInsertOrUpdateWithIdentityColumnAsync(entityList, tableName, SqlBulkHelpersMergeAction.Update, transaction);
         }
 
-        public async Task<IEnumerable<T>> BulkInsertOrUpdateAsync(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
+        public virtual async Task<IEnumerable<T>> BulkInsertOrUpdateAsync(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
         {
             return await BulkInsertOrUpdateWithIdentityColumnAsync(entityList, tableName, SqlBulkHelpersMergeAction.InsertOrUpdate, transaction);
         }
 
-        public IEnumerable<T> BulkInsert(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
+        public virtual IEnumerable<T> BulkInsert(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
         {
             return BulkInsertOrUpdateWithIdentityColumn(entityList, tableName, SqlBulkHelpersMergeAction.Insert, transaction);
         }
 
-        public IEnumerable<T> BulkUpdate(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
+        public virtual IEnumerable<T> BulkUpdate(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
         {
             return BulkInsertOrUpdateWithIdentityColumn(entityList, tableName, SqlBulkHelpersMergeAction.Update, transaction);
         }
 
-        public IEnumerable<T> BulkInsertOrUpdate(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
+        public virtual IEnumerable<T> BulkInsertOrUpdate(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
         {
             return BulkInsertOrUpdateWithIdentityColumn(entityList, tableName, SqlBulkHelpersMergeAction.InsertOrUpdate, transaction);
         }
@@ -52,7 +66,7 @@ namespace SqlBulkHelpers
         /// <param name="mergeAction"></param>
         /// <param name="transaction"></param>
         /// <returns></returns>
-        private async Task<IEnumerable<T>> BulkInsertOrUpdateWithIdentityColumnAsync(IEnumerable<T> entities, String tableName, SqlBulkHelpersMergeAction mergeAction, SqlTransaction transaction)
+        protected virtual async Task<IEnumerable<T>> BulkInsertOrUpdateWithIdentityColumnAsync(IEnumerable<T> entities, String tableName, SqlBulkHelpersMergeAction mergeAction, SqlTransaction transaction)
         {
             //For Performance we ensure the entities are only ever enumerated One Time!
             var entityList = entities.ToList();
@@ -108,7 +122,7 @@ namespace SqlBulkHelpers
         /// <param name="mergeAction"></param>
         /// <param name="transaction"></param>
         /// <returns></returns>
-        private IEnumerable<T> BulkInsertOrUpdateWithIdentityColumn(IEnumerable<T> entities, String tableName, SqlBulkHelpersMergeAction mergeAction, SqlTransaction transaction)
+        protected virtual IEnumerable<T> BulkInsertOrUpdateWithIdentityColumn(IEnumerable<T> entities, String tableName, SqlBulkHelpersMergeAction mergeAction, SqlTransaction transaction)
         {
             //For Performance we ensure the entities are only ever enumerated One Time!
             var entityList = entities.ToList();
@@ -150,7 +164,7 @@ namespace SqlBulkHelpers
             }
         }
 
-        private MergeResult ReadCurrentMergeResultHelper(SqlDataReader sqlReader)
+        protected virtual MergeResult ReadCurrentMergeResultHelper(SqlDataReader sqlReader)
         {
             //So far all calls to SqlDataReader have been asynchronous, but since the data reader is in 
             //non -sequential mode and ReadAsync was used, the column data should be read synchronously.
@@ -171,14 +185,14 @@ namespace SqlBulkHelpers
         /// <param name="mergeAction"></param>
         /// <param name="transaction"></param>
         /// <returns></returns>
-        private ProcessHelper CreateProcessHelper(List<T> entityList, String tableName, SqlBulkHelpersMergeAction mergeAction, SqlTransaction transaction)
+        protected virtual ProcessHelper CreateProcessHelper(List<T> entityList, String tableName, SqlBulkHelpersMergeAction mergeAction, SqlTransaction transaction)
         {
             //***STEP #1: Load the Table Schema Definitions (cached after initial Load)!!!
             //BBernard
             //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
             //      we eliminate risk of Sql Injection.
             //NOTE: ALl other parameters are Strongly typed (vs raw Strings) thus eliminating risk of Sql Injection
-            SqlBulkHelpersTableDefinition tableDefinition = this.GetTableSchemaDefinitionHelper(tableName);
+            SqlBulkHelpersTableDefinition tableDefinition = this.GetTableSchemaDefinition(tableName);
 
             //***STEP #2: Dynamically Convert All Entities to a DataTable for consumption by the SqlBulkCopy class...
             DataTable dataTable = this.ConvertEntitiesToDataTableHelper(entityList, tableDefinition.IdentityColumn);
@@ -199,7 +213,7 @@ namespace SqlBulkHelpers
         /// <summary>
         /// BBernard - Private process helper to contain and encapsulate the initialization logic that is shared across both Asycn and Sync methods...
         /// </summary>
-        private class ProcessHelper : IDisposable
+        protected class ProcessHelper : IDisposable
         {
             public SqlBulkHelpersTableDefinition TableDefinition { get; set; }
             public DataTable DataTable { get; set; }
