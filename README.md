@@ -1,23 +1,55 @@
 # SqlBulkHelpers
-Library for efficient and high performance bulk insert and update of data from C# applications.  This library leverages the power of the C# SqlBulkCopy classes, but augments these with the following key benefits:
+A library for efficient and high performance bulk insert and update of data from C# applications. 
+This library leverages the power of the C# SqlBulkCopy classes, while augmenting with the following key benefits:
 
-1. Provides a simplified facade for interacting with the SqlBulkCopy API.
-* The Performance improvements have been DRAMATIC!
-2. Provides enhanced support for ORM based objects with the SqlBulkCopy API.
-3. Provides support for Database Tables (and ORM objects/models) that utilize an Identity Id column as the Primary Key.
-* Dynamically retrieves the new Identify key values and populates them back on the Objects provided after import.
+- Provides a simplified facade for interacting with the SqlBulkCopy API.
+  - The Performance improvements have been DRAMATIC!
+- Provides enhanced support for ORM (e.g. Dapper) based inserts/updates with the SqlBulkCopy API.
+  - It's obviously easy to bulk load data from the DB into model/objects via optimized queries (e.g. Dapper), but inserting and updating is a whole different story).
+- Provides support for Database Tables that utilize an Identity Id column as the Primary Key.
+  - It dynamically retrieves the new Identity column value and populates them back into the Objects provided so your update will result in your models `automagically` having their PKey (Identity) populated!
 
-The SqlBulkCopy API provides fantastic performance benefits, but retrieving the Identity values for Primary Keys that are auto-generated is not a default capability.  And as it turns out, this is not a trivial
+The SqlBulkCopy API provides **fantastic performance benefits**, but retrieving the Identity values for Primary Keys that are auto-generated is not a default capability.  And as it turns out, this is not a trivial
 task despite the significant benefits it provides for developers.  
 
 Providing support for a table with an Identity Column as the Primary Key is the critical reason for developing this library.  There is alot of good information on Stack Overflow and other web resources that provide
 various levels of help for this kind of functionality, but there are few (if any) fully developed solutions to really help others find an efficient way to do this end-to-end.
 
-**So, that was the goal of this library, to provide and end-to-end solution to either a) leverage directly if it fits your use-cases, or b) use as a model to adapt to your use case! 
-so I hope that it helps others on their projects as much as it has helped ours.**
+**So, that was the goal of this library, to provide and end-to-end solution to either a) leverage directly if it fits your use-cases, or b) use as a model to adapt to your use case!**
 
-TODO:  I'm still working on gathering links for other information (to share here) and will improve this documentation with additional sample code for implementaiton . . . I hope to get some time to improve this
-documentation over the next few days/weeks.
+**I hope that it helps others on their projects as much as it has helped ours.**
+
+
+### Usage:
+
+Usage is very simple if you use a lightweigth Model (e.g. ORM model via Dapper) to load data from your tables...
+
+```
+    //Initialize the Sql Connection Provider (or manually create your own Sql DB Connection...)
+    //NOTE: This interface provides a great abstraction that most projects don't take the time to do, 
+    //          so it is provided here for convenience (e.g. extremely helpful with DI).
+    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+
+    //Initialize large list of Data to Insert or Update in a Table
+    List<TestElement> testData = SqlBulkHelpersSample.CreateTestData(1000);
+
+    //Bulk Inserting is now as easy as:
+    //  1) Initialize the DB Connection & Transaction (IDisposable)
+    //  2) Instantiate the SqlBulkIdentityHelper class with ORM Model Type...
+    //  3) Execute the insert/update (e.g. Convenience method allows InsertOrUpdate in one execution!)
+    using (var conn = await sqlConnectionProvider.NewConnectionAsync())
+    using (SqlTransaction transaction = conn.BeginTransaction())
+    {
+        ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>();
+
+        await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(testData, "TestTableName", transaction);
+
+        transaction.Commit();
+    }
+
+```
+
+_**NOTE: More Sample code is provided in the Sample App...**__
 
 ```
   

@@ -1,9 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using SqlBulkHelpers;
 
 namespace Debug.ConsoleApp
 {
@@ -11,7 +7,6 @@ namespace Debug.ConsoleApp
     {
         public static List<TestElement> CreateTestData(int dataSize)
         {
-
             var list = new List<TestElement>();
             for (var x = 1; x <= dataSize; x++)
             {

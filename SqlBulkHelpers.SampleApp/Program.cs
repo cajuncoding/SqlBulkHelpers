@@ -9,7 +9,8 @@ namespace Debug.ConsoleApp
         {
             try
             {
-                await SqlBulkHelpersSampleAsync.Run();
+                await SqlBulkHelpersSampleAsync.RunBenchmarks();
+                //await SqlBulkHelpersSampleAsync.RunSample();
             }
             catch (Exception exc)
             {

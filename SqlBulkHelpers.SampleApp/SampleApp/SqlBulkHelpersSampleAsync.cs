@@ -1,5 +1,6 @@
 ﻿using SqlBulkHelpers;
 using System;
+using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Threading.Tasks;
@@ -8,7 +9,32 @@ namespace Debug.ConsoleApp
 {
     public class SqlBulkHelpersSampleAsync
     {
-        public static async Task Run()
+        public static async Task RunSample()
+        {
+            //Initialize the Sql Connection Provider (or manually create your own Sql DB Connection...)
+            //NOTE: This interface provides a great abstraction that most projects don't take the time to do, 
+            //          so it is provided here for convenience (e.g. extremely helpful with DI).
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+
+            //Initialize large list of Data to Insert or Update in a Table
+            List<TestElement> testData = SqlBulkHelpersSample.CreateTestData(1000);
+
+            //Bulk Inserting is now as easy as:
+            //  1) Initialize the DB Connection & Transaction (IDisposable)
+            //  2) Instantiate the SqlBulkIdentityHelper class with ORM Model Type...
+            //  3) Execute the insert/update (e.g. Convenience method allows InsertOrUpdate in one execution!)
+            using (var conn = await sqlConnectionProvider.NewConnectionAsync())
+            using (SqlTransaction transaction = conn.BeginTransaction())
+            {
+                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>();
+
+                await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(testData, "TestTableName", transaction);
+
+                transaction.Commit();
+            }
+        }
+
+        public static async Task RunBenchmarks()
         {
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
 
