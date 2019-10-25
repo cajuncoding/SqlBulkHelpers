@@ -1,5 +1,5 @@
 # SqlBulkHelpers
-A library for efficient and high performance bulk insert and update of data from C# applications. 
+A library for efficient and high performance bulk insert and update of data, into a Sql Database, from C# applications. 
 This library leverages the power of the C# SqlBulkCopy classes, while augmenting with the following key benefits:
 
 - Provides a simplified facade for interacting with the SqlBulkCopy API.

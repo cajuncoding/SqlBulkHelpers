@@ -4,6 +4,20 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <RootNamespace>SqlBulkHelpers</RootNamespace>
     <AssemblyName>SqlBulkHelpers</AssemblyName>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <Authors>Brandon Bernard</Authors>
+    <Company />
+    <Description>A library for efficient and high performance bulk insert and update of data, into a Sql Database, from C# applications by leveraging the power of the C# SqlBulkCopy classes with added support for Identity primary key table columns.  Offerring compabitility with .NetStandard 2.0 to support .Net Core 2.0+ &amp; .Net Framework 4.7.2+.</Description>
+    <Copyright>Copyright ©  2019</Copyright>
+    <PackageLicenseUrl>https://raw.githubusercontent.com/raerae1616/SqlBulkHelpers/master/LICENSE</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/raerae1616/SqlBulkHelpers</PackageProjectUrl>
+    <PackageReleaseNotes>Initial Nuget release; targeting .NetStandard 2.0  to support .Net Core 2.0+ &amp; .Net Framework 4.7.2+</PackageReleaseNotes>
+    <PackageTags>sql server database table bulk insert update identity column sqlbulkcopy orm dapper fast data load loading performance</PackageTags>
+    <Version>1.0.1</Version>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DefineConstants>TRACE</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
