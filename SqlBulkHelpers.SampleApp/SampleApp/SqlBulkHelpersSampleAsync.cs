@@ -23,7 +23,7 @@ namespace Debug.ConsoleApp
             //  1) Initialize the DB Connection & Transaction (IDisposable)
             //  2) Instantiate the SqlBulkIdentityHelper class with ORM Model Type...
             //  3) Execute the insert/update (e.g. Convenience method allows InsertOrUpdate in one execution!)
-            using (var conn = await sqlConnectionProvider.NewConnectionAsync())
+            using (SqlConnection conn = await sqlConnectionProvider.NewConnectionAsync())
             using (SqlTransaction transaction = conn.BeginTransaction())
             {
                 ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>();
