@@ -28,7 +28,7 @@ namespace Debug.ConsoleApp
             {
                 ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>();
 
-                await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(testData, "TestTableName", transaction);
+                await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(testData, "SqlBulkHelpersTestElements", transaction);
 
                 transaction.Commit();
             }

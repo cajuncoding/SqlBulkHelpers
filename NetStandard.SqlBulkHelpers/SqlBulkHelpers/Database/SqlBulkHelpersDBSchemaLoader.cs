@@ -39,7 +39,7 @@ namespace SqlBulkHelpers
             //NOTE: Once initialized we will only have a null check before the lock can be released making this completely safe but still very lightweight.
             lock (_padlock)
             {
-                if (_tableDefinitionsLookupLazy != null)
+                if (_tableDefinitionsLookupLazy == null)
                 {
                     _tableDefinitionsLookupLazy = new Lazy<ILookup<string, SqlBulkHelpersTableDefinition>>(() =>
                     {

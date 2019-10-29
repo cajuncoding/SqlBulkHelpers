@@ -11,9 +11,9 @@
     <Copyright>Copyright ©  2019</Copyright>
     <PackageLicenseUrl>https://raw.githubusercontent.com/raerae1616/SqlBulkHelpers/master/LICENSE</PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/raerae1616/SqlBulkHelpers</PackageProjectUrl>
-    <PackageReleaseNotes>Initial Nuget release; targeting .NetStandard 2.0  to support .Net Core 2.0+ &amp; .Net Framework 4.7.2+</PackageReleaseNotes>
+    <PackageReleaseNotes>Fixed bug in dynamic initialization of table schema definitions. Changed Sql Server Data Client to v4.6.1 for compatibility with existing projects.</PackageReleaseNotes>
     <PackageTags>sql server database table bulk insert update identity column sqlbulkcopy orm dapper fast data load loading performance</PackageTags>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -28,7 +28,7 @@
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="12.0.2" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="4.6.0" />
-    <PackageReference Include="System.Data.SqlClient" Version="4.7.0" />
+    <PackageReference Include="System.Data.SqlClient" Version="4.6.1" />
   </ItemGroup>
 
 </Project>
