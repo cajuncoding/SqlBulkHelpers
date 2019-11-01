@@ -14,20 +14,44 @@ namespace SqlBulkHelpers
     /// </summary>
     public class SqlBulkHelpersConnectionProvider : ISqlBulkHelpersConnectionProvider
     {
+        public const string SQL_CONNECTION_STRING_CONFIG_KEY = "SqlConnectionString";
+
+        private string _sqlConnectionString;
+
+        public SqlBulkHelpersConnectionProvider()
+        {
+            _sqlConnectionString = ConfigurationManager.AppSettings[SQL_CONNECTION_STRING_CONFIG_KEY];
+
+            if (String.IsNullOrWhiteSpace(_sqlConnectionString))
+            {
+                throw new ConfigurationErrorsException(
+                    $"The application configuration is missing a value for setting [{SQL_CONNECTION_STRING_CONFIG_KEY}],"
+                    + $" so default Sql Connection cannot be initialized; check the App.config Xml file and try again."
+                );
+            }
+        }
+
+        public SqlBulkHelpersConnectionProvider(string sqlConnectionString)
+        {
+            _sqlConnectionString = sqlConnectionString;
+
+            if (String.IsNullOrWhiteSpace(_sqlConnectionString))
+            {
+                throw new ArgumentException(
+                    $"The argument specified for {nameof(sqlConnectionString)} is null/empty; a valid value must be specified."
+                );
+            }
+
+        }
+
         /// <summary>
         /// Provides a Default instance of the Sql Bulk Helpers Connection Provider.
         /// </summary>
         public static ISqlBulkHelpersConnectionProvider Default = new SqlBulkHelpersConnectionProvider();
 
-        //For performance we load this via a Lazy to ensure we only ever access AppSettings one time.
-        private static readonly Lazy<String> _connectionStringLoaderLazy = new Lazy<string>(
-            () => ConfigurationManager.AppSettings["SqlConnectionString"]
-        );
-
         protected virtual String GetConnectionString()
         {
-            //LOAD from internal Constant, other configuration, etc.
-            return _connectionStringLoaderLazy.Value;
+            return _sqlConnectionString;
         }
 
         public virtual SqlConnection NewConnection()

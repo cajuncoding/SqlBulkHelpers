@@ -19,37 +19,30 @@ namespace SqlBulkHelpers
     /// </summary>
     public class SqlBulkHelpersDBSchemaStaticLoader : ISqlBulkHelpersDBSchemaLoader
     {
-        private static Lazy<ILookup<String, SqlBulkHelpersTableDefinition>> _tableDefinitionsLookupLazy;
-        private static readonly object _padlock = new object();
+        private Lazy<ILookup<String, SqlBulkHelpersTableDefinition>> _tableDefinitionsLookupLazy;
 
         /// <summary>
         /// Provides a Default instance of the Sql Bulk Helpers DB Schema Loader that uses Static/Lazy loading for high performance.
-        /// NOTE: This will use the Default instance of the SqlBulkHelpersConnectionProvider as it's dependency.
+        /// NOTE: This will use the Default instance of the SqlBulkHelpersConnectionProvider as it's dependency and cache it as a Static
+        ///         singleton for high performance.
         /// </summary>
         public static ISqlBulkHelpersDBSchemaLoader Default = new SqlBulkHelpersDBSchemaStaticLoader(SqlBulkHelpersConnectionProvider.Default);
 
         public SqlBulkHelpersDBSchemaStaticLoader(ISqlBulkHelpersConnectionProvider sqlConnectionProvider)
         {
-            sqlConnectionProvider.AssertArgumentNotNull(nameof(sqlConnectionProvider));
+            sqlConnectionProvider.AssertArgumentIsNotNull(nameof(sqlConnectionProvider));
 
-            //Lock the padlock to safely initialize the Lazy<> loader for Table Definition Schemas, but only if it hasn't yet been initialized!
+            //Safely initialize the Lazy<> loader for Table Definition Schemas.
             //NOTE: We use a Lazy<> here so that our manual locking does as little work as possible and simply initializes the Lazy<> reference,
             //          leaving the optimized locking for execution of the long-running logic to the underlying Lazy<> object to manage with
             //          maximum efficiency
-            //NOTE: Once initialized we will only have a null check before the lock can be released making this completely safe but still very lightweight.
-            lock (_padlock)
+            _tableDefinitionsLookupLazy = new Lazy<ILookup<string, SqlBulkHelpersTableDefinition>>(() =>
             {
-                if (_tableDefinitionsLookupLazy == null)
-                {
-                    _tableDefinitionsLookupLazy = new Lazy<ILookup<string, SqlBulkHelpersTableDefinition>>(() =>
-                    {
-                        //Get a local reference so that it's scoping will be preserved...
-                        var localScopeSqlConnectionProviderRef = sqlConnectionProvider;
-                        var dbSchemaResults = LoadSqlBulkHelpersDBSchemaHelper(localScopeSqlConnectionProviderRef);
-                        return dbSchemaResults;
-                    });
-                }
-            }
+                //Get a local reference so that it's scoping will be preserved...
+                var localScopeSqlConnectionProviderRef = sqlConnectionProvider;
+                var dbSchemaResults = LoadSqlBulkHelpersDBSchemaHelper(localScopeSqlConnectionProviderRef);
+                return dbSchemaResults;
+            });
         }
 
         /// <summary>

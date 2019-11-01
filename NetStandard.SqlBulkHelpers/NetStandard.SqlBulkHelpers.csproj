@@ -11,9 +11,9 @@
     <Copyright>Copyright ©  2019</Copyright>
     <PackageLicenseUrl>https://raw.githubusercontent.com/raerae1616/SqlBulkHelpers/master/LICENSE</PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/raerae1616/SqlBulkHelpers</PackageProjectUrl>
-    <PackageReleaseNotes>Fixed bug in dynamic initialization of table schema definitions. Changed Sql Server Data Client to v4.6.1 for compatibility with existing projects.</PackageReleaseNotes>
+    <PackageReleaseNotes>Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances that automtically load the connection string from the application configuration setting.</PackageReleaseNotes>
     <PackageTags>sql server database table bulk insert update identity column sqlbulkcopy orm dapper fast data load loading performance</PackageTags>
-    <Version>1.0.2</Version>
+    <Version>1.0.4</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">

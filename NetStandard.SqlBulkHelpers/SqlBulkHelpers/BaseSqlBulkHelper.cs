@@ -13,11 +13,14 @@ namespace SqlBulkHelpers
 
         /// <summary>
         /// Constructor that support passing in a customized Sql DB Schema Loader implementation.
+        /// NOTE: This is usually a shared/cached/static class (such as SqlBulkHelpersDBSchemaStaticLoader) because it may 
+        ///         cache the Sql DB Schema for maximum performance of all Bulk insert/update activities within an application; 
+        ///         and Schemas usually do not change during the lifetime of an application restart.
         /// </summary>
         /// <param name="sqlDbSchemaLoader"></param>
         protected BaseSqlBulkHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader)
         {
-            this.SqlDbSchemaLoader = sqlDbSchemaLoader.AssertArgumentNotNull(nameof(sqlDbSchemaLoader));
+            this.SqlDbSchemaLoader = sqlDbSchemaLoader.AssertArgumentIsNotNull(nameof(sqlDbSchemaLoader));
         }
 
         /// <summary>
@@ -25,7 +28,7 @@ namespace SqlBulkHelpers
         /// </summary>
         protected BaseSqlBulkHelper()
         {
-            //Initialize the default Sql DB Schema Loader (which is dependent on the Sql Connection Provider);
+            //Initialize the default Sql DB Schema Loader (which is dependent on the Sql Connection Provider).
             this.SqlDbSchemaLoader = SqlBulkHelpersDBSchemaStaticLoader.Default;
         }
 
@@ -35,7 +38,7 @@ namespace SqlBulkHelpers
             //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
             //      we eliminate risk of Sql Injection.
             var tableDefinition = this.SqlDbSchemaLoader.GetTableSchemaDefinition(tableName);
-            if (tableDefinition == null) throw new ArgumentOutOfRangeException(nameof(tableName), $"The specified argument [{tableName}] is invalid.");
+            if (tableDefinition == null) throw new ArgumentOutOfRangeException(nameof(tableName), $"The specified {nameof(tableName)} argument value of [{tableName}] is invalid.");
             return tableDefinition;
         }
 

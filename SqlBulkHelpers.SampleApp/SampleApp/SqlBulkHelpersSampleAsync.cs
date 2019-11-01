@@ -1,6 +1,7 @@
 ﻿using SqlBulkHelpers;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Threading.Tasks;
@@ -9,12 +10,19 @@ namespace Debug.ConsoleApp
 {
     public class SqlBulkHelpersSampleAsync
     {
-        public static async Task RunSample()
+        public static async Task RunSampleAsync()
         {
             //Initialize the Sql Connection Provider (or manually create your own Sql DB Connection...)
             //NOTE: This interface provides a great abstraction that most projects don't take the time to do, 
             //          so it is provided here for convenience (e.g. extremely helpful with DI).
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+
+            //TODO: Create Unit test for Default vs Custom Sql Connection Providers
+            //var sqlConnectionString = ConfigurationManager.AppSettings[SqlBulkHelpersConnectionProvider.SQL_CONNECTION_STRING_CONFIG_KEY];
+            //ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
+
+            //TODO: Create Unit test for Custom DB Schema Loader!
+            //var customDbSchemaLoader = new SqlBulkHelpersDBSchemaStaticLoader(new SqlBulkHelpersConnectionProvider("BRANDON FIXED IT!"));
 
             //Initialize large list of Data to Insert or Update in a Table
             List<TestElement> testData = SqlBulkHelpersSample.CreateTestData(1000);
@@ -26,6 +34,7 @@ namespace Debug.ConsoleApp
             using (SqlConnection conn = await sqlConnectionProvider.NewConnectionAsync())
             using (SqlTransaction transaction = conn.BeginTransaction())
             {
+                //ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(customDbSchemaLoader);
                 ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>();
 
                 await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(testData, "SqlBulkHelpersTestElements", transaction);
@@ -34,14 +43,14 @@ namespace Debug.ConsoleApp
             }
         }
 
-        public static async Task RunBenchmarks()
+        public static async Task RunBenchmarksAsync()
         {
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
 
             using (var conn = await sqlConnectionProvider.NewConnectionAsync())
             using (SqlTransaction transaction = conn.BeginTransaction())
             {
-                var tableName = "__SQL_BULK_HELPERS_TEST";
+                var tableName = "SqlBulkHelpersTestElements";
                 ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>();
 
                 var timer = new Stopwatch();
@@ -60,7 +69,7 @@ namespace Debug.ConsoleApp
                 //NOW RUN BENCHMARK LOOPS
                 int itemCounter = 0, batchCounter = 1, dataSize = 1000;
                 timer.Reset();
-                for (; batchCounter < 20; batchCounter++)
+                for (; batchCounter <= 20; batchCounter++)
                 {
                     testData = SqlBulkHelpersSample.CreateTestData(dataSize);
 

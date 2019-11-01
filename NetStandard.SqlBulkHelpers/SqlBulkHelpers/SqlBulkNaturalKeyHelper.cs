@@ -11,11 +11,19 @@ namespace SqlBulkHelpers
     //          in the MERGE query instead of using the Surrogate key via Identity Id (which does simplify this process!).
     public class SqlBulkNaturalKeyHelper<T> : BaseSqlBulkHelper<T>, ISqlBulkHelper<T> where T: class
     {
+        private const string NOT_IMPLEMENTED_MESSAGE = "Potential future enhancement may be added to support Natural Keys within the existing framework, " +
+                                              "however for now it's easier to manually implement the SqlBulkCopy directly for collections that " +
+                                              "do not use Identity columns that need to be returned.";
+
         public SqlBulkNaturalKeyHelper()
         {
-            throw new NotImplementedException("Potential future enhancement may be added to support Natural Keys within the existing framework, " +
-                                              "however for now it's easier to manually implement the SqlBulkCopy directly for collections that " +
-                                              "do not use Identity columns that need to be returned.");
+            throw new NotImplementedException(NOT_IMPLEMENTED_MESSAGE);
+        }
+
+        public SqlBulkNaturalKeyHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader)
+            : base(sqlDbSchemaLoader)
+        {
+            throw new NotImplementedException(NOT_IMPLEMENTED_MESSAGE);
         }
 
         public virtual Task<IEnumerable<T>> BulkInsertAsync(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)

@@ -1,6 +1,7 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SqlBulkHelpers.Tests;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
@@ -16,7 +17,11 @@ namespace SqlBulkHelpers.IntegrationTests
 
             List<TestElement> testData = TestHelpers.CreateTestData(10);
 
-            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+            //ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+
+            var sqlConnectionString = ConfigurationManager.AppSettings[SqlBulkHelpersConnectionProvider.SQL_CONNECTION_STRING_CONFIG_KEY];
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
+
 
             using (var conn = await sqlConnectionProvider.NewConnectionAsync())
             using (SqlTransaction transaction = conn.BeginTransaction())

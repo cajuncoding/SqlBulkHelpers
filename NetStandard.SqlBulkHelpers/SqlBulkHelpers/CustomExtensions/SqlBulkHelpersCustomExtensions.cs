@@ -5,7 +5,7 @@ namespace SqlBulkHelpers
 {
     public static class SqlBulkHelpersCustomExtensions
     {
-        public static T AssertArgumentNotNull<T>(this T arg, string argName)
+        public static T AssertArgumentIsNotNull<T>(this T arg, string argName)
         {
             if (arg == null) throw new ArgumentNullException(argName);
             return arg;
