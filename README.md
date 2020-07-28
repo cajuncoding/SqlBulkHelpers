@@ -19,6 +19,8 @@ various levels of help for this kind of functionality, but there are few (if any
 
 **I hope that it helps others on their projects as much as it has helped ours.**
 
+## Nuget Package
+To use in your project, add the [SqlBulkHelpers NuGet package](https://www.nuget.org/packages/SqlBulkHelpers/) to your project.
 
 ### Usage:
 
