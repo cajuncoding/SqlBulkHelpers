@@ -13,12 +13,9 @@ namespace SqlBulkHelpers
     {
         private const string NOT_IMPLEMENTED_MESSAGE = "Potential future enhancement may be added to support Natural Keys within the existing framework, " +
                                               "however for now it's easier to manually implement the SqlBulkCopy directly for collections that " +
-                                              "do not use Identity columns that need to be returned.";
-
-        public SqlBulkNaturalKeyHelper()
-        {
-            throw new NotImplementedException(NOT_IMPLEMENTED_MESSAGE);
-        }
+                                              "do not use Identity columns that need to be returned. This is easier by using the utility classes provided" +
+                                              "as publically accessible helpers in this library (e.g. SqlBulkHelpersObjectMapper can be used to convert " +
+                                              "Lists of Entities to Datatable) ";
 
         public SqlBulkNaturalKeyHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader)
             : base(sqlDbSchemaLoader)
@@ -26,37 +23,85 @@ namespace SqlBulkHelpers
             throw new NotImplementedException(NOT_IMPLEMENTED_MESSAGE);
         }
 
-        public virtual Task<IEnumerable<T>> BulkInsertAsync(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
+        public SqlBulkNaturalKeyHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider)
+            : base(sqlBulkHelpersConnectionProvider)
+        {
+            throw new NotImplementedException(NOT_IMPLEMENTED_MESSAGE);
+        }
+
+        public SqlBulkNaturalKeyHelper()
+            : base()
+        {
+            throw new NotImplementedException(NOT_IMPLEMENTED_MESSAGE);
+        }
+
+        public virtual Task<IEnumerable<T>> BulkInsertAsync(
+            IEnumerable<T> entityList, 
+            string tableName, 
+            SqlTransaction transaction, 
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+        )
         {
             throw new NotImplementedException();
         }
 
-        public virtual IEnumerable<T> BulkInsert(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
+        public virtual IEnumerable<T> BulkInsert(
+            IEnumerable<T> entityList,
+            string tableName,
+            SqlTransaction transaction,
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+        )
         {
             throw new NotImplementedException();
         }
 
-        public virtual IEnumerable<T> BulkInsertOrUpdate(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
+        public virtual IEnumerable<T> BulkInsertOrUpdate(
+            IEnumerable<T> entityList,
+            string tableName,
+            SqlTransaction transaction,
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+        )
         {
             throw new NotImplementedException();
         }
 
-        public virtual Task<IEnumerable<T>> BulkInsertOrUpdateAsync(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
+        public virtual Task<IEnumerable<T>> BulkInsertOrUpdateAsync(
+            IEnumerable<T> entityList,
+            string tableName,
+            SqlTransaction transaction,
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+        )
         {
             throw new NotImplementedException();
         }
 
-        public virtual IEnumerable<T> BulkUpdate(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
+        public virtual IEnumerable<T> BulkUpdate(
+            IEnumerable<T> entityList,
+            string tableName,
+            SqlTransaction transaction,
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+        )
         {
             throw new NotImplementedException();
         }
 
-        public virtual Task<IEnumerable<T>> BulkUpdateAsync(IEnumerable<T> entityList, string tableName, SqlTransaction transaction)
+        public virtual Task<IEnumerable<T>> BulkUpdateAsync(
+            IEnumerable<T> entityList,
+            string tableName,
+            SqlTransaction transaction,
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+        )
         {
             throw new NotImplementedException();
         }
 
-        public virtual IEnumerable<T> BulkInsertOrUpdate(IEnumerable<T> entityList, String tableName, SqlBulkHelpersMergeAction mergeAction, SqlTransaction transaction)
+        public virtual IEnumerable<T> BulkInsertOrUpdate(
+            IEnumerable<T> entityList, 
+            String tableName, 
+            SqlBulkHelpersMergeAction mergeAction, 
+            SqlTransaction transaction,
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+        )
         {
             throw new NotImplementedException();
         }

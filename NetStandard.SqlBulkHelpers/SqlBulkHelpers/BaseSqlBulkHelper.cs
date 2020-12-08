@@ -9,18 +9,31 @@ namespace SqlBulkHelpers
     //BBernard - Base Class for future flexibility...
     public abstract class BaseSqlBulkHelper<T> where T: class
     {
-        public virtual ISqlBulkHelpersDBSchemaLoader SqlDbSchemaLoader { get; protected set; }
+        public ISqlBulkHelpersDBSchemaLoader SqlDbSchemaLoader { get; protected set; }
 
         /// <summary>
         /// Constructor that support passing in a customized Sql DB Schema Loader implementation.
         /// NOTE: This is usually a shared/cached/static class (such as SqlBulkHelpersDBSchemaStaticLoader) because it may 
         ///         cache the Sql DB Schema for maximum performance of all Bulk insert/update activities within an application; 
-        ///         and Schemas usually do not change during the lifetime of an application restart.
+        ///         because Schemas usually do not change during the lifetime of an application restart.
+        /// NOTE: With this overload there is no internal caching done, as it assumes that the instance provided is already
+        ///         being managed for performance (e.g. is static in the consuming code logic).
         /// </summary>
         /// <param name="sqlDbSchemaLoader"></param>
         protected BaseSqlBulkHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader)
         {
-            this.SqlDbSchemaLoader = sqlDbSchemaLoader.AssertArgumentIsNotNull(nameof(sqlDbSchemaLoader));
+            this.SqlDbSchemaLoader = sqlDbSchemaLoader;
+        }
+
+        /// <summary>
+        /// Convenience constructor that supports easier initialization of the DB Schema loader by passing in the
+        /// Sql Connection Provider using the default a SqlBulkHelpersDBSchemaStaticLoader implementation.
+        /// </summary>
+        /// <param name="sqlBulkHelpersConnectionProvider"></param>
+        protected BaseSqlBulkHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider)
+        {
+            var sqlConnProvider = sqlBulkHelpersConnectionProvider.AssertArgumentIsNotNull(nameof(sqlBulkHelpersConnectionProvider));
+            this.SqlDbSchemaLoader = SqlBulkHelpersStaticSchemaLoaderCache.GetSchemaLoader(sqlConnProvider);
         }
 
         /// <summary>
@@ -42,14 +55,21 @@ namespace SqlBulkHelpers
             return tableDefinition;
         }
 
-        protected virtual DataTable ConvertEntitiesToDataTableHelper(IEnumerable<T> entityList, SqlBulkHelpersColumnDefinition identityColumnDefinition = null)
+        protected virtual DataTable ConvertEntitiesToDataTableHelper(
+            IEnumerable<T> entityList, 
+            SqlBulkHelpersColumnDefinition identityColumnDefinition = null
+        )
         {
-            SqlBulkHelpersObjectMapper _sqlBulkHelperModelMapper = new SqlBulkHelpersObjectMapper();
-            DataTable dataTable = _sqlBulkHelperModelMapper.ConvertEntitiesToDataTable(entityList, identityColumnDefinition);
+            SqlBulkHelpersObjectMapper sqlBulkHelperModelMapper = new SqlBulkHelpersObjectMapper();
+            DataTable dataTable = sqlBulkHelperModelMapper.ConvertEntitiesToDataTable(entityList, identityColumnDefinition);
             return dataTable;
         }
 
-        protected virtual SqlBulkCopy CreateSqlBulkCopyHelper(DataTable dataTable, SqlBulkHelpersTableDefinition tableDefinition, SqlTransaction transaction)
+        protected virtual SqlBulkCopy CreateSqlBulkCopyHelper(
+            DataTable dataTable, 
+            SqlBulkHelpersTableDefinition tableDefinition, 
+            SqlTransaction transaction
+        )
         {
             var factory = new SqlBulkCopyFactory(); //Load with all Defaults from our Factory.
             var sqlBulkCopy = factory.CreateSqlBulkCopy(dataTable, tableDefinition, transaction);
@@ -57,10 +77,19 @@ namespace SqlBulkHelpers
         }
 
         //TODO: BBernard - If beneficial, we can Add Caching here at this point to cache the fully formed Merge Queries!
-        protected virtual SqlMergeScriptResults BuildSqlMergeScriptsHelper(SqlBulkHelpersTableDefinition tableDefinition, SqlBulkHelpersMergeAction mergeAction)
+        protected virtual SqlMergeScriptResults BuildSqlMergeScriptsHelper(
+            SqlBulkHelpersTableDefinition tableDefinition, 
+            SqlBulkHelpersMergeAction mergeAction,
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+        )
         {
             var mergeScriptBuilder = new SqlBulkHelpersMergeScriptBuilder();
-            var sqlScripts = mergeScriptBuilder.BuildSqlMergeScripts(tableDefinition, mergeAction);
+            var sqlScripts = mergeScriptBuilder.BuildSqlMergeScripts(
+                tableDefinition, 
+                mergeAction, 
+                matchQualifierExpression
+            );
+
             return sqlScripts;
         }
 
@@ -77,7 +106,7 @@ namespace SqlBulkHelpers
         {
             var propDefs = SqlBulkHelpersObjectReflectionFactory.GetPropertyDefinitions<T>(identityColumnDefinition);
             var identityPropDef = propDefs.FirstOrDefault(pi => pi.IsIdentityProperty);
-            var identityPropInfo = identityPropDef.PropInfo;
+            var identityPropInfo = identityPropDef?.PropInfo;
 
             foreach (var mergeResult in mergeResultsList.Where(r => r.MergeAction.HasFlag(SqlBulkHelpersMergeAction.Insert)))
             {
@@ -88,11 +117,11 @@ namespace SqlBulkHelpers
                 //GENERICALLY Set the Identity Value to the Int value returned, this eliminates any dependency on a Base Class!
                 //TODO: If needed we can optimize this with a Delegate for faster property access (vs pure Reflection).
                 //(entity as Debug.ConsoleApp.TestElement).Id = mergeResult.IdentityId;
-                identityPropInfo.SetValue(entity, mergeResult.IdentityId);
+                identityPropInfo?.SetValue(entity, mergeResult.IdentityId);
             }
 
-            //Return the Updated Entities List (for chainability) and easier to read code
-            //NOTE: even though we have actually mutated the original list by reference this helps with code readability.
+            //Return the Updated Entities List (for fluent chain-ability) and easier to read code
+            //NOTE: even though we have actually mutated the original list by reference this is very intuitive and helps with code readability.
             return entityList;
         }
 

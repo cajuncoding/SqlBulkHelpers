@@ -10,6 +10,9 @@ namespace SqlBulkHelpers
     public interface ISqlBulkHelpersConnectionProvider
     {
         SqlConnection NewConnection();
+
         Task<SqlConnection> NewConnectionAsync();
+
+        string GetDbConnectionUniqueIdentifier();
     }
 }

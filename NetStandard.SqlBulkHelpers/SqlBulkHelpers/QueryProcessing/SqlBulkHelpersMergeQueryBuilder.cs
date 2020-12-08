@@ -1,11 +1,16 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace SqlBulkHelpers
 {
     public class SqlBulkHelpersMergeScriptBuilder
     {
-        public SqlMergeScriptResults BuildSqlMergeScripts(SqlBulkHelpersTableDefinition tableDefinition, SqlBulkHelpersMergeAction mergeAction)
+        public virtual SqlMergeScriptResults BuildSqlMergeScripts(
+            SqlBulkHelpersTableDefinition tableDefinition, 
+            SqlBulkHelpersMergeAction mergeAction, 
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+        )
         {
             //NOTE: BBernard - This temp table name MUST begin with 1 (and only 1) hash "#" to ensure it is a Transaction Scoped table!
             var tempStagingTableName = $"#SqlBulkHelpers_STAGING_TABLE_{Guid.NewGuid()}";
@@ -15,7 +20,14 @@ namespace SqlBulkHelpers
             var columnNamesListWithoutIdentity = tableDefinition.GetColumnNames(false);
             var columnNamesWithoutIdentityCSV = columnNamesListWithoutIdentity.Select(c => $"[{c}]").ToCSV();
 
+            //Dynamically build the Merge Match Qualifier Fields Expression
+            //NOTE: This is an optional parameter now, but is initialized to the IdentityColumn by Default!
+            var qualifierExpression = matchQualifierExpression ?? new SqlMergeMatchQualifierExpression(identityColumnName);
+            var mergeMatchQualifierExpressionText = BuildMergeMatchQualifierExpressionText(qualifierExpression);
+
             //Initialize/Create the Staging Table!
+            //NOTE: THe ROWNUMBER_COLUMN_NAME (3'rd Column) IS CRITICAL because SqlBulkCopy and Sql Server OUTPUT claus do not
+            //          preserve Order; e.g. it may change based on execution plan (indexes/no indexes, etc.).
             String sqlScriptToInitializeTempTables = $@"
                 SELECT TOP(0)
                     -1 as [{identityColumnName}],
@@ -32,7 +44,6 @@ namespace SqlBulkHelpers
                     CAST(-1 AS int) [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] 
                 INTO [{tempOutputIdentityTableName}];
             ";
-
 
             //NOTE: This is ALL now completed very efficiently on the Sql Server Database side with
             //          NO unnecessary round trips to the Database!
@@ -68,7 +79,7 @@ namespace SqlBulkHelpers
 					FROM [{tempStagingTableName}] 
 					ORDER BY [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] ASC
 				) as source
-                ON target.[{identityColumnName}] = source.[{identityColumnName}]
+                ON {mergeMatchQualifierExpressionText}
                 {mergeUpdateSql}
                 {mergeInsertSql}
                 OUTPUT $action, INSERTED.[{identityColumnName}], source.[{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}]
@@ -92,11 +103,30 @@ namespace SqlBulkHelpers
                 sqlScriptToExecuteMergeProcess
             );
         }
+
+        /// <summary>
+        /// BBernard - 12/07/2020
+        /// Delegate method to build the Match Qualification expression text from the MatchQualifierExpression model provided.
+        /// NOTE: This can be overridden if needed to provide highly specialized logic and reutrn any match qualification expression
+        ///     text needed in edge use-cases.
+        /// </summary>
+        /// <param name="matchQualifierExpression"></param>
+        /// <returns></returns>
+        protected virtual string BuildMergeMatchQualifierExpressionText(SqlMergeMatchQualifierExpression matchQualifierExpression)
+        {
+            //Construct the full Match Qualifier Expression
+            var qualifierFields = matchQualifierExpression.MatchQualifierFields?.Select(f =>
+                $"target.[{f.SanitizedName}] = source.[{f.SanitizedName}]"
+            );
+
+            var fullExpressionText = String.Join(" AND ", qualifierFields);
+            return fullExpressionText;
+        }
     }
 
     public class SqlMergeScriptResults
     {
-        public SqlMergeScriptResults(String tempStagingTableName, String tempOutputTableName, String tempTableScript, String mergeProcessScript)
+        public SqlMergeScriptResults(string tempStagingTableName, string tempOutputTableName, string tempTableScript, string mergeProcessScript)
         {
             this.SqlScriptToInitializeTempTables = tempTableScript;
             this.SqlScriptToExecuteMergeProcess = mergeProcessScript;
@@ -104,9 +134,9 @@ namespace SqlBulkHelpers
             this.TempOutputTableName = tempOutputTableName;
         }
 
-        public String TempOutputTableName { get; private set; }
-        public String TempStagingTableName { get; private set; }
-        public String SqlScriptToInitializeTempTables { get; private set; }
-        public String SqlScriptToExecuteMergeProcess { get; private set; }
+        public string TempOutputTableName { get; private set; }
+        public string TempStagingTableName { get; private set; }
+        public string SqlScriptToInitializeTempTables { get; private set; }
+        public string SqlScriptToExecuteMergeProcess { get; private set; }
     }
 }

@@ -10,18 +10,16 @@ namespace SqlBulkHelpers
     public class SqlBulkHelpersObjectMapper
     {
 
-        //TODO: BBernard - If beneficial (Need to Add Timers) we can improve the Reflection Performance here with Caching of PropertyInfo results, 
-        //          use of Delegates for FASTer access to model members, etc. (IF practical and/or needed).
         public DataTable ConvertEntitiesToDataTable<T>(IEnumerable<T> entityList, SqlBulkHelpersColumnDefinition identityColumnDefinition)
         {
             //Get the name of hte Identity Column
             //NOTE: BBernard - We take in the strongly typed class (immutable) to ensure that we have validated Parameter vs raw string!
             var identityColumnName = identityColumnDefinition.ColumnName;
 
-            //TODO: BBERNARD - Optimilze this with internal Type level caching and possbily mapping these to Delegates for faster execution!
             //NOTE: We Map all Properties to an anonymous type with Index, Name, and base PropInfo here for easier logic below,
             //          and we ALWAYS convert to a List<> so that we always preserve the critical order of the PropertyInfo items!
             //          to simplify all following code.
+            //NOTE: The helper class provides internal Lazy type caching for better performance once a type has been loaded.
             var propertyDefs = SqlBulkHelpersObjectReflectionFactory.GetPropertyDefinitions<T>(identityColumnDefinition);
 
             DataTable dataTable = new DataTable();
@@ -33,8 +31,10 @@ namespace SqlBulkHelpers
                 AllowDBNull = true //Nullable.GetUnderlyingType(pi.PropertyType) == null ? false : true
             }).ToArray());
 
-            //BBernaard - We ALWAYS Add the internal RowNumber reference so that we can exactly correllate Identity values 
-            //  from the Server back to original records that we passed!
+            //BBernard - We ALWAYS Add the internal RowNumber reference so that we can exactly correlate Identity values from the Server
+            //              back to original records that we passed!
+            //NOTE: THIS IS CRITICAL because SqlBulkCopy and Sql Server OUTPUT clause do not preserve Order; e.g. it may change based
+            //      on execution plan (indexes/no indexes, etc.).
             dataTable.Columns.Add(new DataColumn()
             {
                 ColumnName = SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME,
@@ -63,7 +63,7 @@ namespace SqlBulkHelpers
                 //Add the Values (must be critically in the same order as the PropertyInfos List) as a new Row!
                 var newRow = dataTable.Rows.Add(rowValues);
 
-                //Alwasy set the unique Row Number identifier
+                //Always set the unique Row Number identifier
                 newRow[SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME] = rowCounter++;
             }
 

@@ -14,18 +14,18 @@ namespace SqlBulkHelpers
     /// </summary>
     public class SqlBulkHelpersConnectionProvider : ISqlBulkHelpersConnectionProvider
     {
-        public const string SQL_CONNECTION_STRING_CONFIG_KEY = "SqlConnectionString";
+        public const string SqlConnectionStringConfigKey = "SqlConnectionString";
 
-        private string _sqlConnectionString;
+        private readonly string _sqlConnectionString;
 
         public SqlBulkHelpersConnectionProvider()
         {
-            _sqlConnectionString = ConfigurationManager.AppSettings[SQL_CONNECTION_STRING_CONFIG_KEY];
+            _sqlConnectionString = ConfigurationManager.AppSettings[SqlConnectionStringConfigKey];
 
             if (String.IsNullOrWhiteSpace(_sqlConnectionString))
             {
                 throw new ConfigurationErrorsException(
-                    $"The application configuration is missing a value for setting [{SQL_CONNECTION_STRING_CONFIG_KEY}],"
+                    $"The application configuration is missing a value for setting [{SqlConnectionStringConfigKey}],"
                     + $" so default Sql Connection cannot be initialized; check the App.config Xml file and try again."
                 );
             }
@@ -49,7 +49,17 @@ namespace SqlBulkHelpers
         /// </summary>
         public static ISqlBulkHelpersConnectionProvider Default = new SqlBulkHelpersConnectionProvider();
 
-        protected virtual String GetConnectionString()
+        /// <summary>
+        /// Provide Internal access to the Connection String to help uniquely identify the Connections from this Provider.
+        /// </summary>
+        /// <returns>Unique string representing connections provided by this provider</returns>
+        ///
+        public string GetDbConnectionUniqueIdentifier()
+        {
+            return GetConnectionString();
+        }
+
+        protected  virtual String GetConnectionString()
         {
             return _sqlConnectionString;
         }

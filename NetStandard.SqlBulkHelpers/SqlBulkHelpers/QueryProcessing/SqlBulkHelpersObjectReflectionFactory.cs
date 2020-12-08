@@ -8,7 +8,7 @@ namespace SqlBulkHelpers
 {
     public class SqlBulkHelpersObjectReflectionFactory
     {
-        private static ConcurrentDictionary<String, Lazy<List<PropInfoDefinition>>> _propInfoLazyCache = new ConcurrentDictionary<String, Lazy<List<PropInfoDefinition>>>();
+        private static readonly ConcurrentDictionary<String, Lazy<List<PropInfoDefinition>>> _propInfoLazyCache = new ConcurrentDictionary<String, Lazy<List<PropInfoDefinition>>>();
 
         public static List<PropInfoDefinition> GetPropertyDefinitions<T>(SqlBulkHelpersColumnDefinition identityColumnDefinition = null)
         {
@@ -28,6 +28,7 @@ namespace SqlBulkHelpers
 
     public class PropInfoDefinition
     {
+        //TODO: BBERNARD - Potentially Optimize this further by compiling Delegates for Field Setters for faster execution!
         public PropInfoDefinition(PropertyInfo propInfo, SqlBulkHelpersColumnDefinition identityColumnDef = null)
         {
             this.PropInfo = propInfo;

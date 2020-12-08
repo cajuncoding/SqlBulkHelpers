@@ -19,14 +19,19 @@ namespace SqlBulkHelpers
     /// </summary>
     public class SqlBulkHelpersDBSchemaStaticLoader : ISqlBulkHelpersDBSchemaLoader
     {
-        private Lazy<ILookup<String, SqlBulkHelpersTableDefinition>> _tableDefinitionsLookupLazy;
+        private readonly Lazy<ILookup<String, SqlBulkHelpersTableDefinition>> _tableDefinitionsLookupLazy;
 
         /// <summary>
         /// Provides a Default instance of the Sql Bulk Helpers DB Schema Loader that uses Static/Lazy loading for high performance.
-        /// NOTE: This will use the Default instance of the SqlBulkHelpersConnectionProvider as it's dependency and cache it as a Static
+        /// NOTE: This will use the Default instance of the SqlBulkHelpersConnectionProvider as its' dependency and cache it as a Static
         ///         singleton for high performance.
         /// </summary>
         public static ISqlBulkHelpersDBSchemaLoader Default = new SqlBulkHelpersDBSchemaStaticLoader(SqlBulkHelpersConnectionProvider.Default);
+
+        /// <summary>
+        /// Flag denoting if the Schema has been initialized/loaded yet; it is Lazy initialized on demand.
+        /// </summary>
+        public bool IsInitialized { get; protected set; } = false;
 
         public SqlBulkHelpersDBSchemaStaticLoader(ISqlBulkHelpersConnectionProvider sqlConnectionProvider)
         {
@@ -41,6 +46,10 @@ namespace SqlBulkHelpers
                 //Get a local reference so that it's scoping will be preserved...
                 var localScopeSqlConnectionProviderRef = sqlConnectionProvider;
                 var dbSchemaResults = LoadSqlBulkHelpersDBSchemaHelper(localScopeSqlConnectionProviderRef);
+                
+                //Set the initialization flag (mainly for reference/debugging)
+                IsInitialized = true;
+
                 return dbSchemaResults;
             });
         }
@@ -89,8 +98,9 @@ namespace SqlBulkHelpers
 
         public virtual SqlBulkHelpersTableDefinition GetTableSchemaDefinition(String tableName)
         {
-            if (String.IsNullOrEmpty(tableName)) return null;
+            if (string.IsNullOrWhiteSpace(tableName)) return null;
 
+            //This will safely lazy load teh Schema, if not already, in a Thread-safe manner by using the power of Lazy<>!
             var schemaLookup = _tableDefinitionsLookupLazy.Value;
             var tableDefinition = schemaLookup[tableName.ToLowerInvariant()]?.FirstOrDefault();
             return tableDefinition;

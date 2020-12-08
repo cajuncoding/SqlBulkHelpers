@@ -12,15 +12,49 @@ namespace SqlBulkHelpers
         #endregion
 
         #region Async Operation Methods
-        Task<IEnumerable<T>> BulkInsertAsync(IEnumerable<T> entityList, String tableName, SqlTransaction transaction);
-        Task<IEnumerable<T>> BulkUpdateAsync(IEnumerable<T> entityList, String tableName, SqlTransaction transaction);
-        Task<IEnumerable<T>> BulkInsertOrUpdateAsync(IEnumerable<T> entityList, String tableName, SqlTransaction transaction);
+        Task<IEnumerable<T>> BulkInsertAsync(
+            IEnumerable<T> entityList, 
+            String tableName, 
+            SqlTransaction transaction, 
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+        );
+
+        Task<IEnumerable<T>> BulkUpdateAsync(
+            IEnumerable<T> entityList,
+            String tableName,
+            SqlTransaction transaction,
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+        );
+
+        Task<IEnumerable<T>> BulkInsertOrUpdateAsync(
+            IEnumerable<T> entityList,
+            String tableName,
+            SqlTransaction transaction,
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+        );
         #endregion
 
         #region Synchronous Operation Methods
-        IEnumerable<T> BulkInsert(IEnumerable<T> entityList, String tableName, SqlTransaction transaction);
-        IEnumerable<T> BulkUpdate(IEnumerable<T> entityList, String tableName, SqlTransaction transaction);
-        IEnumerable<T> BulkInsertOrUpdate(IEnumerable<T> entityList, String tableName, SqlTransaction transaction);
+        IEnumerable<T> BulkInsert(
+            IEnumerable<T> entityList,
+            String tableName,
+            SqlTransaction transaction,
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+        );
+
+        IEnumerable<T> BulkUpdate(
+            IEnumerable<T> entityList,
+            String tableName,
+            SqlTransaction transaction,
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+        );
+
+        IEnumerable<T> BulkInsertOrUpdate(
+            IEnumerable<T> entityList,
+            String tableName,
+            SqlTransaction transaction,
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+        );
         #endregion
     }
 }
