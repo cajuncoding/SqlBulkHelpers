@@ -17,20 +17,9 @@ namespace SqlBulkHelpers
                                               "as publically accessible helpers in this library (e.g. SqlBulkHelpersObjectMapper can be used to convert " +
                                               "Lists of Entities to Datatable) ";
 
+        /// <inheritdoc/>
         public SqlBulkNaturalKeyHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader)
             : base(sqlDbSchemaLoader)
-        {
-            throw new NotImplementedException(NOT_IMPLEMENTED_MESSAGE);
-        }
-
-        public SqlBulkNaturalKeyHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider)
-            : base(sqlBulkHelpersConnectionProvider)
-        {
-            throw new NotImplementedException(NOT_IMPLEMENTED_MESSAGE);
-        }
-
-        public SqlBulkNaturalKeyHelper()
-            : base()
         {
             throw new NotImplementedException(NOT_IMPLEMENTED_MESSAGE);
         }

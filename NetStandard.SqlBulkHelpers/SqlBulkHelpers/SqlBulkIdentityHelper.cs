@@ -11,18 +11,9 @@ namespace SqlBulkHelpers
     {
         #region Constructors
 
+        /// <inheritdoc/>
         public SqlBulkIdentityHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader)
             : base(sqlDbSchemaLoader)
-        {
-        }
-
-        public SqlBulkIdentityHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider)
-            : base(sqlBulkHelpersConnectionProvider)
-        {
-        }
-
-        public SqlBulkIdentityHelper()
-            : base()
         {
         }
 
@@ -127,6 +118,7 @@ namespace SqlBulkHelpers
         #endregion
 
         #region Processing Methods (that do the real work)
+
         /// <summary>
         /// BBernard
         /// This is the Primary Async method that supports Insert, Update, and InsertOrUpdate via the flexibility of the Sql MERGE query!
@@ -136,6 +128,7 @@ namespace SqlBulkHelpers
         /// <param name="tableName"></param>
         /// <param name="mergeAction"></param>
         /// <param name="transaction"></param>
+        /// <param name="matchQualifierExpression"></param>
         /// <returns></returns>
         protected virtual async Task<IEnumerable<T>> BulkInsertOrUpdateWithIdentityColumnAsync(
             IEnumerable<T> entities, 
@@ -182,8 +175,16 @@ namespace SqlBulkHelpers
                     }
                 }
 
-                //***STEP #7: FINALLY Update all of the original Entities with INSERTED/New Identity Values
-                var updatedEntityList = this.PostProcessEntitiesWithMergeResults(entityList, mergeResultsList, processHelper.TableDefinition.IdentityColumn);
+                //***STEP #7: FINALLY Update all of the original Entities with INSERTED/New or UPDATED Identity Values
+                //NOTE: IF MULTIPLE NON-UNIQUE items are updated then ONLY ONE Identity value can be returned, though multiple
+                //      other items may have in-reality actually been updated within the DB.  This is a likely scenario
+                //      IF a different non-unique Match Qualifier Field is specified.
+                var updatedEntityList = this.PostProcessEntitiesWithMergeResults(
+                    entityList, 
+                    mergeResultsList, 
+                    processHelper.TableDefinition.IdentityColumn,
+                    processHelper.SqlMergeScripts.SqlMatchQualifierExpression
+                );
 
                 //FINALLY Return the updated Entities with the Identity Id if it was Inserted!
                 return updatedEntityList;
@@ -240,7 +241,12 @@ namespace SqlBulkHelpers
                 }
 
                 //***STEP #7: FINALLY Update all of the original Entities with INSERTED/New Identity Values
-                var updatedEntityList = this.PostProcessEntitiesWithMergeResults(entityList, mergeResultsList, processHelper.TableDefinition.IdentityColumn);
+                var updatedEntityList = this.PostProcessEntitiesWithMergeResults(
+                    entityList, 
+                    mergeResultsList, 
+                    processHelper.TableDefinition.IdentityColumn,
+                    processHelper.SqlMergeScripts.SqlMatchQualifierExpression
+                );
 
                 //FINALLY Return the updated Entities with the Identity Id if it was Inserted!
                 return updatedEntityList;
@@ -261,7 +267,7 @@ namespace SqlBulkHelpers
         }
 
         /// <summary>
-        /// BBernard - Private process helper to wrap up and encapsulate the initialization logic that is shared across both Asycn and Sync methods...
+        /// BBernard - Private process helper to wrap up and encapsulate the initialization logic that is shared across both Async and Sync methods...
         /// </summary>
         /// <param name="entityList"></param>
         /// <param name="tableName"></param>
@@ -290,13 +296,16 @@ namespace SqlBulkHelpers
             //***STEP #3: Build all of the Sql Scripts needed to Process the entities based on the specified Table definition.
             SqlMergeScriptResults sqlScripts = this.BuildSqlMergeScriptsHelper(tableDefinition, mergeAction, matchQualifierExpression);
 
+            //***STEP #4: Dynamically Initialize the Bulk Copy Helper using our Table data and table Definition!
+            var sqlBulkCopyHelper = this.CreateSqlBulkCopyHelper(dataTable, tableDefinition, transaction);
+
             return new ProcessHelper()
             {
                 TableDefinition = tableDefinition,
                 DataTable = dataTable,
                 SqlMergeScripts = sqlScripts,
                 SqlCommand = new SqlCommand(String.Empty, transaction.Connection, transaction),
-                SqlBulkCopy = this.CreateSqlBulkCopyHelper(dataTable, tableDefinition, transaction)
+                SqlBulkCopy = sqlBulkCopyHelper
             };
         }
 

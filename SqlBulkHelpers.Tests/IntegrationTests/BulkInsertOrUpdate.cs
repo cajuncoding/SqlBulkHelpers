@@ -9,18 +9,19 @@ using System.Threading.Tasks;
 namespace SqlBulkHelpers.IntegrationTests
 {
     [TestClass]
-    public class BulkInsertTests
+    public class BulkInsertOrUpdateTests
     {
         [TestMethod]
-        public async Task TestBulkInsertOrderingAsync()
+        public async Task TestBulkInsertOrUpdateWithCustomMatchQualifiersAsync()
         {
-
             List<TestElement> testData = TestHelpers.CreateTestData(10);
+            foreach (var t in testData)
+            {
+                t.Key = $"CUSTOM_QUALIFIER_BY_VALUE-{t.Key}";
+            }
 
-            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
-
-            //var sqlConnectionString = ConfigurationManager.AppSettings[SqlBulkHelpersConnectionProvider.SqlConnectionStringConfigKey];
-            //ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
+            var sqlConnectionString = ConfigurationManager.AppSettings[SqlBulkHelpersConnectionProvider.SqlConnectionStringConfigKey];
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
 
             var sqlBulkHelpersSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnectionProvider);
 
@@ -32,7 +33,11 @@ namespace SqlBulkHelpers.IntegrationTests
                 var results = await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(
                     testData, 
                     TestHelpers.TestTableName, 
-                    transaction
+                    transaction,
+                    new SqlMergeMatchQualifierExpression(nameof(TestElement.Value))
+                    {
+                        ThrowExceptionIfNonUniqueMatchesOccur = false
+                    }
                 );
 
                 transaction.Commit();

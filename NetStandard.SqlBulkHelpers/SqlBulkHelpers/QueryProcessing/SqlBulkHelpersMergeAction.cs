@@ -19,8 +19,7 @@ namespace SqlBulkHelpers
     {
         public static SqlBulkHelpersMergeAction ParseMergeActionString(String actionString)
         {
-            SqlBulkHelpersMergeAction mergeAction;
-            Enum.TryParse<SqlBulkHelpersMergeAction>(actionString, true, out mergeAction);
+            Enum.TryParse<SqlBulkHelpersMergeAction>(actionString, true, out var mergeAction);
             return mergeAction;
         }
     }

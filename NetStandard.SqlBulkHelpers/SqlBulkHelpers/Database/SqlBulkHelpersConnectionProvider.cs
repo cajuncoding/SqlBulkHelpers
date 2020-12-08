@@ -25,8 +25,8 @@ namespace SqlBulkHelpers
             if (String.IsNullOrWhiteSpace(_sqlConnectionString))
             {
                 throw new ConfigurationErrorsException(
-                    $"The application configuration is missing a value for setting [{SqlConnectionStringConfigKey}],"
-                    + $" so default Sql Connection cannot be initialized; check the App.config Xml file and try again."
+                    $"The application configuration (e.g. App settings) is missing a value for setting [{SqlConnectionStringConfigKey}],"
+                    + $" so default Sql Connection cannot be initialized; check the App.config or Web.config Xml file and try again."
                 );
             }
         }
@@ -53,13 +53,12 @@ namespace SqlBulkHelpers
         /// Provide Internal access to the Connection String to help uniquely identify the Connections from this Provider.
         /// </summary>
         /// <returns>Unique string representing connections provided by this provider</returns>
-        ///
-        public string GetDbConnectionUniqueIdentifier()
+        public virtual string GetDbConnectionUniqueIdentifier()
         {
             return GetConnectionString();
         }
 
-        protected  virtual String GetConnectionString()
+        protected  virtual string GetConnectionString()
         {
             return _sqlConnectionString;
         }

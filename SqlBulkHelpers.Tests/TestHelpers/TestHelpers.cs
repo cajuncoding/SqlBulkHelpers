@@ -5,7 +5,7 @@ namespace SqlBulkHelpers.Tests
 {
     public static class TestHelpers
     {
-        public const string TestTableName = "__SQL_BULK_HELPERS_TEST";
+        public const string TestTableName = "SqlBulkHelpersTestElements";
 
         public static List<TestElement> CreateTestData(int dataSize)
         {

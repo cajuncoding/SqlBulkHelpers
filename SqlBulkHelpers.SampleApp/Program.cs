@@ -11,6 +11,9 @@ namespace Debug.ConsoleApp
             {
                 //await SqlBulkHelpersSampleAsync.RunBenchmarksAsync();
                 await SqlBulkHelpersSampleAsync.RunSampleAsync();
+
+                Console.WriteLine("Process Finished Successfully (e.g. without Error)!");
+                Console.ReadKey();
             }
             catch (Exception exc)
             {

@@ -13,11 +13,13 @@ namespace Debug.ConsoleApp
         {
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
 
+            var sqlBulkHelpersSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnectionProvider);
+
             using (var conn = sqlConnectionProvider.NewConnection())
             using (SqlTransaction transaction = conn.BeginTransaction())
             {
                 var tableName = "__SQL_BULK_HELPERS_TEST";
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>();
+                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(sqlBulkHelpersSchemaLoader);
 
                 var timer = new Stopwatch();
 

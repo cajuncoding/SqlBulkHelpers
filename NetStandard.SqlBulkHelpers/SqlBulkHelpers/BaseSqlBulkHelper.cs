@@ -25,26 +25,6 @@ namespace SqlBulkHelpers
             this.SqlDbSchemaLoader = sqlDbSchemaLoader;
         }
 
-        /// <summary>
-        /// Convenience constructor that supports easier initialization of the DB Schema loader by passing in the
-        /// Sql Connection Provider using the default a SqlBulkHelpersDBSchemaStaticLoader implementation.
-        /// </summary>
-        /// <param name="sqlBulkHelpersConnectionProvider"></param>
-        protected BaseSqlBulkHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider)
-        {
-            var sqlConnProvider = sqlBulkHelpersConnectionProvider.AssertArgumentIsNotNull(nameof(sqlBulkHelpersConnectionProvider));
-            this.SqlDbSchemaLoader = SqlBulkHelpersStaticSchemaLoaderCache.GetSchemaLoader(sqlConnProvider);
-        }
-
-        /// <summary>
-        /// Default constructor that will implement the default implementation for Sql Server DB Schema loading that supports static caching/lazy loading for performance.
-        /// </summary>
-        protected BaseSqlBulkHelper()
-        {
-            //Initialize the default Sql DB Schema Loader (which is dependent on the Sql Connection Provider).
-            this.SqlDbSchemaLoader = SqlBulkHelpersDBSchemaStaticLoader.Default;
-        }
-
         public virtual SqlBulkHelpersTableDefinition GetTableSchemaDefinition(String tableName)
         {
             //BBernard
@@ -102,14 +82,62 @@ namespace SqlBulkHelpers
             public SqlBulkHelpersMergeAction MergeAction { get; set; }
         }
 
-        protected virtual List<T> PostProcessEntitiesWithMergeResults(List<T> entityList, List<MergeResult> mergeResultsList, SqlBulkHelpersColumnDefinition identityColumnDefinition)
+        protected virtual List<T> PostProcessEntitiesWithMergeResults(
+            List<T> entityList, 
+            List<MergeResult> mergeResultsList, 
+            SqlBulkHelpersColumnDefinition identityColumnDefinition, 
+            SqlMergeMatchQualifierExpression sqlMatchQualifierExpression
+        )
         {
             var propDefs = SqlBulkHelpersObjectReflectionFactory.GetPropertyDefinitions<T>(identityColumnDefinition);
             var identityPropDef = propDefs.FirstOrDefault(pi => pi.IsIdentityProperty);
             var identityPropInfo = identityPropDef?.PropInfo;
 
-            foreach (var mergeResult in mergeResultsList.Where(r => r.MergeAction.HasFlag(SqlBulkHelpersMergeAction.Insert)))
+            bool uniqueMatchValidationEnabled =
+                sqlMatchQualifierExpression?.ThrowExceptionIfNonUniqueMatchesOccur == true;
+
+            //Get all Items Inserted or Updated....
+            var itemsInsertedOrUpdated = mergeResultsList.Where(r =>
+                r.MergeAction.HasFlag(SqlBulkHelpersMergeAction.Insert) 
+                || r.MergeAction.HasFlag(SqlBulkHelpersMergeAction.Update)
+            );
+
+            if (!uniqueMatchValidationEnabled)
             {
+                //BBernard - 12/08/2020
+                //If Unique Match validation is Disabled, we must take additional steps to properly synchronize with 
+                //  the risk of multiple update matches....
+                //NOTE: It is CRITICAL to sort by RowNumber & then by Identity value to handle edge cases where
+                //      special Match Qualifier Fields are specified that are non-unique and result in multiple update
+                //      matches; this ensures that at least correct data is matched/synced by the latest/last values ordered
+                //      Ascending, when the validation is disabled.
+                itemsInsertedOrUpdated = itemsInsertedOrUpdated.OrderBy(r => r.RowNumber).ThenBy(r => r.IdentityId);
+            }
+
+            var uniqueMatchesHashSet = new HashSet<int>();
+
+            //foreach (var mergeResult in mergeResultsList.Where(r => r.MergeAction.HasFlag(SqlBulkHelpersMergeAction.Insert)))
+            foreach (var mergeResult in itemsInsertedOrUpdated)
+            {
+                //ONLY Process uniqueness validation if necessary... otherwise skip the logic altogether.
+                if (uniqueMatchValidationEnabled)
+                {
+                    if (uniqueMatchesHashSet.Contains(mergeResult.RowNumber))
+                    {
+                        throw new ArgumentOutOfRangeException(
+                            nameof(mergeResultsList), 
+                            "The bulk action has resulted in multiple matches for the the specified Match Qualifiers"
+                            + $" [{sqlMatchQualifierExpression}] and the original Entities List cannot be safely updated."
+                            + "Verify that the Match Qualifier fields result in unique matches or, if intentional, then "
+                            + "this validation check may be disabled on the SqlMergeMatchQualifierExpression parameter."
+                        );
+                    }
+                    else
+                    {
+                        uniqueMatchesHashSet.Add(mergeResult.RowNumber);
+                    }
+                }
+
                 //NOTE: List is 0 (zero) based, but our RowNumber is 1 (one) based.
                 var entity = entityList[mergeResult.RowNumber - 1];
                 

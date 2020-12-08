@@ -100,7 +100,8 @@ namespace SqlBulkHelpers
                 tempStagingTableName,
                 tempOutputIdentityTableName,
                 sqlScriptToInitializeTempTables,
-                sqlScriptToExecuteMergeProcess
+                sqlScriptToExecuteMergeProcess,
+                qualifierExpression
             );
         }
 
@@ -126,17 +127,25 @@ namespace SqlBulkHelpers
 
     public class SqlMergeScriptResults
     {
-        public SqlMergeScriptResults(string tempStagingTableName, string tempOutputTableName, string tempTableScript, string mergeProcessScript)
+        public SqlMergeScriptResults(
+            string tempStagingTableName, 
+            string tempOutputTableName, 
+            string tempTableScript, 
+            string mergeProcessScript,
+            SqlMergeMatchQualifierExpression sqlMatchQualifierExpression
+        )
         {
             this.SqlScriptToInitializeTempTables = tempTableScript;
             this.SqlScriptToExecuteMergeProcess = mergeProcessScript;
             this.TempStagingTableName = tempStagingTableName;
             this.TempOutputTableName = tempOutputTableName;
+            this.SqlMatchQualifierExpression = sqlMatchQualifierExpression;
         }
 
         public string TempOutputTableName { get; private set; }
         public string TempStagingTableName { get; private set; }
         public string SqlScriptToInitializeTempTables { get; private set; }
         public string SqlScriptToExecuteMergeProcess { get; private set; }
+        public SqlMergeMatchQualifierExpression SqlMatchQualifierExpression { get; private set; }
     }
 }

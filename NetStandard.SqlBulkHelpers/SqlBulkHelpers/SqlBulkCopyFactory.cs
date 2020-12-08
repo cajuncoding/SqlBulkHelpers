@@ -13,10 +13,13 @@ namespace SqlBulkHelpers
 
         public virtual SqlBulkCopy CreateSqlBulkCopy(DataTable dataTable, SqlBulkHelpersTableDefinition tableDefinition, SqlTransaction transaction)
         {
-            var sqlBulk = new SqlBulkCopy(transaction.Connection, this.BulkCopyOptions, transaction);
-            //Always initialize a Batch size & Timeout
-            sqlBulk.BatchSize = this.BulkCopyBatchSize; 
-            sqlBulk.BulkCopyTimeout = this.BulkCopyTimeoutSeconds;
+            var sqlBulk = new SqlBulkCopy(transaction.Connection, this.BulkCopyOptions, transaction)
+            {
+                //Always initialize a Batch size & Timeout
+                BatchSize = this.BulkCopyBatchSize, 
+                BulkCopyTimeout = this.BulkCopyTimeoutSeconds
+            };
+
 
             //First initialize the Column Mappings for the SqlBulkCopy
             //NOTE: BBernard - We only map valid columns that exist in both the Model & the Table Schema!

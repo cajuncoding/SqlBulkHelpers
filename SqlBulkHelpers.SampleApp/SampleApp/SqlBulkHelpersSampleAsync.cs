@@ -27,17 +27,26 @@ namespace Debug.ConsoleApp
             //Initialize large list of Data to Insert or Update in a Table
             List<TestElement> testData = SqlBulkHelpersSample.CreateTestData(1000);
 
+            //Get the DB Schema Loader (will load from Cache if already initialized).
+            //NOTE: This can also be initialized from an existing Connection, via overlaod, but that should be called before
+            //      any transactions are opened on the connection.
+            //NOTE: This often only has to be done once, and could be kept across many connections, or requests (e.g. static).
+            //      or simply leverage this provided in-memory cache here to manage that internally.
+            var sqlBulkHelpersSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnectionProvider);
+
             //Bulk Inserting is now as easy as:
             //  1) Initialize the DB Connection & Transaction (IDisposable)
-            //  2) Instantiate the SqlBulkIdentityHelper class with ORM Model Type...
+            //  2) Instantiate the SqlBulkIdentityHelper class with ORM Model Type & Schema Loader instance...
             //  3) Execute the insert/update (e.g. Convenience method allows InsertOrUpdate in one execution!)
             using (SqlConnection conn = await sqlConnectionProvider.NewConnectionAsync())
             using (SqlTransaction transaction = conn.BeginTransaction())
             {
-                //ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(customDbSchemaLoader);
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>();
+                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(sqlBulkHelpersSchemaLoader);
 
-                await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(testData, "SqlBulkHelpersTestElements", transaction);
+                await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(
+                    testData, 
+                    "SqlBulkHelpersTestElements",
+                    transaction);
 
                 transaction.Commit();
             }
@@ -47,11 +56,13 @@ namespace Debug.ConsoleApp
         {
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
 
+            var sqlBulkHelpersSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnectionProvider);
+
             using (var conn = await sqlConnectionProvider.NewConnectionAsync())
             using (SqlTransaction transaction = conn.BeginTransaction())
             {
                 var tableName = "SqlBulkHelpersTestElements";
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>();
+                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(sqlBulkHelpersSchemaLoader);
 
                 var timer = new Stopwatch();
 
