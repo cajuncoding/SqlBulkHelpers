@@ -11,9 +11,14 @@
     <Copyright>Copyright ©  2019</Copyright>
     <PackageLicenseUrl>https://raw.githubusercontent.com/raerae1616/SqlBulkHelpers/master/LICENSE</PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/raerae1616/SqlBulkHelpers</PackageProjectUrl>
-    <PackageReleaseNotes>Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances that automtically load the connection string from the application configuration setting.</PackageReleaseNotes>
+    <PackageReleaseNotes>- Added support for custom match qualifiers to be specified.
+- Provided in-memory utiltiy class to help manage caching of Schema DB Loaders for performance.
+- Simplified initialization and constructors to encourage better pattern for Schema DB Loader management and encourage use of new Caching class; previously its possible that this was being re-loaded multiple times unnecessarily due to relying on internal behavior instead of managing it as a static/singleton.
+
+Prior Relese Notes:
+Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances that automtically load the connection string from the application configuration setting.</PackageReleaseNotes>
     <PackageTags>sql server database table bulk insert update identity column sqlbulkcopy orm dapper fast data load loading performance</PackageTags>
-    <Version>1.0.4</Version>
+    <Version>1.0.5</Version>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
