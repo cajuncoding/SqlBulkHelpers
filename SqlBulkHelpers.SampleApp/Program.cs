@@ -1,5 +1,7 @@
 using System;
+using System.Configuration;
 using System.Threading.Tasks;
+using SqlBulkHelpers;
 
 namespace SqlBulkHelpersSample.ConsoleApp
 {
@@ -9,10 +11,12 @@ namespace SqlBulkHelpersSample.ConsoleApp
         {
             try
             {
-                Console.WriteLine("Staring Sample Console App process...");
+                Console.WriteLine("Staring Sample .Net Console App process...");
 
-                //await SqlBulkHelpersSampleAsync.RunBenchmarksAsync();
-                await SqlBulkHelpersSampleAsync.RunSampleAsync();
+                var sqlConnectionString = ConfigurationManager.AppSettings[SqlBulkHelpersConnectionProvider.SqlConnectionStringConfigKey];
+
+                //await SqlBulkHelpersSampleAsync.RunBenchmarksAsync(sqlConnectionString);
+                await SqlBulkHelpersSampleAsync.RunSampleAsync(sqlConnectionString);
 
                 Console.WriteLine("Process Finished Successfully (e.g. without Error)!");
                 Console.ReadKey();

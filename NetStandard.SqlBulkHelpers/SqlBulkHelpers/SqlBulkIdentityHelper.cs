@@ -147,6 +147,7 @@ namespace SqlBulkHelpers
         /// <param name="mergeAction"></param>
         /// <param name="transaction"></param>
         /// <param name="matchQualifierExpression"></param>
+        /// <param name="timeoutSeconds"></param>
         /// <returns></returns>
         protected virtual async Task<IEnumerable<T>> BulkInsertOrUpdateWithIdentityColumnAsync(
             IEnumerable<T> entities, 
@@ -158,8 +159,10 @@ namespace SqlBulkHelpers
         {
             //For Performance we ensure the entities are only ever enumerated One Time!
             var entityList = entities.ToList();
+            var bulkOperationTimeoutSeconds = this.BulkOperationTimeoutSeconds;
 
-            using (ProcessHelper processHelper = this.CreateProcessHelper(entityList, tableName, mergeAction, transaction, matchQualifierExpression))
+            using (ProcessHelper processHelper = this.CreateProcessHelper(
+                entityList, tableName, mergeAction, transaction, bulkOperationTimeoutSeconds, matchQualifierExpression))
             {
                 var sqlCmd = processHelper.SqlCommand;
                 var sqlBulkCopy = processHelper.SqlBulkCopy;
@@ -228,8 +231,10 @@ namespace SqlBulkHelpers
         {
             //For Performance we ensure the entities are only ever enumerated One Time!
             var entityList = entities.ToList();
+            var bulkOperationTimeoutSeconds = this.BulkOperationTimeoutSeconds;
 
-            using (ProcessHelper processHelper = this.CreateProcessHelper(entityList, tableName, mergeAction, transaction, matchQualifierExpression))
+            using (ProcessHelper processHelper = this.CreateProcessHelper(
+                entityList, tableName, mergeAction, transaction, bulkOperationTimeoutSeconds, matchQualifierExpression))
             {
                 var sqlCmd = processHelper.SqlCommand;
                 var sqlBulkCopy = processHelper.SqlBulkCopy;
@@ -291,6 +296,7 @@ namespace SqlBulkHelpers
         /// <param name="tableName"></param>
         /// <param name="mergeAction"></param>
         /// <param name="transaction"></param>
+        /// <param name="timeoutSeconds"></param>
         /// <param name="matchQualifierExpression"></param>
         /// <returns></returns>
         protected virtual ProcessHelper CreateProcessHelper(
@@ -298,6 +304,7 @@ namespace SqlBulkHelpers
             String tableName, 
             SqlBulkHelpersMergeAction mergeAction, 
             SqlTransaction transaction,
+            int timeoutSeconds,
             SqlMergeMatchQualifierExpression matchQualifierExpression = null
         )
         {
@@ -322,7 +329,10 @@ namespace SqlBulkHelpers
                 TableDefinition = tableDefinition,
                 DataTable = dataTable,
                 SqlMergeScripts = sqlScripts,
-                SqlCommand = new SqlCommand(String.Empty, transaction.Connection, transaction),
+                SqlCommand = new SqlCommand(String.Empty, transaction.Connection, transaction)
+                {
+                    CommandTimeout = timeoutSeconds
+                },
                 SqlBulkCopy = sqlBulkCopyHelper
             };
         }

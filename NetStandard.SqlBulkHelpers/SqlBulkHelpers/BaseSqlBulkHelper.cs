@@ -9,8 +9,12 @@ namespace SqlBulkHelpers
     //BBernard - Base Class for future flexibility...
     public abstract class BaseSqlBulkHelper<T> where T: class
     {
+        public const int DefaultBulkOperationTimeoutSeconds = 30;
+
         public ISqlBulkHelpersDBSchemaLoader SqlDbSchemaLoader { get; protected set; }
 
+        public int BulkOperationTimeoutSeconds { get; set; }
+        
         #region Constructors
 
         /// <summary>
@@ -22,9 +26,11 @@ namespace SqlBulkHelpers
         ///         being managed for performance (e.g. is static in the consuming code logic).
         /// </summary>
         /// <param name="sqlDbSchemaLoader"></param>
-        protected BaseSqlBulkHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader)
+        /// <param name="timeoutSeconds"></param>
+        protected BaseSqlBulkHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
         {
             this.SqlDbSchemaLoader = sqlDbSchemaLoader;
+            this.BulkOperationTimeoutSeconds = timeoutSeconds;
         }
 
         /// <summary>
@@ -35,9 +41,11 @@ namespace SqlBulkHelpers
         ///         as an internally managed cached resource for performance.
         /// </summary>
         /// <param name="sqlBulkHelpersConnectionProvider"></param>
-        protected BaseSqlBulkHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider)
+        /// <param name="timeoutSeconds"></param>
+        protected BaseSqlBulkHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
         {
             this.SqlDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlBulkHelpersConnectionProvider);
+            this.BulkOperationTimeoutSeconds = timeoutSeconds;
         }
 
         /// <summary>
@@ -47,8 +55,9 @@ namespace SqlBulkHelpers
         ///         as an internally managed cached resource for performance.
         /// </summary>
         /// <param name="sqlTransaction"></param>
-        protected BaseSqlBulkHelper(SqlTransaction sqlTransaction)
-            : this(sqlTransaction?.Connection, sqlTransaction)
+        /// <param name="timeoutSeconds"></param>
+        protected BaseSqlBulkHelper(SqlTransaction sqlTransaction, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
+            : this(sqlTransaction?.Connection, sqlTransaction, timeoutSeconds)
         {
         }
 
@@ -60,16 +69,18 @@ namespace SqlBulkHelpers
         /// </summary>
         /// <param name="sqlConnection"></param>
         /// <param name="sqlTransaction"></param>
-        protected BaseSqlBulkHelper(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null)
+        /// <param name="timeoutSeconds"></param>
+        protected BaseSqlBulkHelper(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
         {
             //For safety since a Connection was passed in then we generally should immediately initialize the Schema Loader,
             //      because this connection or transaction may no longer be valid later.
             this.SqlDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnection, sqlTransaction, true);
+            this.BulkOperationTimeoutSeconds = timeoutSeconds;
         }
 
         #endregion
 
-        public virtual SqlBulkHelpersTableDefinition GetTableSchemaDefinition(String tableName)
+        public virtual SqlBulkHelpersTableDefinition GetTableSchemaDefinition(string tableName)
         {
             //BBernard
             //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 

@@ -22,13 +22,6 @@ namespace SqlBulkHelpers
         private readonly Lazy<ILookup<string, SqlBulkHelpersTableDefinition>> _tableDefinitionsLookupLazy;
 
         /// <summary>
-        /// Provides a Default instance of the Sql Bulk Helpers DB Schema Loader that uses Static/Lazy loading for high performance.
-        /// NOTE: This will use the Default instance of the SqlBulkHelpersConnectionProvider as its' dependency and cache it as a Static
-        ///         singleton for high performance.
-        /// </summary>
-        public static ISqlBulkHelpersDBSchemaLoader Default = new SqlBulkHelpersDBSchemaStaticLoader(SqlBulkHelpersConnectionProvider.Default);
-
-        /// <summary>
         /// Flag denoting if the Schema has been initialized/loaded yet; it is Lazy initialized on demand.
         /// </summary>
         public bool IsInitialized { get; protected set; } = false;

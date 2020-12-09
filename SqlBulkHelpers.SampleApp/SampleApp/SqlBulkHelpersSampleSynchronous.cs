@@ -9,9 +9,9 @@ namespace SqlBulkHelpersSample.ConsoleApp
 {
     public class SqlBulkHelpersSampleSynchronous
     {
-        public static void RunBenchmarks()
+        public static void RunBenchmarks(string sqlConnectionString)
         {
-            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
 
             using (var conn = sqlConnectionProvider.NewConnection())
             using (SqlTransaction transaction = conn.BeginTransaction())
@@ -31,7 +31,6 @@ namespace SqlBulkHelpersSample.ConsoleApp
 
                 timer.Stop();
                 Console.WriteLine($"Warm Up ran in [{timer.ElapsedMilliseconds} ms]...");
-
 
                 //NOW RUN BENCHMARK LOOPS
                 int itemCounter = 0, batchCounter = 1, dataSize = 1000;

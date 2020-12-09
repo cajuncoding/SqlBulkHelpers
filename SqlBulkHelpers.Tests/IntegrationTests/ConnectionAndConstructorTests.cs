@@ -14,7 +14,7 @@ namespace SqlBulkHelpers.IntegrationTests
         [TestMethod]
         public async Task TestBulkInsertConstructorWithDBSchemaLoaderInstanceDeferred()
         {
-            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
             var sqlBulkDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnectionProvider);
 
             using (var conn = await sqlConnectionProvider.NewConnectionAsync())
@@ -29,7 +29,7 @@ namespace SqlBulkHelpers.IntegrationTests
         [TestMethod]
         public async Task TestBulkInsertConstructorWithDBSchemaLoaderInstanceFromExistingConnectionAndTransaction()
         {
-            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
 
             using (var conn = await sqlConnectionProvider.NewConnectionAsync())
             using (SqlTransaction transaction = conn.BeginTransaction())
@@ -47,7 +47,7 @@ namespace SqlBulkHelpers.IntegrationTests
         [TestMethod]
         public async Task TestBulkInsertConstructorWithSqlConnectionProvider()
         {
-            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
 
             using (var conn = await sqlConnectionProvider.NewConnectionAsync())
             using (SqlTransaction transaction = conn.BeginTransaction())
@@ -61,7 +61,8 @@ namespace SqlBulkHelpers.IntegrationTests
         [TestMethod]
         public async Task TestBulkInsertConstructorWithExistingConnectionOnlyAsync()
         {
-            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
 
             using (var conn = await sqlConnectionProvider.NewConnectionAsync())
             {
@@ -81,7 +82,7 @@ namespace SqlBulkHelpers.IntegrationTests
         [TestMethod]
         public async Task TestBulkInsertConstructorWithExistingConnectionAndTransactionAsync()
         {
-            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
 
             using (var conn = await sqlConnectionProvider.NewConnectionAsync())
             using (SqlTransaction transaction = conn.BeginTransaction())

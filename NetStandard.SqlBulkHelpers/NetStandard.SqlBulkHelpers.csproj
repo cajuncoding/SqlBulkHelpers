@@ -7,20 +7,23 @@
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <Authors>Brandon Bernard / CajunCoding</Authors>
     <Company>Brandon Bernard / CajunCoding</Company>
-    <Description>A library for efficient and high performance bulk insert and update of data, into a Sql Database, from C# applications by leveraging the power of the C# SqlBulkCopy classes with added support for Identity primary key table columns.  Offerring compabitility with .NetStandard 2.0 to support .Net Core 2.0+ &amp; .Net Framework 4.7.2+.</Description>
+    <Description>A library for easy, efficient and high performance bulk insert and update of data, into a Sql Database, from C# applications by leveraging the power of the C# SqlBulkCopy classes with added support for Identity primary key table columns.  Offerring compabitility with .NetStandard 2.0 to support .Net Core 2.0+ &amp; .Net Framework 4.7.2+.</Description>
     <Copyright>Copyright ©  2019</Copyright>
     <PackageLicenseUrl></PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/raerae1616/SqlBulkHelpers</PackageProjectUrl>
-    <PackageReleaseNotes>- Added support for custom match qualifiers to be specified even if bulk inserting/updating data with Identity columns.  This addresses some edge use cases whereby data syncing may be taking place and Identities are used to differentiate data from multiple sources, but the actual merge matches needs to occur on unique fields of the source system.
+    <PackageReleaseNotes>- Breaking change; removed internal Default static references so that I can eliminate any dependency on Configuration framework for better support in .Net Core; New Caching helper and simple constructor with Sql Connection String replace this.
+- Added support to specify SqlCommand Timeout Seconds when initializing the Sql Bulk Helper class, instead of relying on the connection wide setting from the Connection string.
+
+Prior Relese Notes:
+- Added support for custom match qualifiers to be specified even if bulk inserting/updating data with Identity columns.  This addresses some edge use cases whereby data syncing may be taking place and Identities are used to differentiate data from multiple sources, but the actual merge matches needs to occur on unique fields of the source system.
 - Simplified initialization and constructors to provide easier use -- especially if SqlConnection/SqlTransaction already exists and ConnectionString is not available.  It's still recommended to use ISqlBulkHelpersConnectionProvider however, this may not be congruent with existin code bases so now the use of existing Sql Connection &amp; Transaction is encapsulated. 
 - Provided in-memory cache implementation to help manage caching of Schema DB Loaders for performance.
 - Improved pattern for Schema DB Loader management and encourage use of new Caching class; previously its possible that this was being re-loaded multiple times unnecessarily due to relying on internal behavior instead of managing it as a static/singleton.
 - Added more Integration Tests for Constructors and Connections, as well as the new DB Schema Loader caching implementation.
-
-Prior Relese Notes:
-Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances that automtically load the connection string from the application configuration setting.</PackageReleaseNotes>
+- Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances that automtically load the connection string from the application configuration setting.
+</PackageReleaseNotes>
     <PackageTags>sql server database table bulk insert update identity column sqlbulkcopy orm dapper fast data load loading performance</PackageTags>
-    <Version>1.0.5</Version>
+    <Version>1.0.6</Version>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
@@ -35,7 +38,6 @@ Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlB
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
-    <PackageReference Include="System.Configuration.ConfigurationManager" Version="5.0.0" />
     <PackageReference Include="System.Data.SqlClient" Version="4.8.2" />
   </ItemGroup>
 

@@ -18,19 +18,6 @@ namespace SqlBulkHelpers
 
         private readonly string _sqlConnectionString;
 
-        public SqlBulkHelpersConnectionProvider()
-        {
-            _sqlConnectionString = ConfigurationManager.AppSettings[SqlConnectionStringConfigKey];
-
-            if (String.IsNullOrWhiteSpace(_sqlConnectionString))
-            {
-                throw new ConfigurationErrorsException(
-                    $"The application configuration (e.g. App settings) is missing a value for setting [{SqlConnectionStringConfigKey}],"
-                    + $" so default Sql Connection cannot be initialized; check the App.config or Web.config Xml file and try again."
-                );
-            }
-        }
-
         public SqlBulkHelpersConnectionProvider(string sqlConnectionString)
         {
             _sqlConnectionString = sqlConnectionString;
@@ -43,11 +30,6 @@ namespace SqlBulkHelpers
             }
 
         }
-
-        /// <summary>
-        /// Provides a Default instance of the Sql Bulk Helpers Connection Provider.
-        /// </summary>
-        public static ISqlBulkHelpersConnectionProvider Default = new SqlBulkHelpersConnectionProvider();
 
         /// <summary>
         /// Provide Internal access to the Connection String to help uniquely identify the Connections from this Provider.

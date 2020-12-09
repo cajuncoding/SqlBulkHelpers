@@ -12,7 +12,7 @@ namespace SqlBulkHelpersSample.ConsoleApp
             {
                 list.Add(new TestElement()
                 {
-                    Id = default(int),
+                    Id = default,
                     Key = $"TEST_CSHARP_{Guid.NewGuid()}_{x}",
                     Value = $"VALUE_{x}"
                 });
