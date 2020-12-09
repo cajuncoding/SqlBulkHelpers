@@ -12,26 +12,26 @@ namespace SqlBulkHelpers
         #region Constructors
 
         /// <inheritdoc/>
-        public SqlBulkIdentityHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader)
-            : base(sqlDbSchemaLoader)
+        public SqlBulkIdentityHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
+            : base(sqlDbSchemaLoader, timeoutSeconds)
         {
         }
 
         /// <inheritdoc/>
-        public SqlBulkIdentityHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider)
-            : base(sqlBulkHelpersConnectionProvider)
+        public SqlBulkIdentityHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
+            : base(sqlBulkHelpersConnectionProvider, timeoutSeconds)
         {
         }
 
         /// <inheritdoc/>
-        public SqlBulkIdentityHelper(SqlTransaction sqlTransaction)
-            : base(sqlTransaction)
+        public SqlBulkIdentityHelper(SqlTransaction sqlTransaction, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
+            : base(sqlTransaction, timeoutSeconds)
         {
         }
 
         /// <inheritdoc/>
-        public SqlBulkIdentityHelper(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null)
-            : base(sqlConnection, sqlTransaction)
+        public SqlBulkIdentityHelper(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
+            : base(sqlConnection, sqlTransaction, timeoutSeconds)
         {
         }
 

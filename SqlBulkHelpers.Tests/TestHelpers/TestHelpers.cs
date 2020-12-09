@@ -7,6 +7,8 @@ namespace SqlBulkHelpers.Tests
     {
         public const string TestTableName = "SqlBulkHelpersTestElements";
 
+        public const int SqlTimeoutSeconds = 150;
+
         public static List<TestElement> CreateTestData(int dataSize)
         {
 

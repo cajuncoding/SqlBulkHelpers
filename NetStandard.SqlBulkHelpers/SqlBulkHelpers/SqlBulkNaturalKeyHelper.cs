@@ -20,28 +20,28 @@ namespace SqlBulkHelpers
         #region Constructors
 
         /// <inheritdoc/>
-        public SqlBulkNaturalKeyHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader)
-            : base(sqlDbSchemaLoader)
+        public SqlBulkNaturalKeyHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
+            : base(sqlDbSchemaLoader, timeoutSeconds)
         {
             throw new NotImplementedException(NOT_IMPLEMENTED_MESSAGE);
         }
         /// <inheritdoc/>
-        public SqlBulkNaturalKeyHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider)
-            : base(sqlBulkHelpersConnectionProvider)
-        {
-            throw new NotImplementedException(NOT_IMPLEMENTED_MESSAGE);
-        }
-
-        /// <inheritdoc/>
-        public SqlBulkNaturalKeyHelper(SqlTransaction sqlTransaction)
-            : base(sqlTransaction)
+        public SqlBulkNaturalKeyHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
+            : base(sqlBulkHelpersConnectionProvider, timeoutSeconds)
         {
             throw new NotImplementedException(NOT_IMPLEMENTED_MESSAGE);
         }
 
         /// <inheritdoc/>
-        public SqlBulkNaturalKeyHelper(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null)
-            : base(sqlConnection, sqlTransaction)
+        public SqlBulkNaturalKeyHelper(SqlTransaction sqlTransaction, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
+            : base(sqlTransaction, timeoutSeconds)
+        {
+            throw new NotImplementedException(NOT_IMPLEMENTED_MESSAGE);
+        }
+
+        /// <inheritdoc/>
+        public SqlBulkNaturalKeyHelper(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
+            : base(sqlConnection, sqlTransaction, timeoutSeconds)
         {
             throw new NotImplementedException(NOT_IMPLEMENTED_MESSAGE);
         }

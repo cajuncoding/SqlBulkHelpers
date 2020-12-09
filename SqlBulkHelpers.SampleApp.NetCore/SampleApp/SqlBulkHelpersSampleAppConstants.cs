@@ -9,5 +9,6 @@ namespace SqlBulkHelpersSample.ConsoleApp
     public static class SqlBulkHelpersSampleApp
     {
         public const string TestTableName = "SqlBulkHelpersTestElements";
+        public const int SqlTimeoutSeconds = 120;
     }
 }
