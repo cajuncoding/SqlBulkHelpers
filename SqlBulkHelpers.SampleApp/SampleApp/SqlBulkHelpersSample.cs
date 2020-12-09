@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Debug.ConsoleApp
+namespace SqlBulkHelpersSample.ConsoleApp
 {
     public static class SqlBulkHelpersSample
     {

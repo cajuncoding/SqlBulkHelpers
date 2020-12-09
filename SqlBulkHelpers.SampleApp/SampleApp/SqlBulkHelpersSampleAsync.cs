@@ -6,33 +6,26 @@ using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Threading.Tasks;
 
-namespace Debug.ConsoleApp
+namespace SqlBulkHelpersSample.ConsoleApp
 {
     public class SqlBulkHelpersSampleAsync
     {
         public static async Task RunSampleAsync()
         {
-            //Initialize the Sql Connection Provider (or manually create your own Sql DB Connection...)
-            //NOTE: This interface provides a great abstraction that most projects don't take the time to do, 
-            //          so it is provided here for convenience (e.g. extremely helpful with DI).
-            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+            //Initialize the Sql Connection Provider from Internal Default
+            //NOTE: The Default relies on App.config (or Web.config) AppSettings with pre-defined connection string key;
+            //          and is most useful for ConsoleApps, etc.
+            //ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
 
-            //TODO: Create Unit test for Default vs Custom Sql Connection Providers
-            //var sqlConnectionString = ConfigurationManager.AppSettings[SqlBulkHelpersConnectionProvider.SQL_CONNECTION_STRING_CONFIG_KEY];
-            //ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
-
-            //TODO: Create Unit test for Custom DB Schema Loader!
-            //var customDbSchemaLoader = new SqlBulkHelpersDBSchemaStaticLoader(new SqlBulkHelpersConnectionProvider("BRANDON FIXED IT!"));
+            //OR Initialize with a Connection String (using our Config Key or your own, or any other initialization
+            //  of the Connection String (e.g. perfect for DI initialization, etc.):
+            //NOTE: The ISqlBulkHelpersConnectionProvider interface provides a great abstraction that most projects don't
+            //          take the time to do, so it is provided here for convenience (e.g. extremely helpful with DI).
+            var sqlConnectionString = ConfigurationManager.AppSettings[SqlBulkHelpersConnectionProvider.SqlConnectionStringConfigKey];
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
 
             //Initialize large list of Data to Insert or Update in a Table
             List<TestElement> testData = SqlBulkHelpersSample.CreateTestData(1000);
-
-            //Get the DB Schema Loader (will load from Cache if already initialized).
-            //NOTE: This can also be initialized from an existing Connection, via overlaod, but that should be called before
-            //      any transactions are opened on the connection.
-            //NOTE: This often only has to be done once, and could be kept across many connections, or requests (e.g. static).
-            //      or simply leverage this provided in-memory cache here to manage that internally.
-            var sqlBulkHelpersSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnectionProvider);
 
             //Bulk Inserting is now as easy as:
             //  1) Initialize the DB Connection & Transaction (IDisposable)
@@ -41,11 +34,11 @@ namespace Debug.ConsoleApp
             using (SqlConnection conn = await sqlConnectionProvider.NewConnectionAsync())
             using (SqlTransaction transaction = conn.BeginTransaction())
             {
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(sqlBulkHelpersSchemaLoader);
+                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(conn, transaction);
 
                 await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(
-                    testData, 
-                    "SqlBulkHelpersTestElements",
+                    testData,
+                    SqlBulkHelpersSampleApp.TestTableName,
                     transaction);
 
                 transaction.Commit();
@@ -56,13 +49,12 @@ namespace Debug.ConsoleApp
         {
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
 
-            var sqlBulkHelpersSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnectionProvider);
-
             using (var conn = await sqlConnectionProvider.NewConnectionAsync())
             using (SqlTransaction transaction = conn.BeginTransaction())
             {
-                var tableName = "SqlBulkHelpersTestElements";
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(sqlBulkHelpersSchemaLoader);
+                var tableName = SqlBulkHelpersSampleApp.TestTableName;
+
+                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(conn, transaction);
 
                 var timer = new Stopwatch();
 

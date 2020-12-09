@@ -5,21 +5,20 @@ using System.Data.SqlClient;
 using System.Diagnostics;
 using System.Linq;
 
-namespace Debug.ConsoleApp
+namespace SqlBulkHelpersSample.ConsoleApp
 {
     public class SqlBulkHelpersSampleSynchronous
     {
-        public static void Run()
+        public static void RunBenchmarks()
         {
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
-
-            var sqlBulkHelpersSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnectionProvider);
 
             using (var conn = sqlConnectionProvider.NewConnection())
             using (SqlTransaction transaction = conn.BeginTransaction())
             {
-                var tableName = "__SQL_BULK_HELPERS_TEST";
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(sqlBulkHelpersSchemaLoader);
+                var tableName = SqlBulkHelpersSampleApp.TestTableName;
+
+                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(conn, transaction);
 
                 var timer = new Stopwatch();
 

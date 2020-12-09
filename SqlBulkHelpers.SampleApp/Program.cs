@@ -1,7 +1,7 @@
 using System;
 using System.Threading.Tasks;
 
-namespace Debug.ConsoleApp
+namespace SqlBulkHelpersSample.ConsoleApp
 {
     class Program
     {
@@ -9,6 +9,8 @@ namespace Debug.ConsoleApp
         {
             try
             {
+                Console.WriteLine("Staring Sample Console App process...");
+
                 //await SqlBulkHelpersSampleAsync.RunBenchmarksAsync();
                 await SqlBulkHelpersSampleAsync.RunSampleAsync();
 
