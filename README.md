@@ -51,6 +51,7 @@ The OUTPUTS are now intentionally and always sorted in the same order as the inp
 
 ### Usage:
 
+### Simple Example:
 Usage is very simple if you use a lightweigth Model (e.g. ORM model via Dapper) to load data from your tables...
 
 ```csharp
@@ -86,6 +87,8 @@ Usage is very simple if you use a lightweigth Model (e.g. ORM model via Dapper) 
 
 ```
 
+### Initialize the DB Schema Loader and manually manage caching of it:
+
 Alternatively the SqlBulkIdentityHelper may be initalized directly with the DB Schema Loader (which may be managed as a static reference):
 
 ```csharp
@@ -94,6 +97,51 @@ Alternatively the SqlBulkIdentityHelper may be initalized directly with the DB S
     var sqlBulkDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnectionProvider);
 
     ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(sqlBulkHelpersDbSchemaLoader);
+```
+
+### Explicitly controlling Match Qualifiers for the internal Merge Action:
+
+The default behavior is to use the Identity column as the default field for identifying/resolving a match
+during the execution of the internal Sql Server merge query. HOwever, there are advanced use cases where explicit 
+control over the matching is needed.
+
+Now custom field qualifiers can be specified for explicit control over the field matching during the execution of the internal merge query.
+This helps address some very advanced use cases such as when data is being synchronized from multiple sources and an Identity Column is used
+but is not the column by which unique matches should occur, because unique fields from the source system needs to be used instead 
+(e.g. the Identity ID value from the source database).  In this case a different field (or set of fields can be manually specified.
+
+Warnging:  If the custom specified fields do not result in unique matches then many rows may be updated as a result.  This also means
+that the population of Identity values on the entity models may no longer be as expected. Therefore as a default behavior,
+an exception will be thrown if non-unique matches occur (which will allow a transaction to be rolled back).
+
+However, in cases where this is an intentional/expectec (and understood) result then this behaviour may be controlled and
+disabled by setting the flag on the `SqlMergeMatchQualifierExpression` class as noted in commented code.
+
+```csharp
+    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+
+
+    using (var conn = await sqlConnectionProvider.NewConnectionAsync())
+    using (SqlTransaction transaction = conn.BeginTransaction())
+    {     
+        ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(conn, transaction);
+
+        //Initialize a Match Qualifier Expression field set with one or more Field names that identify
+        //  how a match between Model and Table data should be resolved.
+        var customMatchQualifiers = new SqlMergeMatchQualifierExpression(nameof(TestElement.Key), nameof(TestElement.Value))
+        //{
+        //    ThrowExceptionIfNonUniqueMatchesOccur = false
+        //}
+
+
+        var results = await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(
+            testData, 
+            TestHelpers.TestTableName, 
+            transaction,
+
+        )
+    }
+
 ```
 
 _**NOTE: More Sample code is provided in the Sample App and in the Tests Project (as Integration Tests)...**__
