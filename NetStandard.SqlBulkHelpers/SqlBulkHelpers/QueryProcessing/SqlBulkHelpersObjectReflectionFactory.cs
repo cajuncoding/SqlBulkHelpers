@@ -38,7 +38,7 @@ namespace SqlBulkHelpers
             this.IsIdentityProperty = identityColumnDef?.ColumnName?.Equals(propInfo.Name, StringComparison.OrdinalIgnoreCase) ?? false;
         }
 
-        public String Name { get; private set; }
+        public string Name { get; private set; }
         public bool IsIdentityProperty { get; private set; }
         public PropertyInfo PropInfo { get; private set; }
         public Type PropertyType { get; private set; }

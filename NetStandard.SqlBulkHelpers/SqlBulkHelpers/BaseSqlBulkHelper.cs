@@ -137,26 +137,35 @@ namespace SqlBulkHelpers
             var identityPropDef = propDefs.FirstOrDefault(pi => pi.IsIdentityProperty);
             var identityPropInfo = identityPropDef?.PropInfo;
 
-            bool uniqueMatchValidationEnabled =
-                sqlMatchQualifierExpression?.ThrowExceptionIfNonUniqueMatchesOccur == true;
+            //If there is no Identity Column (e.g. no Identity Column Definition and/or no PropInfo can be found)
+            //  then we can short circuit.
+            if (identityPropInfo == null)
+                return entityList;
 
-            //Get all Items Inserted or Updated....
-            var itemsInsertedOrUpdated = mergeResultsList.Where(r =>
-                r.MergeAction.HasFlag(SqlBulkHelpersMergeAction.Insert) 
-                || r.MergeAction.HasFlag(SqlBulkHelpersMergeAction.Update)
-            );
+            bool uniqueMatchValidationEnabled = sqlMatchQualifierExpression?.ThrowExceptionIfNonUniqueMatchesOccur == true;
 
-            if (!uniqueMatchValidationEnabled)
-            {
-                //BBernard - 12/08/2020
-                //If Unique Match validation is Disabled, we must take additional steps to properly synchronize with 
-                //  the risk of multiple update matches....
-                //NOTE: It is CRITICAL to sort by RowNumber & then by Identity value to handle edge cases where
-                //      special Match Qualifier Fields are specified that are non-unique and result in multiple update
-                //      matches; this ensures that at least correct data is matched/synced by the latest/last values ordered
-                //      Ascending, when the validation is disabled.
-                itemsInsertedOrUpdated = itemsInsertedOrUpdated.OrderBy(r => r.RowNumber).ThenBy(r => r.IdentityId);
-            }
+            ////Get all Items Inserted or Updated....
+            //NOTE: With the support for Custom Match Qualifiers we really need to handle Inserts & Updates,
+            //      so there's no reason to filter the merge results anymore; this is more performant.
+            var itemsInsertedOrUpdated = mergeResultsList;
+            //var itemsInsertedOrUpdated = mergeResultsList.Where(r =>
+            //    r.MergeAction.HasFlag(SqlBulkHelpersMergeAction.Insert) 
+            //    || r.MergeAction.HasFlag(SqlBulkHelpersMergeAction.Update)
+            //);
+
+            //BBernard this isn't needed since we updated the SQL Merge Script to sort correctly before returning
+            //  data.... but leaving it here for future reference in case it's needed.
+            //if (!uniqueMatchValidationEnabled)
+            //{
+            //    //BBernard - 12/08/2020
+            //    //If Unique Match validation is Disabled, we must take additional steps to properly synchronize with 
+            //    //  the risk of multiple update matches....
+            //    //NOTE: It is CRITICAL to sort by RowNumber & then by Identity value to handle edge cases where
+            //    //      special Match Qualifier Fields are specified that are non-unique and result in multiple update
+            //    //      matches; this ensures that at least correct data is matched/synced by the latest/last values ordered
+            //    //      Ascending, when the validation is disabled.
+            //    itemsInsertedOrUpdated = itemsInsertedOrUpdated.OrderBy(r => r.RowNumber).ThenBy(r => r.IdentityId);
+            //}
 
             var uniqueMatchesHashSet = new HashSet<int>();
 
@@ -189,7 +198,7 @@ namespace SqlBulkHelpers
                 //GENERICALLY Set the Identity Value to the Int value returned, this eliminates any dependency on a Base Class!
                 //TODO: If needed we can optimize this with a Delegate for faster property access (vs pure Reflection).
                 //(entity as Debug.ConsoleApp.TestElement).Id = mergeResult.IdentityId;
-                identityPropInfo?.SetValue(entity, mergeResult.IdentityId);
+                identityPropInfo.SetValue(entity, mergeResult.IdentityId);
             }
 
             //Return the Updated Entities List (for fluent chain-ability) and easier to read code

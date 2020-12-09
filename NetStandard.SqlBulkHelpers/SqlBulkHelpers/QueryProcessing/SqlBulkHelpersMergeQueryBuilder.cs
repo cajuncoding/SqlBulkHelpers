@@ -72,6 +72,9 @@ namespace SqlBulkHelpers
             //      where the order of data being written is NOT guaranteed, and there is still no support for the ORDER() hint.
             //      In general it results in inverting the order of data being sent in Bulk which then resulted in Identity
             //      values being incorrect based on the order of data specified.
+            //NOTE: We MUST SORT the OUTPUT Results by ROWNUMBER and then by IDENTITY Column in case there are multiple matches due to
+            //      custom match Qualifiers; this ensures that data is sorted in a way that postprocessing
+            //      can occur & be validated as expected.
             String sqlScriptToExecuteMergeProcess = $@"
                 MERGE [{tableDefinition.TableName}] as target
 				USING (
@@ -90,7 +93,7 @@ namespace SqlBulkHelpers
                     [IDENTITY_ID], 
                     [MERGE_ACTION]
                 FROM [{tempOutputIdentityTableName}]
-                ORDER BY [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] ASC;
+                ORDER BY [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] ASC, [IDENTITY_ID] ASC;
 
                 DROP TABLE [{tempStagingTableName}];
                 DROP TABLE [{tempOutputIdentityTableName}];

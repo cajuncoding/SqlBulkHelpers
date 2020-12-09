@@ -1,4 +1,4 @@
-# SqlBulkHelpers
+﻿# SqlBulkHelpers
 A library for efficient and high performance bulk insert and update of data, into a Sql Database, from C# applications. 
 This library leverages the power of the C# SqlBulkCopy classes, while augmenting with the following key benefits:
 
@@ -19,18 +19,46 @@ various levels of help for this kind of functionality, but there are few (if any
 
 **I hope that it helps others on their projects as much as it has helped ours.**
 
+
 ## Nuget Package
 To use in your project, add the [SqlBulkHelpers NuGet package](https://www.nuget.org/packages/SqlBulkHelpers/) to your project.
+
+## v1.0.5 Release Notes:
+
+- Added support for custom match qualifiers to be specified even if bulk inserting/updating data with Identity columns.
+  - This addresses some edge use cases such as data synchronization logic which may merge data from multiple sources, 
+and Identity Values are used to differentiate data from multiple sources, but the actual merge matches needs to occur on 
+other unique fields of the source system (not the Identity column of the Target table).
+- Simplified initialization and constructors to provide easier use -- especially if SqlConnection/SqlTransaction already exists 
+and ConnectionString is not available.  
+  - It's still recommended to use ISqlBulkHelpersConnectionProvider however, this may not be congruent with existing code bases 
+so now the use of existing Sql Connection & Transaction is encapsulated and can much more conveniently be used 
+(this was primarily based on user feedback from others 😉). 
+- Provided in-memory cache implementation to help manage caching of Schema DB Loaders for performance.
+  - Previously it was possible that the DB Schema Loader was being re-loaded multiple times unnecessarily due to relying on internal behavior.
+  - This was missing from initial versions because I assumed that the Static DB Loader would be managed by users as as a static/singleton
+but this may not be the case, therefore this is now greatly simplified with an (encapsulated) caching implementation that is now provided out-of-the-box.
+- Added more Integration Tests for Constructors and Connections, as well as the new DB Schema Loader caching implementation.
+
+Prior Relese Notes:
+ - Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances 
+that automtically load the connection string from the application configuration setting.
+ - Fixed bug in SqlBulk copy and OUTPUT query whereby Sql Server does not return results in the same order of the data
+inserted/updated. This will result in erroneous Identity Values being populated after Merge queries are completed.
+The OUTPUTS are now intentionally and always sorted in the same order as the input data for data integrity.
+
+
 
 ### Usage:
 
 Usage is very simple if you use a lightweigth Model (e.g. ORM model via Dapper) to load data from your tables...
 
-```
-    //Initialize the Sql Connection Provider (or manually create your own Sql DB Connection...)
-    //NOTE: This interface provides a great abstraction that most projects don't take the time to do, 
-    //          so it is provided here for convenience (e.g. extremely helpful with DI).
-    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+```csharp
+    //Initialize the Sql Connection Provider from the Sql Connection string
+    //NOTE: The ISqlBulkHelpersConnectionProvider interface provides a great abstraction that most projects don't
+    //          take the time to do, so it is provided here for convenience (e.g. extremely helpful with DI).
+    var sqlConnectionString = ConfigurationManager.AppSettings[SqlBulkHelpersConnectionProvider.SqlConnectionStringConfigKey];
+    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
 
     //Initialize large list of Data to Insert or Update in a Table
     List<TestElement> testData = SqlBulkHelpersSample.CreateTestData(1000);
@@ -42,7 +70,14 @@ Usage is very simple if you use a lightweigth Model (e.g. ORM model via Dapper) 
     using (SqlConnection conn = await sqlConnectionProvider.NewConnectionAsync())
     using (SqlTransaction transaction = conn.BeginTransaction())
     {
-        ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>();
+        //The SqlBulkIdentityHelper may be initialized in multiple ways for convenience, though the recommended
+        //  way is to provide the ISqlBulkHelpersConnectionProvider for deferred/lazy initialization of the DB Schema Loader.
+        //However, if needed an existing Connection (and optional Transaction) may also be used as shown in the 
+        //  commented line; in which case if a sql transaction exists then it must be provided to avoid possible 
+        //  errors on initial run while initializing the DB Schema Loader internally (which is cached and will occur only once).
+        //ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(conn, transaction);
+        //ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(sqlBulkHelpersDbSchemaLoader);
+        ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(sqlConnectionProvider);
 
         await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(testData, "TestTableName", transaction);
 
@@ -51,7 +86,17 @@ Usage is very simple if you use a lightweigth Model (e.g. ORM model via Dapper) 
 
 ```
 
-_**NOTE: More Sample code is provided in the Sample App...**__
+Alternatively the SqlBulkIdentityHelper may be initalized directly with the DB Schema Loader (which may be managed as a static reference):
+
+```csharp
+    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+
+    var sqlBulkDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnectionProvider);
+
+    ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(sqlBulkHelpersDbSchemaLoader);
+```
+
+_**NOTE: More Sample code is provided in the Sample App and in the Tests Project (as Integration Tests)...**__
 
 ```
   
