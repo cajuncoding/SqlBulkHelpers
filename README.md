@@ -128,17 +128,16 @@ disabled by setting the flag on the `SqlMergeMatchQualifierExpression` class as 
 
         //Initialize a Match Qualifier Expression field set with one or more Field names that identify
         //  how a match between Model and Table data should be resolved.
-        var customMatchQualifiers = new SqlMergeMatchQualifierExpression(nameof(TestElement.Key), nameof(TestElement.Value))
+        var explicitMatchQualifiers = new SqlMergeMatchQualifierExpression(nameof(TestElement.Key), nameof(TestElement.Value))
         //{
         //    ThrowExceptionIfNonUniqueMatchesOccur = false
         //}
-
 
         var results = await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(
             testData, 
             TestHelpers.TestTableName, 
             transaction,
-
+            explicitMatchQualifiers
         )
     }
 
