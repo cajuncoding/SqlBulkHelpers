@@ -11,6 +11,8 @@ namespace SqlBulkHelpers
     {
         public ISqlBulkHelpersDBSchemaLoader SqlDbSchemaLoader { get; protected set; }
 
+        #region Constructors
+
         /// <summary>
         /// Constructor that support passing in a customized Sql DB Schema Loader implementation.
         /// NOTE: This is usually a shared/cached/static class (such as SqlBulkHelpersDBSchemaStaticLoader) because it may 
@@ -24,6 +26,48 @@ namespace SqlBulkHelpers
         {
             this.SqlDbSchemaLoader = sqlDbSchemaLoader;
         }
+
+        /// <summary>
+        /// Constructor that support passing in an SqlConnection Provider which will enable deferred (lazy) initialization of the
+        /// Sql DB Schema Loader and Schema Definitions internally. the Sql DB Schema Loader will be resolved internally using
+        /// the SqlBulkHelpersSchemaLoaderCache manager for performance.
+        /// NOTE: With this overload the resolve ISqlBulkHelpersDBSchemaLoader will be resolved for this unique Connection,
+        ///         as an internally managed cached resource for performance.
+        /// </summary>
+        /// <param name="sqlBulkHelpersConnectionProvider"></param>
+        protected BaseSqlBulkHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider)
+        {
+            this.SqlDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlBulkHelpersConnectionProvider);
+        }
+
+        /// <summary>
+        /// Convenience constructor that support passing in an existing Transaction for an open Connection; whereby
+        /// the Sql DB Schema Loader will be resolved internally using the SqlBulkHelpersSchemaLoaderCache manager.
+        /// NOTE: With this overload the resolve ISqlBulkHelpersDBSchemaLoader will be resolved for this unique Connection,
+        ///         as an internally managed cached resource for performance.
+        /// </summary>
+        /// <param name="sqlTransaction"></param>
+        protected BaseSqlBulkHelper(SqlTransaction sqlTransaction)
+            : this(sqlTransaction?.Connection, sqlTransaction)
+        {
+        }
+
+        /// <summary>
+        /// Convenience constructor that support passing in an existing Transaction for an open Connection; whereby
+        /// the Sql DB Schema Loader will be resolved internally using the SqlBulkHelpersSchemaLoaderCache manager.
+        /// NOTE: With this overload the resolve ISqlBulkHelpersDBSchemaLoader will be resolved for this unique Connection,
+        ///         as an internally managed cached resource for performance.
+        /// </summary>
+        /// <param name="sqlConnection"></param>
+        /// <param name="sqlTransaction"></param>
+        protected BaseSqlBulkHelper(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null)
+        {
+            //For safety since a Connection was passed in then we generally should immediately initialize the Schema Loader,
+            //      because this connection or transaction may no longer be valid later.
+            this.SqlDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnection, sqlTransaction, true);
+        }
+
+        #endregion
 
         public virtual SqlBulkHelpersTableDefinition GetTableSchemaDefinition(String tableName)
         {

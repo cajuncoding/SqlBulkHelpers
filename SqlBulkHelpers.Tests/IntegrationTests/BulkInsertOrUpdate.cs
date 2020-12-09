@@ -20,15 +20,12 @@ namespace SqlBulkHelpers.IntegrationTests
                 t.Key = $"CUSTOM_QUALIFIER_BY_VALUE-{t.Key}";
             }
 
-            var sqlConnectionString = ConfigurationManager.AppSettings[SqlBulkHelpersConnectionProvider.SqlConnectionStringConfigKey];
-            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
-
-            var sqlBulkHelpersSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnectionProvider);
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
 
             using (var conn = await sqlConnectionProvider.NewConnectionAsync())
             using (SqlTransaction transaction = conn.BeginTransaction())
             {
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(sqlBulkHelpersSchemaLoader);
+                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(sqlConnectionProvider);
                 
                 var results = await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(
                     testData, 
@@ -38,6 +35,60 @@ namespace SqlBulkHelpers.IntegrationTests
                     {
                         ThrowExceptionIfNonUniqueMatchesOccur = false
                     }
+                );
+
+                transaction.Commit();
+
+                //ASSERT Results are Valid...
+                Assert.IsNotNull(results);
+
+                //We Sort the Results by Identity Id to ensure that the inserts occurred in the correct
+                //  order with incrementing ID values as specified in the original Data!
+                //This validates that data is inserted as expected for Identity columns so that it can 
+                //  be correctly sorted by Incrementing Identity value when Queried (e.g. ORDER BY Id)
+                var resultsSorted = results.OrderBy(r => r.Id).ToList();
+                Assert.AreEqual(resultsSorted.Count(), testData.Count);
+
+                var i = 0;
+                foreach (var result in resultsSorted)
+                {
+                    Assert.IsNotNull(result);
+                    Assert.IsTrue(result.Id > 0);
+                    Assert.AreEqual(result.Key, testData[i].Key);
+                    Assert.AreEqual(result.Value, testData[i].Value);
+                    i++;
+                }
+
+            }
+        }
+
+        [TestMethod]
+        public async Task TestBulkInsertOrUpdateWithMultipleCustomMatchQualifiersAsync()
+        {
+            List<TestElement> testData = TestHelpers.CreateTestData(10);
+            int count = 1;
+            foreach (var t in testData)
+            {
+                t.Id = count++;
+                t.Key = $"MULTIPLE_QUALIFIER_TEST-{t.Key}";
+            }
+
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+
+            using (var conn = await sqlConnectionProvider.NewConnectionAsync())
+            using (SqlTransaction transaction = conn.BeginTransaction())
+            {
+                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(sqlConnectionProvider);
+
+                var results = await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(
+                    testData,
+                    TestHelpers.TestTableName,
+                    transaction,
+                    new SqlMergeMatchQualifierExpression(
+                        nameof(TestElement.Id), 
+                        nameof(TestElement.Value), 
+                        nameof(TestElement.Key)
+                    )
                 );
 
                 transaction.Commit();

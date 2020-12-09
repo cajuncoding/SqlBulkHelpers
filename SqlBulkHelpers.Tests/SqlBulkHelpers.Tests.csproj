@@ -79,6 +79,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="IntegrationTests\BulkInsertOrUpdate.cs" />
+    <Compile Include="IntegrationTests\SchemaLoaderCacheTests.cs" />
+    <Compile Include="IntegrationTests\ConnectionAndConstructorTests.cs" />
     <Compile Include="IntegrationTests\BulkInsertTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TestHelpers\TestHelpers.cs" />

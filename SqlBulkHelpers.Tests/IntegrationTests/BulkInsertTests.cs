@@ -12,15 +12,12 @@ namespace SqlBulkHelpers.IntegrationTests
     public class BulkInsertTests
     {
         [TestMethod]
-        public async Task TestBulkInsertOrderingAsync()
+        public async Task TestBulkInsertResultSortOrderAsync()
         {
 
             List<TestElement> testData = TestHelpers.CreateTestData(10);
 
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
-
-            //var sqlConnectionString = ConfigurationManager.AppSettings[SqlBulkHelpersConnectionProvider.SqlConnectionStringConfigKey];
-            //ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
 
             var sqlBulkHelpersSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnectionProvider);
 

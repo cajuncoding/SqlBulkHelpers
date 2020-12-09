@@ -17,6 +17,24 @@ namespace SqlBulkHelpers
         {
         }
 
+        /// <inheritdoc/>
+        public SqlBulkIdentityHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider)
+            : base(sqlBulkHelpersConnectionProvider)
+        {
+        }
+
+        /// <inheritdoc/>
+        public SqlBulkIdentityHelper(SqlTransaction sqlTransaction)
+            : base(sqlTransaction)
+        {
+        }
+
+        /// <inheritdoc/>
+        public SqlBulkIdentityHelper(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null)
+            : base(sqlConnection, sqlTransaction)
+        {
+        }
+
         #endregion
 
         #region ISqlBulkHelper<T> implemenetations

@@ -19,7 +19,7 @@ namespace SqlBulkHelpers
     /// </summary>
     public class SqlBulkHelpersDBSchemaStaticLoader : ISqlBulkHelpersDBSchemaLoader
     {
-        private readonly Lazy<ILookup<String, SqlBulkHelpersTableDefinition>> _tableDefinitionsLookupLazy;
+        private readonly Lazy<ILookup<string, SqlBulkHelpersTableDefinition>> _tableDefinitionsLookupLazy;
 
         /// <summary>
         /// Provides a Default instance of the Sql Bulk Helpers DB Schema Loader that uses Static/Lazy loading for high performance.
@@ -32,7 +32,7 @@ namespace SqlBulkHelpers
         /// Flag denoting if the Schema has been initialized/loaded yet; it is Lazy initialized on demand.
         /// </summary>
         public bool IsInitialized { get; protected set; } = false;
-
+        
         public SqlBulkHelpersDBSchemaStaticLoader(ISqlBulkHelpersConnectionProvider sqlConnectionProvider)
         {
             sqlConnectionProvider.AssertArgumentIsNotNull(nameof(sqlConnectionProvider));
@@ -59,7 +59,7 @@ namespace SqlBulkHelpers
         /// Add all table and their columns from the database into the dictionary in a fully Thread Safe manner using
         /// the Static Constructor!
         /// </summary>
-        private ILookup<String, SqlBulkHelpersTableDefinition> LoadSqlBulkHelpersDBSchemaHelper(ISqlBulkHelpersConnectionProvider sqlConnectionProvider)
+        private ILookup<string, SqlBulkHelpersTableDefinition> LoadSqlBulkHelpersDBSchemaHelper(ISqlBulkHelpersConnectionProvider sqlConnectionProvider)
         {
             var tableSchemaSql = @"
                 SELECT 
@@ -84,24 +84,54 @@ namespace SqlBulkHelpers
                 FOR JSON PATH
             ";
 
-            using (SqlConnection sqlConn = sqlConnectionProvider.NewConnection())
-            using (SqlCommand sqlCmd = new SqlCommand(tableSchemaSql, sqlConn))
+            SqlConnection sqlConn = sqlConnectionProvider.NewConnection();
+
+            //Determine if our connection provider created a new Connection or if it is proxy-ing for an Existing Sql Connection.
+            //NOTE: If we are proxy-ing an existing Connection then we also need to handle a potentially associated Transaction.
+            bool isNewConnectionInitialized = true;
+            SqlTransaction sqlTransaction = null;
+            if (sqlConnectionProvider is SqlBulkHelpersConnectionProxyExistingProvider sqlConnProxyProvider)
             {
-                var tableDefinitionsList = sqlCmd.ExecuteForJson<List<SqlBulkHelpersTableDefinition>>();
-                
-                //Dynamically convert to a Lookup for immutable cache of data.
-                //NOTE: Lookup is immutable (vs Dictionary which is not) and performance for lookups is just as fast.
-                var tableDefinitionsLookup = tableDefinitionsList.Where(t => t != null).ToLookup(t => t.TableName.ToLowerInvariant());
-                return tableDefinitionsLookup;
+                isNewConnectionInitialized = false;
+                sqlTransaction = sqlConnProxyProvider.GetTransaction();
+            }
+
+            try
+            {
+                using (SqlCommand sqlCmd = new SqlCommand(tableSchemaSql, sqlConn, sqlTransaction))
+                {
+                    var tableDefinitionsList = sqlCmd.ExecuteForJson<List<SqlBulkHelpersTableDefinition>>();
+
+                    //Dynamically convert to a Lookup for immutable cache of data.
+                    //NOTE: Lookup is immutable (vs Dictionary which is not) and performance for lookups is just as fast.
+                    var tableDefinitionsLookup = tableDefinitionsList.Where(t => t != null).ToLookup(t => t.TableName.ToLowerInvariant());
+                    return tableDefinitionsLookup;
+                }
+            }
+            finally
+            {
+                //Cleanup the Sql Connection IF it was newly created it...
+                if (isNewConnectionInitialized && sqlConn != null)
+                {
+                    sqlConn.Close();
+                    sqlConn.Dispose();
+                }
             }
         }
 
-        public virtual SqlBulkHelpersTableDefinition GetTableSchemaDefinition(String tableName)
+        public virtual ILookup<string, SqlBulkHelpersTableDefinition> InitializeSchemaDefinitions()
+        {
+            //This will safely lazy load teh Schema, if not already, in a Thread-safe manner by using the power of Lazy<>!
+            var schemaLookup = _tableDefinitionsLookupLazy.Value;
+            return schemaLookup;
+        }
+
+        public virtual SqlBulkHelpersTableDefinition GetTableSchemaDefinition(string tableName)
         {
             if (string.IsNullOrWhiteSpace(tableName)) return null;
 
             //This will safely lazy load teh Schema, if not already, in a Thread-safe manner by using the power of Lazy<>!
-            var schemaLookup = _tableDefinitionsLookupLazy.Value;
+            var schemaLookup = InitializeSchemaDefinitions();
             var tableDefinition = schemaLookup[tableName.ToLowerInvariant()]?.FirstOrDefault();
             return tableDefinition;
         }

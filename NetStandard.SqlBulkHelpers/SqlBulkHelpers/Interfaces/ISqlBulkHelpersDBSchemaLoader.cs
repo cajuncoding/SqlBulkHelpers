@@ -1,9 +1,12 @@
 ﻿using System;
+using System.Linq;
 
 namespace SqlBulkHelpers
 {
     public interface ISqlBulkHelpersDBSchemaLoader
     {
-        SqlBulkHelpersTableDefinition GetTableSchemaDefinition(String tableName);
+        ILookup<string, SqlBulkHelpersTableDefinition> InitializeSchemaDefinitions();
+
+        SqlBulkHelpersTableDefinition GetTableSchemaDefinition(string tableName);
     }
 }

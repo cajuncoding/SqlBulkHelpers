@@ -17,12 +17,36 @@ namespace SqlBulkHelpers
                                               "as publically accessible helpers in this library (e.g. SqlBulkHelpersObjectMapper can be used to convert " +
                                               "Lists of Entities to Datatable) ";
 
+        #region Constructors
+
         /// <inheritdoc/>
         public SqlBulkNaturalKeyHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader)
             : base(sqlDbSchemaLoader)
         {
             throw new NotImplementedException(NOT_IMPLEMENTED_MESSAGE);
         }
+        /// <inheritdoc/>
+        public SqlBulkNaturalKeyHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider)
+            : base(sqlBulkHelpersConnectionProvider)
+        {
+            throw new NotImplementedException(NOT_IMPLEMENTED_MESSAGE);
+        }
+
+        /// <inheritdoc/>
+        public SqlBulkNaturalKeyHelper(SqlTransaction sqlTransaction)
+            : base(sqlTransaction)
+        {
+            throw new NotImplementedException(NOT_IMPLEMENTED_MESSAGE);
+        }
+
+        /// <inheritdoc/>
+        public SqlBulkNaturalKeyHelper(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null)
+            : base(sqlConnection, sqlTransaction)
+        {
+            throw new NotImplementedException(NOT_IMPLEMENTED_MESSAGE);
+        }
+
+        #endregion
 
         public virtual Task<IEnumerable<T>> BulkInsertAsync(
             IEnumerable<T> entityList, 
