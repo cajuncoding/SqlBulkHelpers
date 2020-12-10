@@ -47,7 +47,7 @@ so now the use of existing Sql Connection & Transaction is encapsulated and can 
 but this may not be the case, therefore this is now greatly simplified with an (encapsulated) caching implementation that is now provided out-of-the-box.
 - Added more Integration Tests for Constructors and Connections, as well as the new DB Schema Loader caching implementation.
 
-**Prior Relese Notes:**
+**Prior Release Notes:**
  - Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances 
 that automtically load the connection string from the application configuration setting.
  - Fixed bug in SqlBulk copy and OUTPUT query whereby Sql Server does not return results in the same order of the data
