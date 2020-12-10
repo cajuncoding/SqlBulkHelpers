@@ -24,20 +24,31 @@ namespace SqlBulkHelpers
 
     public class SqlMergeMatchQualifierExpression
     {
-        public SqlMergeMatchQualifierExpression(params string[] fieldNames)
+        public SqlMergeMatchQualifierExpression()
         {
-            if(fieldNames == null || !fieldNames.Any())
-                throw new ArgumentException(nameof(fieldNames));
+        }
 
-            MatchQualifierFields = fieldNames.Select(n => new SqlMatchQualifierField(n)).ToList();
+        public SqlMergeMatchQualifierExpression(params string[] fieldNames)
+            : this(fieldNames.ToList())
+        {
         }
 
         public SqlMergeMatchQualifierExpression(params SqlMatchQualifierField[] matchQualifierFields)
+            : this(matchQualifierFields.ToList())
         {
-            if (matchQualifierFields == null || !matchQualifierFields.Any())
-                throw new ArgumentException(nameof(matchQualifierFields));
+        }
 
-            MatchQualifierFields = matchQualifierFields.ToList();
+        public SqlMergeMatchQualifierExpression(List<string> fieldNames)
+            : this(fieldNames?.Select(n => new SqlMatchQualifierField(n)).ToList())
+        {
+        }
+
+        public SqlMergeMatchQualifierExpression(List<SqlMatchQualifierField> fieldsList)
+        {
+            if (fieldsList == null || !fieldsList.Any())
+                throw new ArgumentException(nameof(fieldsList));
+
+            MatchQualifierFields = fieldsList?.ToList();
         }
 
         public List<SqlMatchQualifierField> MatchQualifierFields { get; }

@@ -103,10 +103,16 @@ namespace SqlBulkHelpers
         protected virtual SqlBulkCopy CreateSqlBulkCopyHelper(
             DataTable dataTable, 
             SqlBulkHelpersTableDefinition tableDefinition, 
-            SqlTransaction transaction
+            SqlTransaction transaction,
+            int timeoutSeconds
         )
         {
-            var factory = new SqlBulkCopyFactory(); //Load with all Defaults from our Factory.
+            //Initialize the BulkCopy Factory class with parameters...
+            var factory = new SqlBulkCopyFactory()
+            {
+                BulkCopyTimeoutSeconds = timeoutSeconds
+            };
+
             var sqlBulkCopy = factory.CreateSqlBulkCopy(dataTable, tableDefinition, transaction);
             return sqlBulkCopy;
         }

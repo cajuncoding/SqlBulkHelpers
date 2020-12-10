@@ -20,7 +20,6 @@ namespace SqlBulkHelpers
                 BulkCopyTimeout = this.BulkCopyTimeoutSeconds
             };
 
-
             //First initialize the Column Mappings for the SqlBulkCopy
             //NOTE: BBernard - We only map valid columns that exist in both the Model & the Table Schema!
             //NOTE: BBernard - We Map All valid columns (including Identity Key column) to support Insert or Updates!
@@ -35,7 +34,7 @@ namespace SqlBulkHelpers
             }
 
             //BBernard
-            //Now that we konw we have only valid columns from the Model/DataTable, we must manually add a mapping
+            //Now that we know we have only valid columns from the Model/DataTable, we must manually add a mapping
             //      for the Row Number Column for Bulk Loading . . . but Only if the data table has a RowNumber column defined.
             if (dataTable.Columns.Contains(SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME))
             {

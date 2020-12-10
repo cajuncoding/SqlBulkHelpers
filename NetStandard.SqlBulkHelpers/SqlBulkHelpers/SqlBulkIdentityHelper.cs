@@ -322,7 +322,7 @@ namespace SqlBulkHelpers
             SqlMergeScriptResults sqlScripts = this.BuildSqlMergeScriptsHelper(tableDefinition, mergeAction, matchQualifierExpression);
 
             //***STEP #4: Dynamically Initialize the Bulk Copy Helper using our Table data and table Definition!
-            var sqlBulkCopyHelper = this.CreateSqlBulkCopyHelper(dataTable, tableDefinition, transaction);
+            var sqlBulkCopyHelper = this.CreateSqlBulkCopyHelper(dataTable, tableDefinition, transaction, timeoutSeconds);
 
             return new ProcessHelper()
             {
