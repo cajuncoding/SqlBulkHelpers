@@ -6,6 +6,7 @@ namespace SqlBulkHelpers.Tests
     public static class TestHelpers
     {
         public const string TestTableName = "SqlBulkHelpersTestElements";
+        public const string TestTableNameFullyQualified = "[dbo].[SqlBulkHelpersTestElements]";
 
         public const int SqlTimeoutSeconds = 150;
 

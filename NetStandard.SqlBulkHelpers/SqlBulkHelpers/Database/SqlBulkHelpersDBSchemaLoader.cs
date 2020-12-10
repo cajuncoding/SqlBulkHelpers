@@ -97,7 +97,9 @@ namespace SqlBulkHelpers
 
                     //Dynamically convert to a Lookup for immutable cache of data.
                     //NOTE: Lookup is immutable (vs Dictionary which is not) and performance for lookups is just as fast.
-                    var tableDefinitionsLookup = tableDefinitionsList.Where(t => t != null).ToLookup(t => t.TableName.ToLowerInvariant());
+                    var tableDefinitionsLookup = tableDefinitionsList.Where(t => t != null).ToLookup(
+                        t => $"[{t.TableSchema.ToLowerInvariant()}].[{t.TableName.ToLowerInvariant()}]"
+                    );
                     return tableDefinitionsLookup;
                 }
             }
@@ -125,8 +127,31 @@ namespace SqlBulkHelpers
 
             //This will safely lazy load teh Schema, if not already, in a Thread-safe manner by using the power of Lazy<>!
             var schemaLookup = InitializeSchemaDefinitions();
-            var tableDefinition = schemaLookup[tableName.ToLowerInvariant()]?.FirstOrDefault();
+
+            //First Try a Direct Lookup and return if found...
+            var parsedTableName = ParseTableFullyQualifiedName(tableName);
+            var tableDefinition = schemaLookup[parsedTableName]?.FirstOrDefault();
             return tableDefinition;
+        }
+
+        private string ParseTableFullyQualifiedName(string tableName)
+        {
+            var loweredTableName = tableName.ToLowerInvariant();
+
+            //Second Try Parsing the Table & Schema name a Direct Lookup and return if found...
+            var terms = loweredTableName.Split('.');
+            switch (terms.Length)
+            {
+                //Split will always return an array with at least 1 element
+                case 1: return $"[dbo].[{TrimTableNameTerm(terms[0])}]";
+                default: return $"[{TrimTableNameTerm(terms[0])}].[{TrimTableNameTerm(terms[1])}]";
+            }
+        }
+
+        private string TrimTableNameTerm(string term)
+        {
+            var trimmedTerm = term.Trim('[', ']', ' ');
+            return trimmedTerm;
         }
     }
 }

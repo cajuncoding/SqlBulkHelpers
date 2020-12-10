@@ -23,7 +23,10 @@ various levels of help for this kind of functionality, but there are few (if any
 ## Nuget Package
 To use in your project, add the [SqlBulkHelpers NuGet package](https://www.nuget.org/packages/SqlBulkHelpers/) to your project.
 
-## v1.0.6 Release Notes:
+## v1.0.6.2 Release Notes:
+- Fix to correctly support fully qualified table names with schema.
+- Ensure BulkCopy also uses timeout parameter.
+- Add Overloads for easier initialization of SqlMergeMatchQualifierExpression class.
 - Breaking change; removed internal Default static references so that I can eliminate any dependency on Configuration framework for better support in .Net Core; New Caching helper and simple constructor with Sql Connection String replace this.
 - Added support to specify SqlCommand Timeout Seconds when initializing the Sql Bulk Helper class, instead of relying on the connection wide setting from the Connection string.
 - Added .Net Core Console Sample App for validation/testing.
