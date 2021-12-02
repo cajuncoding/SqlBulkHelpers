@@ -23,7 +23,12 @@ various levels of help for this kind of functionality, but there are few (if any
 ## Nuget Package
 To use in your project, add the [SqlBulkHelpers NuGet package](https://www.nuget.org/packages/SqlBulkHelpers/) to your project.
 
-## v1.0.6.2 Release Notes:
+
+## v1.0.7 Release Notes:
+- Added support to optimize Identity value updates with native performance (no reflection) simply by implementing 
+`ISqlBulkHelperIdentitySetter` on the model classes.
+
+### v1.0.6.2 Release Notes:
 - Fix to correctly support fully qualified table names with schema.
 - Ensure BulkCopy also uses timeout parameter.
 - Add Overloads for easier initialization of SqlMergeMatchQualifierExpression class.
@@ -31,7 +36,7 @@ To use in your project, add the [SqlBulkHelpers NuGet package](https://www.nuget
 - Added support to specify SqlCommand Timeout Seconds when initializing the Sql Bulk Helper class, instead of relying on the connection wide setting from the Connection string.
 - Added .Net Core Console Sample App for validation/testing.
 
-**v1.0.5 Release Notes:**
+### v1.0.5 Release Notes:
 - Added support for custom match qualifiers to be specified even if bulk inserting/updating data with Identity columns.
   - This addresses some edge use cases such as data synchronization logic which may merge data from multiple sources, 
 and Identity Values are used to differentiate data from multiple sources, but the actual merge matches needs to occur on 
@@ -47,7 +52,7 @@ so now the use of existing Sql Connection & Transaction is encapsulated and can 
 but this may not be the case, therefore this is now greatly simplified with an (encapsulated) caching implementation that is now provided out-of-the-box.
 - Added more Integration Tests for Constructors and Connections, as well as the new DB Schema Loader caching implementation.
 
-**Prior Release Notes:**
+### Prior Release Notes:
  - Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances 
 that automtically load the connection string from the application configuration setting.
  - Fixed bug in SqlBulk copy and OUTPUT query whereby Sql Server does not return results in the same order of the data
