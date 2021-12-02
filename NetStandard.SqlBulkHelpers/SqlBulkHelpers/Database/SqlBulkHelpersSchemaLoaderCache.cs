@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using System.Linq;
 using System.Text;
 
@@ -45,7 +45,8 @@ namespace SqlBulkHelpers
         /// 
         /// This will retrieve a DB Schema Loader using the existing SqlConnection provided.  This will immediately initialize the DB Schema
         /// definitions from the database when executed, because the SqlConnection is assumed to be valid now, but may not be in
-        /// the future when lazy initialization would occur (e.g. a Transaction may be started which would then result in errors).
+        /// the future when lazy initialization would occur (e.g. a Transaction may not yet be started but may later be initialized,
+        /// which would then result in errors).
         /// </summary>
         /// <param name="sqlConnection"></param>
         /// <param name="sqlTransaction"></param>

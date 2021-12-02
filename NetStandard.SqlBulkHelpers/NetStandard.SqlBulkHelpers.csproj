@@ -11,9 +11,11 @@
     <Copyright>Copyright ©  2019</Copyright>
     <PackageLicenseUrl></PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/raerae1616/SqlBulkHelpers</PackageProjectUrl>
-    <PackageReleaseNotes>- Added support to optimize Identity value updates with native performance (no reflection) by implementing ISqlBulkHelperIdentitySetter on the model classes.
+    <PackageReleaseNotes>- Migrated the library to use `Microsoft.Data.SqlClient` vs legacy `System.Data.SqlClient` which is no longer being 
+updated with most improvements, especially performance and edge case bugs. From v1.1 onward we will only use `Microsoft.Data.SqlClient`.
 
 Prior Relese Notes:
+- Added support to optimize Identity value updates with native performance (no reflection) by implementing ISqlBulkHelperIdentitySetter on the model classes.
 - Fix to correctly support fully qualified table names with schema.
 - Ensure BulkCopy also uses timeout parameter.
 - Add Overloads for easier initialization of SqlMergeMatchQualifierExpression class.
@@ -27,7 +29,7 @@ Prior Relese Notes:
 - Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances that automtically load the connection string from the application configuration setting.
 </PackageReleaseNotes>
     <PackageTags>sql server database table bulk insert update identity column sqlbulkcopy orm dapper fast data load loading performance</PackageTags>
-    <Version>1.0.7</Version>
+    <Version>1.1</Version>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
@@ -41,8 +43,8 @@ Prior Relese Notes:
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
-    <PackageReference Include="System.Data.SqlClient" Version="4.8.2" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="4.0.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
   </ItemGroup>
 
 </Project>

@@ -24,6 +24,10 @@ various levels of help for this kind of functionality, but there are few (if any
 To use in your project, add the [SqlBulkHelpers NuGet package](https://www.nuget.org/packages/SqlBulkHelpers/) to your project.
 
 
+## v1.1 Release Notes:
+- Migrated the library to use `Microsoft.Data.SqlClient` vs legacy `System.Data.SqlClient` which is no longer being 
+updated with most improvements, especially performance and edge case bugs. From v1.1 onward we will only use `Microsoft.Data.SqlClient`.
+
 ## v1.0.7 Release Notes:
 - Added support to optimize Identity value updates with native performance (no reflection) simply by implementing 
 `ISqlBulkHelperIdentitySetter` on the model classes.
