@@ -14,7 +14,7 @@ namespace SqlBulkHelpers.IntegrationTests
         [TestMethod]
         public async Task TestBulkInsertOrUpdateWithCustomMatchQualifiersAsync()
         {
-            List<TestElement> testData = TestHelpers.CreateTestData(10);
+            var testData = TestHelpers.CreateTestData(10);
             foreach (var t in testData)
             {
                 t.Key = $"CUSTOM_QUALIFIER_BY_VALUE-{t.Key}";
@@ -67,7 +67,7 @@ namespace SqlBulkHelpers.IntegrationTests
         [TestMethod]
         public async Task TestBulkInsertOrUpdateWithMultipleCustomMatchQualifiersAsync()
         {
-            List<TestElement> testData = TestHelpers.CreateTestData(10);
+            var testData = TestHelpers.CreateTestDataWithIdentitySetter(10);
             int count = 1;
             foreach (var t in testData)
             {

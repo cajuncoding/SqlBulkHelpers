@@ -264,6 +264,9 @@ namespace SqlBulkHelpers
                 }
 
                 //***STEP #7: FINALLY Update all of the original Entities with INSERTED/New Identity Values
+                //NOTE: IF MULTIPLE NON-UNIQUE items are updated then ONLY ONE Identity value can be returned, though multiple
+                //      other items may have in-reality actually been updated within the DB.  This is a likely scenario
+                //      IF a different non-unique Match Qualifier Field is specified.
                 var updatedEntityList = this.PostProcessEntitiesWithMergeResults(
                     entityList, 
                     mergeResultsList, 

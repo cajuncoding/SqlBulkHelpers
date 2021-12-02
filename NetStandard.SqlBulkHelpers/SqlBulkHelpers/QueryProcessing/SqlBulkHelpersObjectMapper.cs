@@ -14,7 +14,7 @@ namespace SqlBulkHelpers
         {
             //Get the name of hte Identity Column
             //NOTE: BBernard - We take in the strongly typed class (immutable) to ensure that we have validated Parameter vs raw string!
-            var identityColumnName = identityColumnDefinition.ColumnName;
+            //var identityColumnName = identityColumnDefinition.ColumnName;
 
             //NOTE: We Map all Properties to an anonymous type with Index, Name, and base PropInfo here for easier logic below,
             //          and we ALWAYS convert to a List<> so that we always preserve the critical order of the PropertyInfo items!

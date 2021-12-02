@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using SqlBulkHelpers.SqlBulkHelpers.Interfaces;
 
 namespace SqlBulkHelpers.Tests
 {
@@ -26,6 +28,19 @@ namespace SqlBulkHelpers.Tests
 
             return list;
         }
+
+        public static List<TestElementWithIdentitySetter> CreateTestDataWithIdentitySetter(int dataSize)
+        {
+            var testData = CreateTestData(dataSize);
+            var list = testData.Select(t => new TestElementWithIdentitySetter()
+            {
+                Id = t.Id,
+                Key = t.Key,
+                Value = t.Value
+            }).ToList();
+
+            return list;
+        }
     }
 
     public class TestElement
@@ -37,6 +52,14 @@ namespace SqlBulkHelpers.Tests
         public override string ToString()
         {
             return $"Id=[{Id}], Key=[{Key}]";
+        }
+    }
+
+    public class TestElementWithIdentitySetter : TestElement, ISqlBulkHelperIdentitySetter
+    {
+        public void SetIdentityId(int id)
+        {
+            this.Id = id;
         }
     }
 }

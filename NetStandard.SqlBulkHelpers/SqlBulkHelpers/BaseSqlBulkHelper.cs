@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
+using System.Reflection;
+using SqlBulkHelpers.SqlBulkHelpers.Interfaces;
 
 namespace SqlBulkHelpers
 {
@@ -150,14 +152,23 @@ namespace SqlBulkHelpers
             SqlMergeMatchQualifierExpression sqlMatchQualifierExpression
         )
         {
-            var propDefs = SqlBulkHelpersObjectReflectionFactory.GetPropertyDefinitions<T>(identityColumnDefinition);
-            var identityPropDef = propDefs.FirstOrDefault(pi => pi.IsIdentityProperty);
-            var identityPropInfo = identityPropDef?.PropInfo;
+            //BBernard - 12/01/2021
+            //Added Optimization to support interface based Identity Setter which may be optionally implemented
+            //  directly on the models...
+            //However, if the Generic Type doesn't implement our Interface ISqlBulkHelperIdentitySetter then
+            //  we attempt to use Reflection to set the value...
+            PropertyInfo identityPropInfo = null;
+            if (!typeof(ISqlBulkHelperIdentitySetter).IsAssignableFrom(typeof(T)))
+            {
+                var propDefs = SqlBulkHelpersObjectReflectionFactory.GetPropertyDefinitions<T>(identityColumnDefinition);
+                var identityPropDef = propDefs.FirstOrDefault(pi => pi.IsIdentityProperty);
+                identityPropInfo = identityPropDef?.PropInfo;
 
-            //If there is no Identity Column (e.g. no Identity Column Definition and/or no PropInfo can be found)
-            //  then we can short circuit.
-            if (identityPropInfo == null)
-                return entityList;
+                //If there is no Identity Column (e.g. no Identity Column Definition and/or no PropInfo can be found)
+                //  then we can short circuit.
+                if (identityPropInfo == null)
+                    return entityList;
+            }
 
             bool uniqueMatchValidationEnabled = sqlMatchQualifierExpression?.ThrowExceptionIfNonUniqueMatchesOccur == true;
 
@@ -212,10 +223,17 @@ namespace SqlBulkHelpers
                 var entity = entityList[mergeResult.RowNumber - 1];
                 
                 //BBernard
-                //GENERICALLY Set the Identity Value to the Int value returned, this eliminates any dependency on a Base Class!
-                //TODO: If needed we can optimize this with a Delegate for faster property access (vs pure Reflection).
-                //(entity as Debug.ConsoleApp.TestElement).Id = mergeResult.IdentityId;
-                identityPropInfo.SetValue(entity, mergeResult.IdentityId);
+                //If the entity supports our interface we can set the value with native performance via the Interface!
+                if (entity is ISqlBulkHelperIdentitySetter identitySetterEntity)
+                {
+                    identitySetterEntity.SetIdentityId(mergeResult.IdentityId);
+                }
+                else
+                {
+                    //GENERICALLY Set the Identity Value to the Int value returned, this eliminates any dependency on a Base Class!
+                    //TODO: If needed we can optimize this with a Delegate for faster property access (vs pure Reflection).
+                    identityPropInfo?.SetValue(entity, mergeResult.IdentityId);
+                }
             }
 
             //Return the Updated Entities List (for fluent chain-ability) and easier to read code
