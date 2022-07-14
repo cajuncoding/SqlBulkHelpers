@@ -23,6 +23,7 @@ namespace SqlBulkHelpers
         }
         public String TableSchema { get; private set; }
         public String TableName { get; private set; }
+        public String TableFullyQualifiedName => $"[{TableSchema}].[{TableName}]";
         public IList<SqlBulkHelpersColumnDefinition> Columns { get; private set; }
         public SqlBulkHelpersColumnDefinition IdentityColumn { get; private set; }
 
@@ -44,7 +45,7 @@ namespace SqlBulkHelpers
 
         public override string ToString()
         {
-            return this.TableName;
+            return this.TableFullyQualifiedName;
         }
     }
 

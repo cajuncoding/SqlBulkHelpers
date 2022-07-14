@@ -34,7 +34,7 @@ namespace SqlBulkHelpers
                     {columnNamesWithoutIdentityCSV},
                     -1 as [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] 
                 INTO [{tempStagingTableName}] 
-                FROM [{tableDefinition.TableName}];
+                FROM {tableDefinition.TableFullyQualifiedName};
 
                 ALTER TABLE [{tempStagingTableName}] ADD PRIMARY KEY ([{identityColumnName}]);
 
@@ -76,7 +76,7 @@ namespace SqlBulkHelpers
             //      custom match Qualifiers; this ensures that data is sorted in a way that postprocessing
             //      can occur & be validated as expected.
             String sqlScriptToExecuteMergeProcess = $@"
-                MERGE [{tableDefinition.TableName}] as target
+                MERGE {tableDefinition.TableFullyQualifiedName} as target
 				USING (
 					SELECT TOP 100 PERCENT * 
 					FROM [{tempStagingTableName}] 

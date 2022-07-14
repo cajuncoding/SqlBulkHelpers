@@ -89,7 +89,7 @@ namespace SqlBulkHelpers
                 
                 //Dynamically convert to a Lookup for immutable cache of data.
                 //NOTE: Lookup is immutable (vs Dictionary which is not) and performance for lookups is just as fast.
-                var tableDefinitionsLookup = tableDefinitionsList.Where(t => t != null).ToLookup(t => t.TableName.ToLowerInvariant());
+                var tableDefinitionsLookup = tableDefinitionsList.Where(t => t != null).ToLookup(t => t.TableFullyQualifiedName.ToLowerInvariant());
                 return tableDefinitionsLookup;
             }
         }

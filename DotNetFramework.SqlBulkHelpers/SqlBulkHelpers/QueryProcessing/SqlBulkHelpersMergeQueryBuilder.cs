@@ -22,7 +22,7 @@ namespace SqlBulkHelpers
                     {columnNamesWithoutIdentityCSV},
                     -1 as [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] 
                 INTO [{tempStagingTableName}] 
-                FROM [{tableDefinition.TableName}];
+                FROM [{tableDefinition.TableFullyQualifiedName}];
 
                 ALTER TABLE [{tempStagingTableName}] ADD PRIMARY KEY ([{identityColumnName}]);
 
@@ -62,7 +62,7 @@ namespace SqlBulkHelpers
             //      In general it results in inverting the order of data being sent in Bulk which then resulted in Identity
             //      values being incorrect based on the order of data specified.
             String sqlScriptToExecuteMergeProcess = $@"
-                MERGE [{tableDefinition.TableName}] as target
+                MERGE [{tableDefinition.TableFullyQualifiedName}] as target
 				USING (
 					SELECT TOP 100 PERCENT * 
 					FROM [{tempStagingTableName}] 
