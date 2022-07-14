@@ -11,25 +11,27 @@
     <Copyright>Copyright ©  2019</Copyright>
     <PackageLicenseUrl></PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/raerae1616/SqlBulkHelpers</PackageProjectUrl>
-    <PackageReleaseNotes>- Migrated the library to use `Microsoft.Data.SqlClient` vs legacy `System.Data.SqlClient` which is no longer being 
-updated with most improvements, especially performance and edge case bugs. From v1.1 onward we will only use `Microsoft.Data.SqlClient`.
+    <PackageReleaseNotes>
+		- Merge PR to enable support Fully Qualified Table Names - Thanks to @simelis
 
-Prior Relese Notes:
-- Added support to optimize Identity value updates with native performance (no reflection) by implementing ISqlBulkHelperIdentitySetter on the model classes.
-- Fix to correctly support fully qualified table names with schema.
-- Ensure BulkCopy also uses timeout parameter.
-- Add Overloads for easier initialization of SqlMergeMatchQualifierExpression class.
-- Breaking change; removed internal Default static references so that I can eliminate any dependency on Configuration framework for better support in .Net Core; New Caching helper and simple constructor with Sql Connection String replace this.
-- Added support to specify SqlCommand Timeout Seconds when initializing the Sql Bulk Helper class, instead of relying on the connection wide setting from the Connection string.
-- Added support for custom match qualifiers to be specified even if bulk inserting/updating data with Identity columns.  This addresses some edge use cases whereby data syncing may be taking place and Identities are used to differentiate data from multiple sources, but the actual merge matches needs to occur on unique fields of the source system.
-- Simplified initialization and constructors to provide easier use -- especially if SqlConnection/SqlTransaction already exists and ConnectionString is not available.  It's still recommended to use ISqlBulkHelpersConnectionProvider however, this may not be congruent with existin code bases so now the use of existing Sql Connection &amp; Transaction is encapsulated. 
-- Provided in-memory cache implementation to help manage caching of Schema DB Loaders for performance.
-- Improved pattern for Schema DB Loader management and encourage use of new Caching class; previously its possible that this was being re-loaded multiple times unnecessarily due to relying on internal behavior instead of managing it as a static/singleton.
-- Added more Integration Tests for Constructors and Connections, as well as the new DB Schema Loader caching implementation.
-- Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances that automtically load the connection string from the application configuration setting.
-</PackageReleaseNotes>
+		Prior Relese Notes:
+		- Migrated the library to use `Microsoft.Data.SqlClient` vs legacy `System.Data.SqlClient` which is no longer being
+		updated with most improvements, especially performance and edge case bugs. From v1.1 onward we will only use `Microsoft.Data.SqlClient`.
+		- Added support to optimize Identity value updates with native performance (no reflection) by implementing ISqlBulkHelperIdentitySetter on the model classes.
+		- Fix to correctly support fully qualified table names with schema.
+		- Ensure BulkCopy also uses timeout parameter.
+		- Add Overloads for easier initialization of SqlMergeMatchQualifierExpression class.
+		- Breaking change; removed internal Default static references so that I can eliminate any dependency on Configuration framework for better support in .Net Core; New Caching helper and simple constructor with Sql Connection String replace this.
+		- Added support to specify SqlCommand Timeout Seconds when initializing the Sql Bulk Helper class, instead of relying on the connection wide setting from the Connection string.
+		- Added support for custom match qualifiers to be specified even if bulk inserting/updating data with Identity columns.  This addresses some edge use cases whereby data syncing may be taking place and Identities are used to differentiate data from multiple sources, but the actual merge matches needs to occur on unique fields of the source system.
+		- Simplified initialization and constructors to provide easier use -- especially if SqlConnection/SqlTransaction already exists and ConnectionString is not available.  It's still recommended to use ISqlBulkHelpersConnectionProvider however, this may not be congruent with existin code bases so now the use of existing Sql Connection &amp; Transaction is encapsulated. 
+		- Provided in-memory cache implementation to help manage caching of Schema DB Loaders for performance.
+		- Improved pattern for Schema DB Loader management and encourage use of new Caching class; previously its possible that this was being re-loaded multiple times unnecessarily due to relying on internal behavior instead of managing it as a static/singleton.
+		- Added more Integration Tests for Constructors and Connections, as well as the new DB Schema Loader caching implementation.
+		- Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances that automtically load the connection string from the application configuration setting.
+	</PackageReleaseNotes>
     <PackageTags>sql server database table bulk insert update identity column sqlbulkcopy orm dapper fast data load loading performance</PackageTags>
-    <Version>1.1</Version>
+    <Version>1.2</Version>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
