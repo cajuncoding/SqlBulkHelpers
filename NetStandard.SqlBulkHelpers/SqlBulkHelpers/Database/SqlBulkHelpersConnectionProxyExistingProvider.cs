@@ -1,7 +1,7 @@
 ﻿using System;
-using System.Configuration;
 using Microsoft.Data.SqlClient;
 using System.Threading.Tasks;
+using SqlBulkHelpers.SqlBulkHelpers.Interfaces;
 
 namespace SqlBulkHelpers
 {
@@ -12,7 +12,7 @@ namespace SqlBulkHelpers
     /// NOTE: This is INTERNAL for special use so we minimize impacts to our Interfaces, it is not recommended for any external
     ///         consumers to use this.
     /// </summary>
-    internal class SqlBulkHelpersConnectionProxyExistingProvider : ISqlBulkHelpersConnectionProvider
+    internal class SqlBulkHelpersConnectionProxyExistingProvider : ISqlBulkHelpersConnectionProvider, ISqlBulkHelpersHasTransaction
     {
         private readonly SqlConnection _sqlConnection;
         private readonly SqlTransaction _sqlTransaction;
@@ -27,36 +27,17 @@ namespace SqlBulkHelpers
         /// Provide Internal access to the Connection String to help uniquely identify the Connections from this Provider.
         /// </summary>
         /// <returns>Unique string representing connections provided by this provider</returns>
-        public virtual string GetDbConnectionUniqueIdentifier()
-        {
-            return GetConnectionString();
-        }
+        public virtual string GetDbConnectionUniqueIdentifier() => _sqlConnection.ConnectionString;
 
-        protected virtual string GetConnectionString()
-        {
-            return _sqlConnection.ConnectionString;
-        }
+        public virtual SqlConnection NewConnection() => _sqlConnection;
 
-        public virtual SqlConnection NewConnection()
-        {
-            //Proxy the existing connection that was provided...
-            return _sqlConnection;
-        }
-
-        public virtual Task<SqlConnection> NewConnectionAsync()
-        {
-            //Proxy the existing connection that was provided...
-            return Task.FromResult(_sqlConnection);
-        }
+        public virtual Task<SqlConnection> NewConnectionAsync() => Task.FromResult(_sqlConnection);
 
         /// <summary>
         /// Method that provides direct access to the Sql Transaction when this is used to proxy an Existing Connection
         ///     that also has an associated open transaction.
         /// </summary>
         /// <returns></returns>
-        public virtual SqlTransaction GetTransaction()
-        {
-            return _sqlTransaction;
-        }
+        public virtual SqlTransaction GetTransaction() => _sqlTransaction;
     }
 }

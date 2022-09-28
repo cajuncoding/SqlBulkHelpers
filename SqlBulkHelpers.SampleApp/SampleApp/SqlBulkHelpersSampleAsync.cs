@@ -1,8 +1,6 @@
 ﻿using SqlBulkHelpers;
 using System;
 using System.Collections.Generic;
-using System.Configuration;
-using Microsoft.Data.SqlClient;
 using System.Diagnostics;
 using System.Threading.Tasks;
 
@@ -20,23 +18,28 @@ namespace SqlBulkHelpersSample.ConsoleApp
 
             //Initialize large list of Data to Insert or Update in a Table
             List<TestElement> testData = SqlBulkHelpersSample.CreateTestData(1000);
+            var timer = Stopwatch.StartNew();
 
             //Bulk Inserting is now as easy as:
             //  1) Initialize the DB Connection & Transaction (IDisposable)
             //  2) Instantiate the SqlBulkIdentityHelper class with ORM Model Type & Schema Loader instance...
             //  3) Execute the insert/update (e.g. Convenience method allows InsertOrUpdate in one execution!)
-            using (SqlConnection conn = await sqlConnectionProvider.NewConnectionAsync())
-            using (SqlTransaction transaction = conn.BeginTransaction())
+            using (var conn = await sqlConnectionProvider.NewConnectionAsync())
+            using (var transaction = conn.BeginTransaction())
             {
                 ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(conn, transaction);
 
                 await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(
                     testData,
                     SqlBulkHelpersSampleApp.TestTableName,
-                    transaction);
+                    transaction
+                );
 
                 transaction.Commit();
             }
+
+            timer.Stop();
+            Console.WriteLine($"Successfully Inserted or Updated [{testData.Count}] Items in [{timer.ElapsedMilliseconds}] millis!");
         }
 
         public static async Task RunBenchmarksAsync(string sqlConnectionString)
@@ -44,11 +47,15 @@ namespace SqlBulkHelpersSample.ConsoleApp
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
 
             using (var conn = await sqlConnectionProvider.NewConnectionAsync())
-            using (SqlTransaction transaction = conn.BeginTransaction())
+            using (var transaction = conn.BeginTransaction())
             {
                 var tableName = SqlBulkHelpersSampleApp.TestTableName;
 
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(conn, transaction);
+                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(
+                    conn, 
+                    transaction, 
+                    SqlBulkHelpersSampleApp.SqlTimeoutSeconds
+                );
 
                 var timer = new Stopwatch();
 
@@ -83,7 +90,7 @@ namespace SqlBulkHelpersSample.ConsoleApp
                 var tableCount = 0;
                 using (var sqlCmd = conn.CreateCommand())
                 {
-                    sqlCmd.CommandText = $"SELECT COUNT(*) FROM [{tableName}]";
+                    sqlCmd.CommandText = $"SELECT COUNT(*) FROM {tableName}";
                     tableCount = Convert.ToInt32(sqlCmd.ExecuteScalar());
                 }
                 Console.WriteLine($"[{tableCount}] Total Items in the Table Now!");

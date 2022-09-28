@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Configuration;
+using System.Data;
 using Microsoft.Data.SqlClient;
 using System.Threading.Tasks;
 
@@ -10,25 +10,35 @@ namespace SqlBulkHelpers
     /// Connection string provider class to keep the responsibility for Loading the connection string in on only one class;
     /// but also supports custom implementations that would initialize the Connection string in any other custom way.
     ///
-    /// The Default implementation will load the Connection String from teh AppSettings key "SqlConnectionString"
+    /// Supports initializing SqlConnection directly from the Connection string, or from an SqlConnection factory Func provided.
     /// </summary>
     public class SqlBulkHelpersConnectionProvider : ISqlBulkHelpersConnectionProvider
     {
         public const string SqlConnectionStringConfigKey = "SqlConnectionString";
 
-        private readonly string _sqlConnectionString;
+        protected string SqlDbConnectionUniqueIdentifier { get; set; }
+
+        protected Func<SqlConnection> NewSqlConnectionFactory { get; set; }
 
         public SqlBulkHelpersConnectionProvider(string sqlConnectionString)
+            : this(sqlConnectionString, () => new SqlConnection(sqlConnectionString))
         {
-            _sqlConnectionString = sqlConnectionString;
+        }
 
-            if (String.IsNullOrWhiteSpace(_sqlConnectionString))
-            {
-                throw new ArgumentException(
-                    $"The argument specified for {nameof(sqlConnectionString)} is null/empty; a valid value must be specified."
-                );
-            }
+        /// <summary>
+        /// Uses the specified unique identifier parameter for caching (e.g. DB Schema caching) elements unique to this DB Connection.
+        /// Initializes connections using hte provided SqlConnection Factory specified.
+        /// </summary>
+        /// <param name="sqlDbConnectionUniqueIdentifier"></param>
+        /// <param name="sqlConnectionFactory"></param>
+        /// <exception cref="ArgumentException"></exception>
+        public SqlBulkHelpersConnectionProvider(string sqlDbConnectionUniqueIdentifier, Func<SqlConnection> sqlConnectionFactory)
+        {
+            if (string.IsNullOrWhiteSpace(sqlDbConnectionUniqueIdentifier))
+                throw new ArgumentException($"The Unique DB Connection Identifier specified is null/empty; a valid identifier must be specified.");
 
+            SqlDbConnectionUniqueIdentifier = sqlDbConnectionUniqueIdentifier;
+            NewSqlConnectionFactory = sqlConnectionFactory.AssertArgumentIsNotNull(nameof(sqlConnectionFactory));
         }
 
         /// <summary>
@@ -37,28 +47,24 @@ namespace SqlBulkHelpers
         /// <returns>Unique string representing connections provided by this provider</returns>
         public virtual string GetDbConnectionUniqueIdentifier()
         {
-            return GetConnectionString();
-        }
-
-        protected  virtual string GetConnectionString()
-        {
-            return _sqlConnectionString;
+            return SqlDbConnectionUniqueIdentifier;
         }
 
         public virtual SqlConnection NewConnection()
         {
-            var connectionString = GetConnectionString();
-            var sqlConn = new SqlConnection(connectionString);
-            sqlConn.Open();
+            var sqlConn = NewSqlConnectionFactory.Invoke();
+            if (sqlConn.State != ConnectionState.Open)
+                sqlConn.Open();
 
             return sqlConn;
         }
 
         public virtual async Task<SqlConnection> NewConnectionAsync()
         {
-            var connectionString = GetConnectionString();
-            var sqlConn = new SqlConnection(connectionString);
-            await sqlConn.OpenAsync();
+            var sqlConn = NewSqlConnectionFactory.Invoke();
+            if (sqlConn.State != ConnectionState.Open)
+                await sqlConn.OpenAsync();
+
             return sqlConn;
         }
     }

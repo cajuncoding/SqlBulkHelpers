@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Microsoft.Data.SqlClient;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace SqlBulkHelpers
@@ -12,14 +13,14 @@ namespace SqlBulkHelpers
     /// </summary>
     public static class SqlBulkHelpersSchemaLoaderCache
     {
-        private static readonly ConcurrentDictionary<string, Lazy<SqlBulkHelpersDBSchemaStaticLoader>> SchemaLoaderLazyCache =
-            new ConcurrentDictionary<string, Lazy<SqlBulkHelpersDBSchemaStaticLoader>>();
+        private static readonly ConcurrentDictionary<string, Lazy<SqlBulkHelpersDBSchemaLoader>> SchemaLoaderLazyCache =
+            new ConcurrentDictionary<string, Lazy<SqlBulkHelpersDBSchemaLoader>>();
 
         /// <summary>
         /// This is the preferred way to initialize the Schema Loader. This will retrieve a DB Schema Loader using the
-        /// SqlConnection Provider specified.  With an Sql Connection Provider, we can defer (e.g. lazy load)
-        /// the loading of the Schema Definitions until it's actually needed.  This may speed up startup time if
-        /// this initialization is part of a static element at startup and/or if it is never needed based on execution logic.
+        /// SqlConnection Factory specified.  With an Sql Connection Factory, we can defer (e.g. lazy load)
+        /// the the creation of a DB Connection if, and only when, it is actually needed; this eliminates the creation of
+        /// an Sql Connection once the DB Schema cache is initialized.
         /// </summary>
         /// <param name="sqlConnectionProvider"></param>
         /// <returns></returns>
@@ -31,11 +32,27 @@ namespace SqlBulkHelpers
             //Init cached version if it exists; which may already be initialized!
             var resultLoader = SchemaLoaderLazyCache.GetOrAdd(
                 sqlConnProvider.GetDbConnectionUniqueIdentifier(),
-                new Lazy<SqlBulkHelpersDBSchemaStaticLoader>(() => new SqlBulkHelpersDBSchemaStaticLoader(sqlConnectionProvider))
+                new Lazy<SqlBulkHelpersDBSchemaLoader>(() => new SqlBulkHelpersDBSchemaLoader(sqlConnectionProvider))
             );
 
             //Unwrap the Lazy<> to get, or construct, a valid Schema Loader...
             return resultLoader.Value;
+        }
+
+        /// <summary>
+        /// This is the preferred way to initialize the Schema Loader. This will retrieve a DB Schema Loader using the
+        /// SqlConnection Factory specified.  With an Sql Connection Factory, we can defer (e.g. lazy load)
+        /// the the creation of a DB Connection if, and only when, it is actually needed; this eliminates the creation of
+        /// an Sql Connection once the DB Schema cache is initialized.
+        /// </summary>
+        /// <param name="uniqueDbCachingIdentifier"></param>
+        /// <param name="sqlConnectionFactory"></param>
+        /// <returns></returns>
+        public static ISqlBulkHelpersDBSchemaLoader GetSchemaLoader(string uniqueDbCachingIdentifier, Func<SqlConnection> sqlConnectionFactory)
+        {
+            //The Sql Connection Provider will validate the parameters...
+            var sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(uniqueDbCachingIdentifier, sqlConnectionFactory);
+            return GetSchemaLoader(sqlConnectionProvider);
         }
 
         /// <summary>
@@ -50,14 +67,12 @@ namespace SqlBulkHelpers
         /// </summary>
         /// <param name="sqlConnection"></param>
         /// <param name="sqlTransaction"></param>
+        /// <param name="initializeImmediately"></param>
         /// <returns></returns>
         public static ISqlBulkHelpersDBSchemaLoader GetSchemaLoader(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null, bool initializeImmediately = true)
         {
-            //Validate arg is a Static Schema Loader...
-            var sqlConnProvider = new SqlBulkHelpersConnectionProxyExistingProvider(
-                sqlConnection.AssertArgumentIsNotNull(nameof(sqlConnection)),
-                sqlTransaction
-            );
+            //The Connection Proxy Provider will validate the parameters...
+            var sqlConnProvider = new SqlBulkHelpersConnectionProxyExistingProvider(sqlConnection, sqlTransaction);
 
             //Use the Proxy Connection provider for the existing connection to get or initialize the DB Schema Loader.
             var schemaLoader = GetSchemaLoader(sqlConnProvider);

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Microsoft.Data.SqlClient;
 using System.Linq;
+using SqlBulkHelpers.SqlBulkHelpers.Interfaces;
 
 namespace SqlBulkHelpers
 {
@@ -17,7 +18,7 @@ namespace SqlBulkHelpers
 	/// NOTE: The static caching of the DB Schema is great for performance, and this default implementation will work well for most users (e.g. single database use),
 	///         however more advanced usage may require the consumer/author to implement & manage  their own ISqlBulkHelpersDBSchemaLoader.
 	/// </summary>
-	public class SqlBulkHelpersDBSchemaStaticLoader : ISqlBulkHelpersDBSchemaLoader
+	public class SqlBulkHelpersDBSchemaLoader : ISqlBulkHelpersDBSchemaLoader
 	{
 		private readonly Lazy<ILookup<string, SqlBulkHelpersTableDefinition>> _tableDefinitionsLookupLazy;
 
@@ -26,7 +27,7 @@ namespace SqlBulkHelpers
 		/// </summary>
 		public bool IsInitialized { get; protected set; } = false;
 		
-		public SqlBulkHelpersDBSchemaStaticLoader(ISqlBulkHelpersConnectionProvider sqlConnectionProvider)
+		public SqlBulkHelpersDBSchemaLoader(ISqlBulkHelpersConnectionProvider sqlConnectionProvider)
 		{
 			sqlConnectionProvider.AssertArgumentIsNotNull(nameof(sqlConnectionProvider));
 
@@ -36,12 +37,8 @@ namespace SqlBulkHelpers
 			//          maximum efficiency
 			_tableDefinitionsLookupLazy = new Lazy<ILookup<string, SqlBulkHelpersTableDefinition>>(() =>
 			{
-				//Get a local reference so that it's scoping will be preserved...
-				var localScopeSqlConnectionProviderRef = sqlConnectionProvider;
-				var dbSchemaResults = LoadSqlBulkHelpersDBSchemaHelper(localScopeSqlConnectionProviderRef);
-				
-				//Set the initialization flag (mainly for reference/debugging)
-				IsInitialized = true;
+				var dbSchemaResults = LoadSqlBulkHelpersDBSchemaHelper(sqlConnectionProvider);
+				this.IsInitialized = true;
 
 				return dbSchemaResults;
 			});
@@ -83,10 +80,10 @@ namespace SqlBulkHelpers
 			//NOTE: If we are proxy-ing an existing Connection then we also need to handle a potentially associated Transaction.
 			bool isNewConnectionInitialized = true;
 			SqlTransaction sqlTransaction = null;
-			if (sqlConnectionProvider is SqlBulkHelpersConnectionProxyExistingProvider sqlConnProxyProvider)
+			if (sqlConnectionProvider is ISqlBulkHelpersHasTransaction providerWithTransaction)
 			{
 				isNewConnectionInitialized = false;
-				sqlTransaction = sqlConnProxyProvider.GetTransaction();
+				sqlTransaction = providerWithTransaction.GetTransaction();
 			}
 
 			try
@@ -110,7 +107,7 @@ namespace SqlBulkHelpers
 				{
 					sqlConn.Close();
 					sqlConn.Dispose();
-				}
+                }
 			}
 		}
 

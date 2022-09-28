@@ -12,11 +12,11 @@
     <PackageLicenseUrl></PackageLicenseUrl>
     <PackageProjectUrl>https://github.com/raerae1616/SqlBulkHelpers</PackageProjectUrl>
     <PackageReleaseNotes>
-		- Merge PR to enable support Fully Qualified Table Names - Thanks to @simelis
+        - Add improved support for use of SqlBulkHelpersDbSchemaCache with new SqlConnection factory func to greatly simplifying its use with optimized deferral of Sql Connection creation (if and only when needed) without having to implement the full Interface.
 
-		Prior Relese Notes:
-		- Migrated the library to use `Microsoft.Data.SqlClient` vs legacy `System.Data.SqlClient` which is no longer being
-		updated with most improvements, especially performance and edge case bugs. From v1.1 onward we will only use `Microsoft.Data.SqlClient`.
+	    Prior Relese Notes:
+		- Merge PR to enable support Fully Qualified Table Names - Thanks to @simelis
+		- Migrated the library to use `Microsoft.Data.SqlClient` vs legacy `System.Data.SqlClient` which is no longer being updated with most improvements, especially performance and edge case bugs. From v1.1 onward we will only use `Microsoft.Data.SqlClient`.
 		- Added support to optimize Identity value updates with native performance (no reflection) by implementing ISqlBulkHelperIdentitySetter on the model classes.
 		- Fix to correctly support fully qualified table names with schema.
 		- Ensure BulkCopy also uses timeout parameter.
@@ -31,7 +31,7 @@
 		- Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances that automtically load the connection string from the application configuration setting.
 	</PackageReleaseNotes>
     <PackageTags>sql server database table bulk insert update identity column sqlbulkcopy orm dapper fast data load loading performance</PackageTags>
-    <Version>1.2</Version>
+    <Version>1.3</Version>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
