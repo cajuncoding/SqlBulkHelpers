@@ -23,6 +23,11 @@ various levels of help for this kind of functionality, but there are few (if any
 ## Nuget Package
 To use in your project, add the [SqlBulkHelpers NuGet package](https://www.nuget.org/packages/SqlBulkHelpers/) to your project.
 
+## v1.3 Release Notes:
+- Add improved support for use of `SqlBulkHelpersDbSchemaCache` with new SqlConnection factory func to greatly simplifying its use with optimized deferral of Sql Connection creation (if and only when needed) without having to implement the full Interface.
+
+## v1.2 Release Notes:
+- [Merge PR](https://github.com/cajuncoding/SqlBulkHelpers/pull/5) to enable support Fully Qualified Table Names - Thanks to @simelis: 
 
 ## v1.1 Release Notes:
 - Migrated the library to use `Microsoft.Data.SqlClient` vs legacy `System.Data.SqlClient` which is no longer being 
@@ -114,6 +119,37 @@ Alternatively the SqlBulkIdentityHelper may be initalized directly with the DB S
 
     ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(sqlBulkHelpersDbSchemaLoader);
 ```
+
+### Leverage the cached DB Schema info. (e.g. Helpful for Sanitizing Table Names, mitigating Sql injection, etc.)
+
+The `SqlBulkHelpersSchemaLoaderCache` may be utilized directly for advanced processing with the provided DB Schema
+with internal static caching already provided
+
+*NOTE: Currently the internal DB Schema caching assumes that there are no dynamic DB Schema changes without an application restart.*
+
+```csharp
+    public string GetSanitizedTableName(string tableNameToValidate)
+    {
+        //Your own implementation to retrieve your connection string or other mechanism for creating new Sql DB Connections...
+        //NOTE: The ConnectionString or DB Name make good Unique Identifiers to use.
+        var sqlConnectionString = this.GetConnectionStringFromConfiguration();
+    
+        //The use of the Sql Connection factory func constructor will ensure that there is no Sql Connection created
+        //  unless it is required; which is only for the initial load, and once loaded and cached then there is 
+        //  no overhead because no connection is needed.
+        var dbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(
+            sqlConnectionString, 
+            () => new SqlConnection(sqlConnectionString)
+        );
+
+        var tableDefinition = dbSchemaLoader.GetTableSchemaDefinition(tableNameToValidate);
+        if (tableDefinition == null)
+            throw new NullReferenceException($"The Table Definition is null and could not be found for the table name specified [{tableNameToValidate}].");
+
+        return tableDefinition.TableFullyQualifiedName;
+    }
+```
+
 
 ### Explicitly controlling Match Qualifiers for the internal Merge Action:
 
