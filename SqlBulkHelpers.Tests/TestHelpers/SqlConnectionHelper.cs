@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Configuration;
 using System.Runtime.InteropServices;
+using Microsoft.Data.SqlClient;
 
 namespace SqlBulkHelpers.Tests
 {
@@ -16,6 +17,13 @@ namespace SqlBulkHelpers.Tests
         public static ISqlBulkHelpersConnectionProvider GetConnectionProvider()
         {
             return new SqlBulkHelpersConnectionProvider(GetSqlConnectionString());
+        }
+        
+        public static SqlConnection NewConnection()
+        {
+            var sqlConn = new SqlConnection(GetSqlConnectionString());
+            sqlConn.Open();
+            return sqlConn;
         }
     }
 }

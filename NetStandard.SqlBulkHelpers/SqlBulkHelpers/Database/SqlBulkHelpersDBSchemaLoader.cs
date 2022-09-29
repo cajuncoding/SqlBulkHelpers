@@ -31,11 +31,12 @@ namespace SqlBulkHelpers
 		{
 			sqlConnectionProvider.AssertArgumentIsNotNull(nameof(sqlConnectionProvider));
 
+            //TODO: Critical Enhancement to improve and ensure that Exceptions are not Cached; enabling the code to re-attempt to load the cache until eventually a valid connection works and Cache then prevents reloading anymore!
 			//Safely initialize the Lazy<> loader for Table Definition Schemas.
-			//NOTE: We use a Lazy<> here so that our manual locking does as little work as possible and simply initializes the Lazy<> reference,
-			//          leaving the optimized locking for execution of the long-running logic to the underlying Lazy<> object to manage with
-			//          maximum efficiency
-			_tableDefinitionsLookupLazy = new Lazy<ILookup<string, SqlBulkHelpersTableDefinition>>(() =>
+            //NOTE: We use a Lazy<> here so that our manual locking does as little work as possible and simply initializes the Lazy<> reference,
+            //          leaving the optimized locking for execution of the long-running logic to the underlying Lazy<> object to manage with
+            //          maximum efficiency
+            _tableDefinitionsLookupLazy = new Lazy<ILookup<string, SqlBulkHelpersTableDefinition>>(() =>
 			{
 				var dbSchemaResults = LoadSqlBulkHelpersDBSchemaHelper(sqlConnectionProvider);
 				this.IsInitialized = true;

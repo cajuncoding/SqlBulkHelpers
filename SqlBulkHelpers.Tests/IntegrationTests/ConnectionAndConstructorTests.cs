@@ -61,7 +61,6 @@ namespace SqlBulkHelpers.IntegrationTests
         [TestMethod]
         public async Task TestBulkInsertConstructorWithExistingConnectionOnlyAsync()
         {
-
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
 
             using (var conn = await sqlConnectionProvider.NewConnectionAsync())

@@ -5,6 +5,9 @@ using Microsoft.Data.SqlClient;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Microsoft.IdentityModel.Tokens;
+using System.ComponentModel;
+using System.Transactions;
 
 namespace SqlBulkHelpers
 {
@@ -29,9 +32,10 @@ namespace SqlBulkHelpers
             //Validate arg is a Static Schema Loader...
             var sqlConnProvider = sqlConnectionProvider.AssertArgumentIsNotNull(nameof(sqlConnectionProvider));
 
+            //TODO: Critical Enhancement to improve and ensure that Exceptions are not Cached; enabling the code to re-attempt to load the cache until eventually a valid connection works and Cache then prevents reloading anymore!
             //Init cached version if it exists; which may already be initialized!
             var resultLoader = SchemaLoaderLazyCache.GetOrAdd(
-                sqlConnProvider.GetDbConnectionUniqueIdentifier(),
+            sqlConnProvider.GetDbConnectionUniqueIdentifier(),
                 new Lazy<SqlBulkHelpersDBSchemaLoader>(() => new SqlBulkHelpersDBSchemaLoader(sqlConnectionProvider))
             );
 
