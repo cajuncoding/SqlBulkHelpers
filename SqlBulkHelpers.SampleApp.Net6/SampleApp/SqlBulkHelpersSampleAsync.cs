@@ -98,7 +98,6 @@ namespace SqlBulkHelpersSample.ConsoleApp
                 tableCount = Convert.ToInt32(sqlCmd.ExecuteScalar());
             }
             Console.WriteLine($"[{tableCount}] Total Items in the Table Now!");
-            Console.ReadKey();
         }
     }
 }

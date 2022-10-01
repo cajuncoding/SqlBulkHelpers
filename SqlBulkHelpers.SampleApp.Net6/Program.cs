@@ -10,7 +10,7 @@ namespace SqlBulkHelpers.SampleApp.NetCore
         {
             try
             {
-                Console.WriteLine("Staring Sample .NetCore Console App process...");
+                Console.WriteLine("Starting Sample .NetCore Console App process...");
 
                 var sqlConnectionString = Environment.GetEnvironmentVariable(SqlBulkHelpersConnectionProvider.SqlConnectionStringConfigKey);
 

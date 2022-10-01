@@ -22,10 +22,10 @@ namespace SqlBulkHelpers.IntegrationTests
                 SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnectionProvider), //0
                 SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnectionProvider), //1
                 SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnectionProvider), //2
-                SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(new SqlBulkHelpersConnectionProvider( //3
+                SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader( //3
                     "SECOND_CONNECTION_TEST", 
                     () => new SqlConnection(SqlConnectionHelper.GetSqlConnectionString())
-                )),
+                ),
             };
 
             Assert.IsNotNull(schemaLoadersList[0]);
@@ -90,10 +90,8 @@ namespace SqlBulkHelpers.IntegrationTests
             string sqlConnectionString = SqlConnectionHelper.GetSqlConnectionString();
 
             var dbSchemaLoaderFromFactoryFunc = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(
-                new SqlBulkHelpersConnectionProvider(
                 $"SQL_CONNECTION_CUSTOM_CACHE_KEY::{Guid.NewGuid()}",
                 () => new SqlConnection(sqlConnectionString)
-                )
             );
 
             Assert.IsNotNull(dbSchemaLoaderFromFactoryFunc);
@@ -115,10 +113,8 @@ namespace SqlBulkHelpers.IntegrationTests
             using var sqlTrans = sqlConnInvalidWithTransaction.BeginTransaction();
 
             var dbSchemaLoaderFromFactoryFuncInvalid = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(
-                new SqlBulkHelpersConnectionProvider(
-                    $"SQL_INVALID_CONNECTION_CACHE_KEY::{Guid.NewGuid()}",
-                    () => sqlConnInvalidWithTransaction
-                )
+                $"SQL_INVALID_CONNECTION_CACHE_KEY::{Guid.NewGuid()}",
+                () => sqlConnInvalidWithTransaction
             );
 
             Assert.IsNotNull(dbSchemaLoaderFromFactoryFuncInvalid);

@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.30621.155
+# Visual Studio Version 17
+VisualStudioVersion = 17.4.32804.182
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlBulkHelpers.SampleApp", "SqlBulkHelpers.SampleApp\SqlBulkHelpers.SampleApp.csproj", "{1317662E-BDB5-4E83-BE8F-56DCB955141A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlBulkHelpers.SampleApp.NetFramework", "SqlBulkHelpers.SampleApp.NetFramework\SqlBulkHelpers.SampleApp.NetFramework.csproj", "{1317662E-BDB5-4E83-BE8F-56DCB955141A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlBulkHelpers.Tests", "SqlBulkHelpers.Tests\SqlBulkHelpers.Tests.csproj", "{C3E2E92C-2F0C-44C9-B2E5-3CF522534E34}"
 EndProject
@@ -11,7 +11,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotNetFramework.SqlBulkHelp
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NetStandard.SqlBulkHelpers", "NetStandard.SqlBulkHelpers\NetStandard.SqlBulkHelpers.csproj", "{0CABB737-46C2-460F-98FE-55D4871ED841}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlBulkHelpers.SampleApp.NetCore", "SqlBulkHelpers.SampleApp.NetCore\SqlBulkHelpers.SampleApp.NetCore.csproj", "{15F32C79-E50E-448B-A797-C759F73033EE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SqlBulkHelpers.SampleApp.Net6", "SqlBulkHelpers.SampleApp.Net6\SqlBulkHelpers.SampleApp.Net6.csproj", "{15F32C79-E50E-448B-A797-C759F73033EE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

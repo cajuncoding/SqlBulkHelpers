@@ -11,7 +11,7 @@ namespace SqlBulkHelpersSample.ConsoleApp
         {
             try
             {
-                Console.WriteLine("Staring Sample .Net Console App process...");
+                Console.WriteLine("Starting Sample .Net Console App process...");
 
                 var sqlConnectionString = ConfigurationManager.AppSettings[SqlBulkHelpersConnectionProvider.SqlConnectionStringConfigKey];
 
