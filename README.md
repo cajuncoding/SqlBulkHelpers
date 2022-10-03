@@ -26,7 +26,7 @@ To use in your project, add the [SqlBulkHelpers NuGet package](https://www.nuget
 ## v1.4 Release Notes:
 - Due to a documented issue in dependency resolution for netstandard20 projects, such as this, there may now be a dependency breaking issue for some projects that are using the older packages.config approach. You will need to either explicitly reference `LazyCacheLoaders` or update to use the go-forward approach of PackageReferences.
   - See this GitHub Issue from Microsoft for more details: https://github.com/dotnet/standard/issues/481
-- Add improved reliability now with use of `(LazyCacheHelpers)[https://github.com/cajuncoding/LazyCacheHelpers]` library for the in-memory caching of DB Schema Loaders.
+- Add improved reliability now with use of (`LazyCacheHelpers`)[https://github.com/cajuncoding/LazyCacheHelpers] library for the in-memory caching of DB Schema Loaders.
   - This now fixes an edge case issue where an Exception could be cached, re-thrown constantly, and re-initialization was ever attempted; exceptions are no longer cached.
 - Added support to now clear the DB Schema cache via SqlBulkHelpersSchemaLoaderCache.ClearCache() to enable dynamic re-initialization when needed (vs applicaiton restart).
 
