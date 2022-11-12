@@ -14,8 +14,8 @@ namespace SqlBulkHelpers.SampleApp.NetCore
 
                 var sqlConnectionString = Environment.GetEnvironmentVariable(SqlBulkHelpersConnectionProvider.SqlConnectionStringConfigKey);
 
-                await SqlBulkHelpersSampleAsync.RunBenchmarksAsync(sqlConnectionString);
-                //await SqlBulkHelpersSampleAsync.RunSampleAsync(sqlConnectionString);
+                await SqlBulkHelpersSampleAsync.RunSampleAsync(sqlConnectionString);
+                //await SqlBulkHelpersSampleAsync.RunBenchmarksAsync(sqlConnectionString);
 
                 Console.WriteLine("Process Finished Successfully (e.g. without Error)!");
                 Console.ReadKey();

@@ -4,40 +4,55 @@ using System.Data;
 using Microsoft.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
+using SqlBulkHelpers.SqlBulkHelpers.QueryProcessing;
 
 namespace SqlBulkHelpers
 {
-    public class SqlBulkIdentityHelper<T> : BaseSqlBulkHelper<T>, ISqlBulkHelper<T> where T : class
+    public class SqlBulkHelper<T> : BaseSqlBulkHelper<T>, ISqlBulkHelper<T> where T : class
     {
         #region Constructors
 
         /// <inheritdoc/>
-        public SqlBulkIdentityHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
+        public SqlBulkHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
             : base(sqlDbSchemaLoader, timeoutSeconds)
         {
         }
 
         /// <inheritdoc/>
-        public SqlBulkIdentityHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
+        public SqlBulkHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
             : base(sqlBulkHelpersConnectionProvider, timeoutSeconds)
         {
         }
 
         /// <inheritdoc/>
-        public SqlBulkIdentityHelper(SqlTransaction sqlTransaction, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
+        public SqlBulkHelper(SqlTransaction sqlTransaction, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
             : base(sqlTransaction, timeoutSeconds)
         {
         }
 
         /// <inheritdoc/>
-        public SqlBulkIdentityHelper(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
+        public SqlBulkHelper(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
             : base(sqlConnection, sqlTransaction, timeoutSeconds)
         {
         }
 
         #endregion
 
-        #region ISqlBulkHelper<T> implemenetations
+        #region ISqlBulkHelper<T> implementations
+        public virtual async Task<IEnumerable<T>> BulkInsertAsync(
+            IEnumerable<T> entityList,
+            SqlTransaction transaction,
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+        )
+        {
+            return await BulkInsertOrUpdateInternalAsync(
+                entityList,
+                SqlBulkHelpersMergeAction.Insert,
+                transaction,
+                matchQualifierExpression: matchQualifierExpression
+            ).ConfigureAwait(false);
+        }
+
         public virtual async Task<IEnumerable<T>> BulkInsertAsync(
             IEnumerable<T> entityList, 
             string tableName, 
@@ -45,13 +60,27 @@ namespace SqlBulkHelpers
             SqlMergeMatchQualifierExpression matchQualifierExpression = null
         )
         {
-            return await BulkInsertOrUpdateWithIdentityColumnAsync(
+            return await BulkInsertOrUpdateInternalAsync(
                 entityList,
-                tableName,
                 SqlBulkHelpersMergeAction.Insert,
                 transaction,
-                matchQualifierExpression
-            );
+                tableName: tableName,
+                matchQualifierExpression: matchQualifierExpression
+            ).ConfigureAwait(false);
+        }
+
+        public virtual async Task<IEnumerable<T>> BulkUpdateAsync(
+            IEnumerable<T> entityList,
+            SqlTransaction transaction,
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+        )
+        {
+            return await BulkInsertOrUpdateInternalAsync(
+                entityList,
+                SqlBulkHelpersMergeAction.Update,
+                transaction,
+                matchQualifierExpression: matchQualifierExpression
+            ).ConfigureAwait(false);
         }
 
         public virtual async Task<IEnumerable<T>> BulkUpdateAsync(
@@ -61,13 +90,27 @@ namespace SqlBulkHelpers
             SqlMergeMatchQualifierExpression matchQualifierExpression = null
         )
         {
-            return await BulkInsertOrUpdateWithIdentityColumnAsync(
+            return await BulkInsertOrUpdateInternalAsync(
                 entityList,
-                tableName,
                 SqlBulkHelpersMergeAction.Update,
                 transaction,
-                matchQualifierExpression
-            );
+                tableName: tableName,
+                matchQualifierExpression: matchQualifierExpression
+            ).ConfigureAwait(false);
+        }
+
+        public virtual async Task<IEnumerable<T>> BulkInsertOrUpdateAsync(
+            IEnumerable<T> entityList,
+            SqlTransaction transaction,
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+        )
+        {
+            return await BulkInsertOrUpdateInternalAsync(
+                entityList,
+                SqlBulkHelpersMergeAction.InsertOrUpdate,
+                transaction,
+                matchQualifierExpression: matchQualifierExpression
+            ).ConfigureAwait(false);
         }
 
         public virtual async Task<IEnumerable<T>> BulkInsertOrUpdateAsync(
@@ -77,14 +120,29 @@ namespace SqlBulkHelpers
             SqlMergeMatchQualifierExpression matchQualifierExpression = null
         )
         {
-            return await BulkInsertOrUpdateWithIdentityColumnAsync(
+            return await BulkInsertOrUpdateInternalAsync(
                 entityList, 
-                tableName, 
                 SqlBulkHelpersMergeAction.InsertOrUpdate, 
-                transaction, 
-                matchQualifierExpression
+                transaction,
+                tableName: tableName,
+                matchQualifierExpression: matchQualifierExpression
+            ).ConfigureAwait(false);
+        }
+
+        public virtual IEnumerable<T> BulkInsert(
+            IEnumerable<T> entityList,
+            SqlTransaction transaction,
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+        )
+        {
+            return BulkInsertOrUpdateInternal(
+                entityList,
+                SqlBulkHelpersMergeAction.Insert,
+                transaction,
+                matchQualifierExpression: matchQualifierExpression
             );
         }
+
 
         public virtual IEnumerable<T> BulkInsert(
             IEnumerable<T> entityList,
@@ -93,12 +151,26 @@ namespace SqlBulkHelpers
             SqlMergeMatchQualifierExpression matchQualifierExpression = null
         )
         {
-            return BulkInsertOrUpdateWithIdentityColumn(
+            return BulkInsertOrUpdateInternal(
                 entityList,
-                tableName,
                 SqlBulkHelpersMergeAction.Insert,
                 transaction,
-                matchQualifierExpression
+                tableName: tableName,
+                matchQualifierExpression: matchQualifierExpression
+            );
+        }
+
+        public virtual IEnumerable<T> BulkUpdate(
+            IEnumerable<T> entityList,
+            SqlTransaction transaction,
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+        )
+        {
+            return BulkInsertOrUpdateInternal(
+                entityList,
+                SqlBulkHelpersMergeAction.Update,
+                transaction,
+                matchQualifierExpression: matchQualifierExpression
             );
         }
 
@@ -109,12 +181,26 @@ namespace SqlBulkHelpers
             SqlMergeMatchQualifierExpression matchQualifierExpression = null
         )
         {
-            return BulkInsertOrUpdateWithIdentityColumn(
+            return BulkInsertOrUpdateInternal(
                 entityList,
-                tableName,
                 SqlBulkHelpersMergeAction.Update,
                 transaction,
-                matchQualifierExpression
+                tableName: tableName,
+                matchQualifierExpression: matchQualifierExpression
+            );
+        }
+
+        public virtual IEnumerable<T> BulkInsertOrUpdate(
+            IEnumerable<T> entityList,
+            SqlTransaction transaction,
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+        )
+        {
+            return BulkInsertOrUpdateInternal(
+                entityList,
+                SqlBulkHelpersMergeAction.InsertOrUpdate,
+                transaction,
+                matchQualifierExpression: matchQualifierExpression
             );
         }
 
@@ -125,12 +211,12 @@ namespace SqlBulkHelpers
             SqlMergeMatchQualifierExpression matchQualifierExpression = null
         )
         {
-            return BulkInsertOrUpdateWithIdentityColumn(
+            return BulkInsertOrUpdateInternal(
                 entityList, 
-                tableName, 
                 SqlBulkHelpersMergeAction.InsertOrUpdate, 
-                transaction, 
-                matchQualifierExpression
+                transaction,
+                tableName: tableName,
+                matchQualifierExpression: matchQualifierExpression
             );
         }
         #endregion
@@ -147,13 +233,12 @@ namespace SqlBulkHelpers
         /// <param name="mergeAction"></param>
         /// <param name="transaction"></param>
         /// <param name="matchQualifierExpression"></param>
-        /// <param name="timeoutSeconds"></param>
         /// <returns></returns>
-        protected virtual async Task<IEnumerable<T>> BulkInsertOrUpdateWithIdentityColumnAsync(
+        protected virtual async Task<IEnumerable<T>> BulkInsertOrUpdateInternalAsync(
             IEnumerable<T> entities, 
-            String tableName, 
             SqlBulkHelpersMergeAction mergeAction, 
             SqlTransaction transaction,
+            string tableName = null, //Optional / Nullable
             SqlMergeMatchQualifierExpression matchQualifierExpression = null
         )
         {
@@ -162,8 +247,8 @@ namespace SqlBulkHelpers
             var bulkOperationTimeoutSeconds = this.BulkOperationTimeoutSeconds;
 
             using (ProcessHelper processHelper = this.CreateProcessHelper(
-                entityList, tableName, mergeAction, transaction, bulkOperationTimeoutSeconds, matchQualifierExpression))
-            {
+                entityList, mergeAction, transaction, bulkOperationTimeoutSeconds, tableName, matchQualifierExpression)
+            ) {
                 var sqlCmd = processHelper.SqlCommand;
                 var sqlBulkCopy = processHelper.SqlBulkCopy;
                 var sqlScripts = processHelper.SqlMergeScripts;
@@ -171,12 +256,16 @@ namespace SqlBulkHelpers
                 //***STEP #4: Create Tables for Buffering Data & Storing Output values
                 //            NOTE: THIS Step is Unique for Async processing...
                 sqlCmd.CommandText = sqlScripts.SqlScriptToInitializeTempTables;
-                await sqlCmd.ExecuteNonQueryAsync();
+                await sqlCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
 
                 //***STEP #5: Write Data to the Staging/Buffer Table as fast as possible!
                 //            NOTE: THIS Step is Unique for Async processing...
+                //NOTE: The DataReader must be properly Disposed!
                 sqlBulkCopy.DestinationTableName = $"[{sqlScripts.TempStagingTableName}]";
-                await sqlBulkCopy.WriteToServerAsync(processHelper.DataTable);
+                using (var entityDataReader = processHelper.CreateEntityDataReader())
+                {
+                    await sqlBulkCopy.WriteToServerAsync(entityDataReader).ConfigureAwait(false);
+                }
 
                 //***STEP #6: Merge Data from the Staging Table into the Real Table
                 //            and simultaneously Output Identity Id values into Output Temp Table!
@@ -185,9 +274,9 @@ namespace SqlBulkHelpers
 
                 //Execute this script and load the results....
                 var mergeResultsList = new List<MergeResult>();
-                using (SqlDataReader sqlReader = await sqlCmd.ExecuteReaderAsync())
+                using (SqlDataReader sqlReader = await sqlCmd.ExecuteReaderAsync().ConfigureAwait(false))
                 {
-                    while (await sqlReader.ReadAsync())
+                    while (await sqlReader.ReadAsync().ConfigureAwait(false))
                     {
                         //So far all calls to SqlDataReader have been asynchronous, but since the data reader is in 
                         //non -sequential mode and ReadAsync was used, the column data should be read synchronously.
@@ -220,12 +309,13 @@ namespace SqlBulkHelpers
         /// <param name="tableName"></param>
         /// <param name="mergeAction"></param>
         /// <param name="transaction"></param>
+        /// <param name="matchQualifierExpression"></param>
         /// <returns></returns>
-        protected virtual IEnumerable<T> BulkInsertOrUpdateWithIdentityColumn(
+        protected virtual IEnumerable<T> BulkInsertOrUpdateInternal(
             IEnumerable<T> entities, 
-            String tableName, 
             SqlBulkHelpersMergeAction mergeAction, 
             SqlTransaction transaction,
+            string tableName = null,   //Optional/Nullable! 
             SqlMergeMatchQualifierExpression matchQualifierExpression = null
         )
         {
@@ -234,7 +324,7 @@ namespace SqlBulkHelpers
             var bulkOperationTimeoutSeconds = this.BulkOperationTimeoutSeconds;
 
             using (ProcessHelper processHelper = this.CreateProcessHelper(
-                entityList, tableName, mergeAction, transaction, bulkOperationTimeoutSeconds, matchQualifierExpression))
+                entityList, mergeAction, transaction, bulkOperationTimeoutSeconds, tableName, matchQualifierExpression))
             {
                 var sqlCmd = processHelper.SqlCommand;
                 var sqlBulkCopy = processHelper.SqlBulkCopy;
@@ -246,7 +336,10 @@ namespace SqlBulkHelpers
 
                 //***STEP #5: Write Data to the Staging/Buffer Table as fast as possible!
                 sqlBulkCopy.DestinationTableName = $"[{sqlScripts.TempStagingTableName}]";
-                sqlBulkCopy.WriteToServer(processHelper.DataTable);
+                using (var entityDataReader = processHelper.CreateEntityDataReader())
+                {
+                    sqlBulkCopy.WriteToServer(entityDataReader);
+                }
 
                 //***STEP #6: Merge Data from the Staging Table into the Real Table
                 //          and simultaneously Output Identity Id values into Output Temp Table!
@@ -281,13 +374,13 @@ namespace SqlBulkHelpers
 
         protected virtual MergeResult ReadCurrentMergeResultHelper(SqlDataReader sqlReader)
         {
-            //So far all calls to SqlDataReader have been asynchronous, but since the data reader is in 
-            //non -sequential mode and ReadAsync was used, the column data should be read synchronously.
+            //So-far all of the calls to SqlDataReader have been asynchronous, but since the data reader is in 
+            //non-sequential mode and ReadAsync was used, the column data should be read synchronously.
             var mergeResult = new MergeResult()
             {
                 RowNumber = sqlReader.GetInt32(0),
                 IdentityId = sqlReader.GetInt32(1),
-                MergeAction = SqlBulkHelpersMerge.ParseMergeActionString(sqlReader.GetString(2))
+                //MergeAction = SqlBulkHelpersMerge.ParseMergeActionString(sqlReader.GetString(2))
             };
             return mergeResult;
         }
@@ -295,42 +388,46 @@ namespace SqlBulkHelpers
         /// <summary>
         /// BBernard - Private process helper to wrap up and encapsulate the initialization logic that is shared across both Async and Sync methods...
         /// </summary>
-        /// <param name="entityList"></param>
-        /// <param name="tableName"></param>
+        /// <param name="entityData"></param>
         /// <param name="mergeAction"></param>
         /// <param name="transaction"></param>
         /// <param name="timeoutSeconds"></param>
+        /// <param name="tableNameOverride"></param>
         /// <param name="matchQualifierExpression"></param>
+        /// <param name="enableSqlBulkCopyTableLock"></param>
         /// <returns></returns>
         protected virtual ProcessHelper CreateProcessHelper(
-            List<T> entityList, 
-            String tableName, 
+            List<T> entityData, 
             SqlBulkHelpersMergeAction mergeAction, 
             SqlTransaction transaction,
             int timeoutSeconds,
-            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+            string tableNameOverride = null,
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null,
+            bool enableSqlBulkCopyTableLock = false
         )
         {
-            //***STEP #1: Load the Table Schema Definitions (cached after initial Load)!!!
+            //***STEP #1: Get the Processing Definition (cached after initial Load)!!!
+            var processingDefinition = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>();
+
+            //***STEP #2: Load the Table Schema Definitions (cached after initial Load)!!!
             //BBernard
             //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
             //      we eliminate risk of Sql Injection.
-            //NOTE: ALl other parameters are Strongly typed (vs raw Strings) thus eliminating risk of Sql Injection
-            SqlBulkHelpersTableDefinition tableDefinition = this.GetTableSchemaDefinition(tableName);
-
-            //***STEP #2: Dynamically Convert All Entities to a DataTable for consumption by the SqlBulkCopy class...
-            DataTable dataTable = this.ConvertEntitiesToDataTableHelper(entityList, tableDefinition.IdentityColumn);
+            //NOTE: All other parameters are Strongly typed (vs raw Strings) thus eliminating risk of Sql Injection
+            var tableName = !string.IsNullOrWhiteSpace(tableNameOverride) ? tableNameOverride : processingDefinition.MappedDbTableName;
+            var tableDefinition = this.GetTableSchemaDefinition(tableName);
 
             //***STEP #3: Build all of the Sql Scripts needed to Process the entities based on the specified Table definition.
-            SqlMergeScriptResults sqlScripts = this.BuildSqlMergeScriptsHelper(tableDefinition, mergeAction, matchQualifierExpression);
+            var sqlScripts = this.BuildSqlMergeScriptsHelper(tableDefinition, mergeAction, matchQualifierExpression);
 
             //***STEP #4: Dynamically Initialize the Bulk Copy Helper using our Table data and table Definition!
-            var sqlBulkCopyHelper = this.CreateSqlBulkCopyHelper(dataTable, tableDefinition, transaction, timeoutSeconds);
+            var sqlBulkCopyHelper = this.CreateSqlBulkCopyHelper(entityData, tableDefinition, processingDefinition, transaction, timeoutSeconds, enableSqlBulkCopyTableLock);
 
             return new ProcessHelper()
             {
                 TableDefinition = tableDefinition,
-                DataTable = dataTable,
+                ProcessingDefinition = processingDefinition,
+                EntityData = entityData,
                 SqlMergeScripts = sqlScripts,
                 SqlCommand = new SqlCommand(String.Empty, transaction.Connection, transaction)
                 {
@@ -346,10 +443,17 @@ namespace SqlBulkHelpers
         protected class ProcessHelper : IDisposable
         {
             public SqlBulkHelpersTableDefinition TableDefinition { get; set; }
-            public DataTable DataTable { get; set; }
+            public SqlBulkHelpersProcessingDefinition ProcessingDefinition { get; set; }
+            public List<T> EntityData { get; set; }
             public SqlMergeScriptResults SqlMergeScripts { get; set; }
             public SqlCommand SqlCommand { get; set; }
             public SqlBulkCopy SqlBulkCopy { get; set; }
+
+            public IDataReader CreateEntityDataReader()
+            {
+                var entityDataReader = new SqlBulkHelpersDataReader<T>(this.EntityData, this.ProcessingDefinition);
+                return entityDataReader;
+            }
 
             /// <summary>
             /// Implement IDisposable to ensure that we ALWAYS SAFELY CLEAN up our internal IDisposable resources.
@@ -357,8 +461,8 @@ namespace SqlBulkHelpers
             public void Dispose()
             {
                 //Always clean up DataTables (as they can be heavy on memory until Garbage collection runs)
-                (this.DataTable as IDisposable)?.Dispose();
-                this.DataTable = null;
+                (this.EntityData as IDisposable)?.Dispose();
+                this.EntityData = null;
 
                 //Always clean up Sql Connection/Command objects as they can hold onto precious resources...
                 (this.SqlCommand as IDisposable)?.Dispose();

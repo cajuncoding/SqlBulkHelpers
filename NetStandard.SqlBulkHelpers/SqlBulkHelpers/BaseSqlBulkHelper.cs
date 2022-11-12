@@ -5,6 +5,7 @@ using Microsoft.Data.SqlClient;
 using System.Linq;
 using System.Reflection;
 using SqlBulkHelpers.SqlBulkHelpers.Interfaces;
+using SqlBulkHelpers.SqlBulkHelpers.QueryProcessing;
 
 namespace SqlBulkHelpers
 {
@@ -92,30 +93,23 @@ namespace SqlBulkHelpers
             return tableDefinition;
         }
 
-        protected virtual DataTable ConvertEntitiesToDataTableHelper(
-            IEnumerable<T> entityList, 
-            SqlBulkHelpersColumnDefinition identityColumnDefinition = null
-        )
-        {
-            SqlBulkHelpersObjectMapper sqlBulkHelperModelMapper = new SqlBulkHelpersObjectMapper();
-            DataTable dataTable = sqlBulkHelperModelMapper.ConvertEntitiesToDataTable(entityList, identityColumnDefinition);
-            return dataTable;
-        }
-
         protected virtual SqlBulkCopy CreateSqlBulkCopyHelper(
-            DataTable dataTable, 
-            SqlBulkHelpersTableDefinition tableDefinition, 
+            List<T> entities,
+            SqlBulkHelpersTableDefinition tableDefinition,
+            SqlBulkHelpersProcessingDefinition processingDefinition,
             SqlTransaction transaction,
-            int timeoutSeconds
+            int timeoutSeconds,
+            bool enableBulkCopyTableLock
         )
         {
             //Initialize the BulkCopy Factory class with parameters...
             var factory = new SqlBulkCopyFactory()
             {
-                BulkCopyTimeoutSeconds = timeoutSeconds
+                BulkCopyTimeoutSeconds = timeoutSeconds,
+                BulkCopyOptions = enableBulkCopyTableLock ? SqlBulkCopyOptions.TableLock : SqlBulkCopyOptions.Default
             };
 
-            var sqlBulkCopy = factory.CreateSqlBulkCopy(dataTable, tableDefinition, transaction);
+            var sqlBulkCopy = factory.CreateSqlBulkCopy(entities, processingDefinition, tableDefinition, transaction);
             return sqlBulkCopy;
         }
 
@@ -142,7 +136,7 @@ namespace SqlBulkHelpers
         {
             public int RowNumber { get; set; }
             public int IdentityId { get; set; }
-            public SqlBulkHelpersMergeAction MergeAction { get; set; }
+            //public SqlBulkHelpersMergeAction MergeAction { get; set; }
         }
 
         protected virtual List<T> PostProcessEntitiesWithMergeResults(
@@ -160,8 +154,8 @@ namespace SqlBulkHelpers
             PropertyInfo identityPropInfo = null;
             if (!typeof(ISqlBulkHelperIdentitySetter).IsAssignableFrom(typeof(T)))
             {
-                var propDefs = SqlBulkHelpersObjectReflectionFactory.GetPropertyDefinitions<T>(identityColumnDefinition);
-                var identityPropDef = propDefs.FirstOrDefault(pi => pi.IsIdentityProperty);
+                var processingDefinition = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>(identityColumnDefinition);
+                var identityPropDef = processingDefinition.PropertyDefinitions.FirstOrDefault(pi => pi.IsIdentityProperty);
                 identityPropInfo = identityPropDef?.PropInfo;
 
                 //If there is no Identity Column (e.g. no Identity Column Definition and/or no PropInfo can be found)

@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SqlBulkHelpers
 {
@@ -17,10 +13,17 @@ namespace SqlBulkHelpers
 
     public class SqlBulkHelpersMerge
     {
-        public static SqlBulkHelpersMergeAction ParseMergeActionString(String actionString)
+        public static SqlBulkHelpersMergeAction ParseMergeActionString(string actionString)
         {
-            Enum.TryParse<SqlBulkHelpersMergeAction>(actionString, true, out var mergeAction);
-            return mergeAction;
+            switch (actionString.ToLower())
+            {
+                case "insertorupdate": return SqlBulkHelpersMergeAction.InsertOrUpdate;
+                case "insert": return SqlBulkHelpersMergeAction.Insert;
+                case "update": return SqlBulkHelpersMergeAction.Update;
+                case "delete": return SqlBulkHelpersMergeAction.Delete;
+                //Attempt an InsertOrUpdate by Default
+                default: return SqlBulkHelpersMergeAction.InsertOrUpdate;
+            }
         }
     }
 }

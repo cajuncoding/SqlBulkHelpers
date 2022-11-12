@@ -20,7 +20,7 @@ namespace SqlBulkHelpers.IntegrationTests
             using (var conn = await sqlConnectionProvider.NewConnectionAsync())
             using (SqlTransaction transaction = conn.BeginTransaction())
             {
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(sqlBulkDbSchemaLoader);
+                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(sqlBulkDbSchemaLoader);
 
                 await DoInsertOrUpdateTestAsync(sqlBulkIdentityHelper, transaction);
             }
@@ -38,7 +38,7 @@ namespace SqlBulkHelpers.IntegrationTests
                 //Connection + Transaction and immediately initialized
                 var sqlBulkDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(conn, transaction, true);
 
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(sqlBulkDbSchemaLoader);
+                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(sqlBulkDbSchemaLoader);
 
                 await DoInsertOrUpdateTestAsync(sqlBulkIdentityHelper, transaction);
             }
@@ -52,7 +52,7 @@ namespace SqlBulkHelpers.IntegrationTests
             using (var conn = await sqlConnectionProvider.NewConnectionAsync())
             using (SqlTransaction transaction = conn.BeginTransaction())
             {
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(sqlConnectionProvider);
+                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(sqlConnectionProvider);
 
                 await DoInsertOrUpdateTestAsync(sqlBulkIdentityHelper, transaction);
             }
@@ -68,7 +68,7 @@ namespace SqlBulkHelpers.IntegrationTests
                 //NOTE: IN THIS CASE we must initialize BEFORE the transaction is created or an error may occur
                 //          when initializing the DB Schema Definitions because we are intentionally not passing
                 //          in the Transaction to test this code flow.
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(conn);
+                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(conn);
 
                 using (SqlTransaction transaction = conn.BeginTransaction())
                 {
@@ -86,7 +86,7 @@ namespace SqlBulkHelpers.IntegrationTests
             using (var conn = await sqlConnectionProvider.NewConnectionAsync())
             using (SqlTransaction transaction = conn.BeginTransaction())
             {
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(conn, transaction);
+                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(conn, transaction);
 
                 await DoInsertOrUpdateTestAsync(sqlBulkIdentityHelper, transaction);
             }

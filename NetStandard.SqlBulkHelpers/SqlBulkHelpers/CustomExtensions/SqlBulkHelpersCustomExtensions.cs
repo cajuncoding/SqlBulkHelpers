@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace SqlBulkHelpers
 {
@@ -12,14 +13,18 @@ namespace SqlBulkHelpers
         }
 
         public static TValue GetValueOrDefault<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key)
-        {
-            TValue value;
-            return dictionary.TryGetValue(key, out value) ? value : default(TValue);
-        }
+            => dictionary.TryGetValue(key, out var value) ? value : default;
 
         public static String ToCSV(this IEnumerable<String> enumerableList)
-        {
-            return String.Join(", ", enumerableList);
-        }
+            => string.Join(", ", enumerableList);
+
+        public static bool HasAny<T>(this IEnumerable<T> items)
+            => items != null && items.Any();
+
+        public static bool IsNullOrEmpty<T>(this IEnumerable<T> items)
+            => !items.HasAny();
+
+        public static bool ContainsIgnoreCase(this IEnumerable<string> items, string valueToFind)
+            => items != null && items.Any(i => i.Equals(valueToFind, StringComparison.OrdinalIgnoreCase));
     }
 }

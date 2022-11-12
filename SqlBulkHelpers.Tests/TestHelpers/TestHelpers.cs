@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
+using RepoDb.Attributes;
 using SqlBulkHelpers.SqlBulkHelpers.Interfaces;
 
 namespace SqlBulkHelpers.Tests
@@ -43,9 +45,12 @@ namespace SqlBulkHelpers.Tests
         }
     }
 
+    [Table("TESTELEMENT")]
     public class TestElement
     {
+        [Map("ID")]
         public int Id { get; set; }
+        [Column("KEY")]
         public string Key { get; set; }
         public string Value { get; set; }
 
