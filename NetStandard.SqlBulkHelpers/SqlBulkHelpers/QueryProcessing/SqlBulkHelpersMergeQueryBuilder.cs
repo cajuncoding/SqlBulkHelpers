@@ -47,7 +47,7 @@ namespace SqlBulkHelpers
 
             //NOTE: This is ALL now completed very efficiently on the Sql Server Database side with
             //          NO unnecessary round trips to the Database!
-            var mergeInsertSql = String.Empty;
+            var mergeInsertSql = string.Empty;
             if (mergeAction.HasFlag(SqlBulkHelpersMergeAction.Insert))
             {
                 mergeInsertSql = $@"
@@ -57,7 +57,7 @@ namespace SqlBulkHelpers
                 ";
             }
 
-            var mergeUpdateSql = String.Empty;
+            var mergeUpdateSql = string.Empty;
             if (mergeAction.HasFlag(SqlBulkHelpersMergeAction.Update))
             {
                 mergeUpdateSql = $@"
@@ -75,7 +75,7 @@ namespace SqlBulkHelpers
             //NOTE: We MUST SORT the OUTPUT Results by ROWNUMBER and then by IDENTITY Column in case there are multiple matches due to
             //      custom match Qualifiers; this ensures that data is sorted in a way that postprocessing
             //      can occur & be validated as expected.
-            String sqlScriptToExecuteMergeProcess = $@"
+            string sqlScriptToExecuteMergeProcess = $@"
                 MERGE {tableDefinition.TableFullyQualifiedName} as target
 				USING (
 					SELECT TOP 100 PERCENT * 

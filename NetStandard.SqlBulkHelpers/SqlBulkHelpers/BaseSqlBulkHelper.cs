@@ -4,6 +4,7 @@ using System.Data;
 using Microsoft.Data.SqlClient;
 using System.Linq;
 using System.Reflection;
+using FastMember;
 using SqlBulkHelpers.SqlBulkHelpers.Interfaces;
 using SqlBulkHelpers.SqlBulkHelpers.QueryProcessing;
 
@@ -151,16 +152,19 @@ namespace SqlBulkHelpers
             //  directly on the models...
             //However, if the Generic Type doesn't implement our Interface ISqlBulkHelperIdentitySetter then
             //  we attempt to use Reflection to set the value...
-            PropertyInfo identityPropInfo = null;
-            if (!typeof(ISqlBulkHelperIdentitySetter).IsAssignableFrom(typeof(T)))
+            string identityPropertyName = null;
+
+            Type entityType = typeof(T);
+            TypeAccessor fastTypeAccessor = TypeAccessor.Create(entityType);
+
+            if (!typeof(ISqlBulkHelperIdentitySetter).IsAssignableFrom(entityType))
             {
                 var processingDefinition = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>(identityColumnDefinition);
                 var identityPropDef = processingDefinition.PropertyDefinitions.FirstOrDefault(pi => pi.IsIdentityProperty);
-                identityPropInfo = identityPropDef?.PropInfo;
+                identityPropertyName = identityPropDef?.PropertyName;
 
-                //If there is no Identity Column (e.g. no Identity Column Definition and/or no PropInfo can be found)
-                //  then we can short circuit.
-                if (identityPropInfo == null)
+                //If there is no Identity Column (e.g. no Identity Column Definition and/or no PropInfo can be found) then we can short circuit.
+                if (identityPropertyName == null)
                     return entityList;
             }
 
@@ -169,30 +173,10 @@ namespace SqlBulkHelpers
             ////Get all Items Inserted or Updated....
             //NOTE: With the support for Custom Match Qualifiers we really need to handle Inserts & Updates,
             //      so there's no reason to filter the merge results anymore; this is more performant.
-            var itemsInsertedOrUpdated = mergeResultsList;
-            //var itemsInsertedOrUpdated = mergeResultsList.Where(r =>
-            //    r.MergeAction.HasFlag(SqlBulkHelpersMergeAction.Insert) 
-            //    || r.MergeAction.HasFlag(SqlBulkHelpersMergeAction.Update)
-            //);
-
-            //BBernard this isn't needed since we updated the SQL Merge Script to sort correctly before returning
-            //  data.... but leaving it here for future reference in case it's needed.
-            //if (!uniqueMatchValidationEnabled)
-            //{
-            //    //BBernard - 12/08/2020
-            //    //If Unique Match validation is Disabled, we must take additional steps to properly synchronize with 
-            //    //  the risk of multiple update matches....
-            //    //NOTE: It is CRITICAL to sort by RowNumber & then by Identity value to handle edge cases where
-            //    //      special Match Qualifier Fields are specified that are non-unique and result in multiple update
-            //    //      matches; this ensures that at least correct data is matched/synced by the latest/last values ordered
-            //    //      Ascending, when the validation is disabled.
-            //    itemsInsertedOrUpdated = itemsInsertedOrUpdated.OrderBy(r => r.RowNumber).ThenBy(r => r.IdentityId);
-            //}
-
             var uniqueMatchesHashSet = new HashSet<int>();
 
             //foreach (var mergeResult in mergeResultsList.Where(r => r.MergeAction.HasFlag(SqlBulkHelpersMergeAction.Insert)))
-            foreach (var mergeResult in itemsInsertedOrUpdated)
+            foreach (var mergeResult in mergeResultsList)
             {
                 //ONLY Process uniqueness validation if necessary... otherwise skip the logic altogether.
                 if (uniqueMatchValidationEnabled)
@@ -203,8 +187,8 @@ namespace SqlBulkHelpers
                             nameof(mergeResultsList), 
                             "The bulk action has resulted in multiple matches for the the specified Match Qualifiers"
                             + $" [{sqlMatchQualifierExpression}] and the original Entities List cannot be safely updated."
-                            + "Verify that the Match Qualifier fields result in unique matches or, if intentional, then "
-                            + "this validation check may be disabled on the SqlMergeMatchQualifierExpression parameter."
+                            + " Verify that the Match Qualifier fields result in unique matches or, if intentional, then"
+                            + " this validation check may be disabled on the SqlMergeMatchQualifierExpression parameter."
                         );
                     }
                     else
@@ -225,8 +209,7 @@ namespace SqlBulkHelpers
                 else
                 {
                     //GENERICALLY Set the Identity Value to the Int value returned, this eliminates any dependency on a Base Class!
-                    //TODO: If needed we can optimize this with a Delegate for faster property access (vs pure Reflection).
-                    identityPropInfo?.SetValue(entity, mergeResult.IdentityId);
+                    fastTypeAccessor[entity, identityPropertyName] = mergeResult.IdentityId;
                 }
             }
 
