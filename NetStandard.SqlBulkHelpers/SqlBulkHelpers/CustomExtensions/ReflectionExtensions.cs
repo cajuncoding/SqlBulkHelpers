@@ -7,7 +7,7 @@ using Microsoft.IdentityModel.Protocols;
 
 namespace SqlBulkHelpers.SqlBulkHelpers.CustomExtensions
 {
-    public static class ReflectionExtensions
+    internal static class ReflectionExtensions
     {
         public static IEnumerable<Attribute> FindAttributes(this Type type, params string[] attributeNames)
         {
@@ -17,7 +17,6 @@ namespace SqlBulkHelpers.SqlBulkHelpers.CustomExtensions
             var attributes = type.GetCustomAttributes(true).OfType<Attribute>();
             return FindAttributes(attributes, attributeNames);
         }
-
 
         public static IEnumerable<Attribute> FindAttributes(this PropertyInfo propInfo, params string[] attributeNames)
         {

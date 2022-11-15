@@ -8,5 +8,7 @@ namespace SqlBulkHelpers
         ILookup<string, SqlBulkHelpersTableDefinition> GetTableSchemaDefinitionsLowercaseLookupFromLazyCache();
 
         SqlBulkHelpersTableDefinition GetTableSchemaDefinition(string tableName);
+
+        void Reload();
     }
 }

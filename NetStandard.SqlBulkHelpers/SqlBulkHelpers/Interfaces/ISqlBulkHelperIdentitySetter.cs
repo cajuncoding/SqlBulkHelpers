@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace SqlBulkHelpers.SqlBulkHelpers.Interfaces
+﻿namespace SqlBulkHelpers.Interfaces
 {
     public interface ISqlBulkHelperIdentitySetter
     {

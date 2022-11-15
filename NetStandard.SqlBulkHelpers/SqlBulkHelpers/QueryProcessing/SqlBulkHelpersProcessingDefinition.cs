@@ -5,9 +5,8 @@ using System.Linq;
 using System.Reflection;
 using SqlBulkHelpers.SqlBulkHelpers.CustomExtensions;
 using LazyCacheHelpers;
-using SqlBulkHelpers.SqlBulkHelpers.Attributes;
 
-namespace SqlBulkHelpers.SqlBulkHelpers.QueryProcessing
+namespace SqlBulkHelpers
 {
     internal static class MappingAttributeNames
     {

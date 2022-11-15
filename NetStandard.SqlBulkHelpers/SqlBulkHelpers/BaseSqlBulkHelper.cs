@@ -1,23 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data;
 using Microsoft.Data.SqlClient;
-using System.Linq;
-using System.Reflection;
 using FastMember;
-using SqlBulkHelpers.SqlBulkHelpers.Interfaces;
-using SqlBulkHelpers.SqlBulkHelpers.QueryProcessing;
+using SqlBulkHelpers.Interfaces;
 
 namespace SqlBulkHelpers
 {
     //BBernard - Base Class for future flexibility...
     public abstract class BaseSqlBulkHelper<T> where T: class
     {
-        public const int DefaultBulkOperationTimeoutSeconds = 30;
-
         public ISqlBulkHelpersDBSchemaLoader SqlDbSchemaLoader { get; protected set; }
 
-        public int BulkOperationTimeoutSeconds { get; set; }
+        public int BulkOperationPerBatchTimeoutSeconds { get; set; }
         
         #region Constructors
 
@@ -30,11 +24,11 @@ namespace SqlBulkHelpers
         ///         being managed for performance (e.g. is static in the consuming code logic).
         /// </summary>
         /// <param name="sqlDbSchemaLoader"></param>
-        /// <param name="timeoutSeconds"></param>
-        protected BaseSqlBulkHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
+        /// <param name="perBatchTimeoutSeconds"></param>
+        protected BaseSqlBulkHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader, int perBatchTimeoutSeconds = SqlBulkHelpersConstants.DefaultBulkOperationPerBatchTimeoutSeconds)
         {
             this.SqlDbSchemaLoader = sqlDbSchemaLoader;
-            this.BulkOperationTimeoutSeconds = timeoutSeconds;
+            this.BulkOperationPerBatchTimeoutSeconds = perBatchTimeoutSeconds;
         }
 
         /// <summary>
@@ -45,11 +39,11 @@ namespace SqlBulkHelpers
         ///         as an internally managed cached resource for performance.
         /// </summary>
         /// <param name="sqlBulkHelpersConnectionProvider"></param>
-        /// <param name="timeoutSeconds"></param>
-        protected BaseSqlBulkHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
+        /// <param name="perBatchTimeoutSeconds"></param>
+        protected BaseSqlBulkHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider, int perBatchTimeoutSeconds = SqlBulkHelpersConstants.DefaultBulkOperationPerBatchTimeoutSeconds)
         {
             this.SqlDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlBulkHelpersConnectionProvider);
-            this.BulkOperationTimeoutSeconds = timeoutSeconds;
+            this.BulkOperationPerBatchTimeoutSeconds = perBatchTimeoutSeconds;
         }
 
         /// <summary>
@@ -59,9 +53,9 @@ namespace SqlBulkHelpers
         ///         as an internally managed cached resource for performance.
         /// </summary>
         /// <param name="sqlTransaction"></param>
-        /// <param name="timeoutSeconds"></param>
-        protected BaseSqlBulkHelper(SqlTransaction sqlTransaction, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
-            : this(sqlTransaction?.Connection, sqlTransaction, timeoutSeconds)
+        /// <param name="perBatchTimeoutSeconds"></param>
+        protected BaseSqlBulkHelper(SqlTransaction sqlTransaction, int perBatchTimeoutSeconds = SqlBulkHelpersConstants.DefaultBulkOperationPerBatchTimeoutSeconds)
+            : this(sqlTransaction?.Connection, sqlTransaction, perBatchTimeoutSeconds)
         {
         }
 
@@ -73,13 +67,13 @@ namespace SqlBulkHelpers
         /// </summary>
         /// <param name="sqlConnection"></param>
         /// <param name="sqlTransaction"></param>
-        /// <param name="timeoutSeconds"></param>
-        protected BaseSqlBulkHelper(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null, int timeoutSeconds = DefaultBulkOperationTimeoutSeconds)
+        /// <param name="perBatchTimeoutSeconds"></param>
+        protected BaseSqlBulkHelper(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null, int perBatchTimeoutSeconds = SqlBulkHelpersConstants.DefaultBulkOperationPerBatchTimeoutSeconds)
         {
             //For safety since a Connection was passed in then we generally should immediately initialize the Schema Loader,
             //      because this connection or transaction may no longer be valid later.
             this.SqlDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnection, sqlTransaction, true);
-            this.BulkOperationTimeoutSeconds = timeoutSeconds;
+            this.BulkOperationPerBatchTimeoutSeconds = perBatchTimeoutSeconds;
         }
 
         #endregion
@@ -94,19 +88,19 @@ namespace SqlBulkHelpers
             return tableDefinition;
         }
 
-        protected virtual SqlBulkCopy CreateSqlBulkCopyHelper(
+        protected virtual SqlBulkCopy CreateSqlBulkCopyInternal(
             List<T> entities,
             SqlBulkHelpersTableDefinition tableDefinition,
             SqlBulkHelpersProcessingDefinition processingDefinition,
             SqlTransaction transaction,
-            int timeoutSeconds,
+            int perBatchTimeoutSeconds,
             bool enableBulkCopyTableLock
         )
         {
             //Initialize the BulkCopy Factory class with parameters...
             var factory = new SqlBulkCopyFactory()
             {
-                BulkCopyTimeoutSeconds = timeoutSeconds,
+                BulkCopyPerBatchTimeoutSeconds = perBatchTimeoutSeconds,
                 BulkCopyOptions = enableBulkCopyTableLock ? SqlBulkCopyOptions.TableLock : SqlBulkCopyOptions.Default
             };
 
@@ -114,7 +108,7 @@ namespace SqlBulkHelpers
             return sqlBulkCopy;
         }
 
-        protected virtual SqlMergeScriptResults BuildSqlMergeScriptsHelper(
+        protected virtual SqlMergeScriptResults BuildSqlMergeScriptsInternal(
             SqlBulkHelpersTableDefinition tableDefinition, 
             SqlBulkHelpersMergeAction mergeAction,
             SqlMergeMatchQualifierExpression matchQualifierExpression

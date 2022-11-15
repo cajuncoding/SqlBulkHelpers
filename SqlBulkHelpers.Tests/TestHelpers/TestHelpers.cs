@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using RepoDb.Attributes;
-using SqlBulkHelpers.SqlBulkHelpers.Attributes;
-using SqlBulkHelpers.SqlBulkHelpers.Interfaces;
+using SqlBulkHelpers.Interfaces;
 
 namespace SqlBulkHelpers.Tests
 {

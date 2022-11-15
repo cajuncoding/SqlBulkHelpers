@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace SqlBulkHelpers.SqlBulkHelpers.Attributes
+namespace SqlBulkHelpers
 {
     [AttributeUsage(AttributeTargets.Class, Inherited = true, AllowMultiple = false)]
     public class SqlBulkTableAttribute : Attribute

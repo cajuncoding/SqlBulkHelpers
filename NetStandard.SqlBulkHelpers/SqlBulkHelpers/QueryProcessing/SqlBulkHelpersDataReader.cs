@@ -4,7 +4,7 @@ using System.Data;
 using System.Linq;
 using FastMember;
 
-namespace SqlBulkHelpers.SqlBulkHelpers.QueryProcessing
+namespace SqlBulkHelpers
 {
     internal sealed class SqlBulkHelpersDataReader<T> : IDataReader, IDisposable
     {

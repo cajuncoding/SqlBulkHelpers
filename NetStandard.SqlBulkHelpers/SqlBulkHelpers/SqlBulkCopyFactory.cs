@@ -1,14 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using Microsoft.Data.SqlClient;
-using SqlBulkHelpers.SqlBulkHelpers.QueryProcessing;
 
 namespace SqlBulkHelpers
 {
     public class SqlBulkCopyFactory
     {
         public virtual int BulkCopyBatchSize { get; set; } = 2000; //General guidance is that 2000-5000 is efficient enough.
-        public virtual int BulkCopyTimeoutSeconds { get; set; } = 60; //Default is only 30 seconds, but we can wait a bit longer if needed.
+        public virtual int BulkCopyPerBatchTimeoutSeconds { get; set; } = SqlBulkHelpersConstants.DefaultBulkOperationPerBatchTimeoutSeconds; //Microsoft's Default is only 30 seconds, but we intentionally wait a bit longer in case it is needed.
 
         public virtual SqlBulkCopyOptions BulkCopyOptions { get; set; } = SqlBulkCopyOptions.Default;
 
@@ -22,7 +21,7 @@ namespace SqlBulkHelpers
             {
                 //Always initialize a Batch size & Timeout
                 BatchSize = this.BulkCopyBatchSize, 
-                BulkCopyTimeout = this.BulkCopyTimeoutSeconds
+                BulkCopyTimeout = this.BulkCopyPerBatchTimeoutSeconds,
             };
 
             //First initialize the Column Mappings for the SqlBulkCopy

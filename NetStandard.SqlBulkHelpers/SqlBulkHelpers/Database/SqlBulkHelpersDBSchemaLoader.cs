@@ -40,7 +40,7 @@ namespace SqlBulkHelpers
             ResetSchemaLoaderLazyCache();
         }
 
-        private void ResetSchemaLoaderLazyCache()
+        protected void ResetSchemaLoaderLazyCache()
         {
             _tableDefinitionsLowercaseLookupLazy = new Lazy<ILookup<string, SqlBulkHelpersTableDefinition>>(() =>
             {
@@ -49,6 +49,12 @@ namespace SqlBulkHelpers
 
                 return dbSchemaResults;
             });
+        }
+
+        public virtual void Reload()
+        {
+			//To reload, we just need to reset the Cache and it will re-initialize!
+			ResetSchemaLoaderLazyCache();
         }
 
         public virtual ILookup<string, SqlBulkHelpersTableDefinition> GetTableSchemaDefinitionsLowercaseLookupFromLazyCache()
@@ -73,7 +79,7 @@ namespace SqlBulkHelpers
         /// Add all table and their columns from the database into the dictionary in a fully Thread Safe manner using
         /// the Static Constructor!
         /// </summary>
-        private ILookup<string, SqlBulkHelpersTableDefinition> LoadSqlBulkHelpersDBSchemaHelper(ISqlBulkHelpersConnectionProvider sqlConnectionProvider)
+        private static ILookup<string, SqlBulkHelpersTableDefinition> LoadSqlBulkHelpersDBSchemaHelper(ISqlBulkHelpersConnectionProvider sqlConnectionProvider)
 		{
 			var tableSchemaSql = @"
 				SELECT 
