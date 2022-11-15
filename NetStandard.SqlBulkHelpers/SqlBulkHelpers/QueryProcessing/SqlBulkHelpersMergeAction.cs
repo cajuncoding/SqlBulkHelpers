@@ -15,7 +15,7 @@ namespace SqlBulkHelpers
     {
         public static SqlBulkHelpersMergeAction ParseMergeActionString(string actionString)
         {
-            switch (actionString.ToLower())
+            switch (actionString.ToLowerInvariant())
             {
                 case "insertorupdate": return SqlBulkHelpersMergeAction.InsertOrUpdate;
                 case "insert": return SqlBulkHelpersMergeAction.Insert;

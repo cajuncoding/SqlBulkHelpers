@@ -68,7 +68,7 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="IntegrationTests\BulkInsertOrUpdate.cs" />
+    <Compile Include="IntegrationTests\BulkInsertOrUpdateTests.cs" />
     <Compile Include="IntegrationTests\SchemaLoaderCacheTests.cs" />
     <Compile Include="IntegrationTests\ConnectionAndConstructorTests.cs" />
     <Compile Include="IntegrationTests\BulkInsertTests.cs" />

@@ -48,9 +48,7 @@ namespace SqlBulkHelpers.Tests
     [Table("TESTELEMENT")]
     public class TestElement
     {
-        [Map("ID")]
         public int Id { get; set; }
-        [Column("KEY")]
         public string Key { get; set; }
         public string Value { get; set; }
 
@@ -59,6 +57,21 @@ namespace SqlBulkHelpers.Tests
             return $"Id=[{Id}], Key=[{Key}]";
         }
     }
+
+    public class TestElementMappedNames
+    {
+        [Map("Id")]
+        public int MyId { get; set; }
+        [Column("Key")]
+        public string MyKey { get; set; }
+        public string Value { get; set; }
+
+        public override string ToString()
+        {
+            return $"Id=[{MyId}], Key=[{MyKey}]";
+        }
+    }
+
 
     public class TestElementWithIdentitySetter : TestElement, ISqlBulkHelperIdentitySetter
     {

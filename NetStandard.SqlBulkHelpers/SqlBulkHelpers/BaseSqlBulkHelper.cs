@@ -114,7 +114,6 @@ namespace SqlBulkHelpers
             return sqlBulkCopy;
         }
 
-        //TODO: BBernard - If beneficial, we can Add Caching here at this point to cache the fully formed Merge Queries!
         protected virtual SqlMergeScriptResults BuildSqlMergeScriptsHelper(
             SqlBulkHelpersTableDefinition tableDefinition, 
             SqlBulkHelpersMergeAction mergeAction,
@@ -147,6 +146,17 @@ namespace SqlBulkHelpers
             SqlMergeMatchQualifierExpression sqlMatchQualifierExpression
         )
         {
+            entityList.AssertArgumentIsNotNull(nameof(entityList));
+            mergeResultsList.AssertArgumentIsNotNull(nameof(mergeResultsList));
+
+            bool uniqueMatchValidationEnabled = sqlMatchQualifierExpression.AssertArgumentIsNotNull(nameof(sqlMatchQualifierExpression)).ThrowExceptionIfNonUniqueMatchesOccur;
+            bool hasIdentityColumn = identityColumnDefinition != null;
+
+            //If there was no Identity Column or the validation of Unique Merge actions was disabled then we can
+            //  short circuit the post-processing of results as there is nothing to do...
+            if (!hasIdentityColumn || !uniqueMatchValidationEnabled)
+                return entityList;
+
             //BBernard - 12/01/2021
             //Added Optimization to support interface based Identity Setter which may be optionally implemented
             //  directly on the models...
@@ -167,8 +177,6 @@ namespace SqlBulkHelpers
                 if (identityPropertyName == null)
                     return entityList;
             }
-
-            bool uniqueMatchValidationEnabled = sqlMatchQualifierExpression?.ThrowExceptionIfNonUniqueMatchesOccur == true;
 
             ////Get all Items Inserted or Updated....
             //NOTE: With the support for Custom Match Qualifiers we really need to handle Inserts & Updates,
@@ -197,19 +205,23 @@ namespace SqlBulkHelpers
                     }
                 }
 
-                //NOTE: List is 0 (zero) based, but our RowNumber is 1 (one) based.
-                var entity = entityList[mergeResult.RowNumber - 1];
-                
-                //BBernard
-                //If the entity supports our interface we can set the value with native performance via the Interface!
-                if (entity is ISqlBulkHelperIdentitySetter identitySetterEntity)
+                //ONLY Process Identity value updates if appropriate... otherwise skip the logic altogether.
+                if (hasIdentityColumn)
                 {
-                    identitySetterEntity.SetIdentityId(mergeResult.IdentityId);
-                }
-                else
-                {
-                    //GENERICALLY Set the Identity Value to the Int value returned, this eliminates any dependency on a Base Class!
-                    fastTypeAccessor[entity, identityPropertyName] = mergeResult.IdentityId;
+                    //NOTE: List is 0 (zero) based, but our RowNumber is 1 (one) based.
+                    var entity = entityList[mergeResult.RowNumber - 1];
+
+                    //BBernard
+                    //If the entity supports our interface we can set the value with native performance via the Interface!
+                    if (entity is ISqlBulkHelperIdentitySetter identitySetterEntity)
+                    {
+                        identitySetterEntity.SetIdentityId(mergeResult.IdentityId);
+                    }
+                    else
+                    {
+                        //GENERICALLY Set the Identity Value to the Int value returned, this eliminates any dependency on a Base Class!
+                        fastTypeAccessor[entity, identityPropertyName] = mergeResult.IdentityId;
+                    }
                 }
             }
 

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace SqlBulkHelpers
 {
@@ -38,17 +37,18 @@ namespace SqlBulkHelpers
         {
         }
 
-        public SqlMergeMatchQualifierExpression(List<string> fieldNames)
+        public SqlMergeMatchQualifierExpression(IEnumerable<string> fieldNames)
             : this(fieldNames?.Select(n => new SqlMatchQualifierField(n)).ToList())
         {
         }
 
-        public SqlMergeMatchQualifierExpression(List<SqlMatchQualifierField> fieldsList)
+        public SqlMergeMatchQualifierExpression(IEnumerable<SqlMatchQualifierField> fields)
         {
-            if (fieldsList == null || !fieldsList.Any())
+            var fieldsList = fields?.ToList();
+            if (fieldsList.IsNullOrEmpty())
                 throw new ArgumentException(nameof(fieldsList));
 
-            MatchQualifierFields = fieldsList?.ToList();
+            MatchQualifierFields = fieldsList;
         }
 
         public List<SqlMatchQualifierField> MatchQualifierFields { get; }

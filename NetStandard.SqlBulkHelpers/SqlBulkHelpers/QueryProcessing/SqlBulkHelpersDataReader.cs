@@ -1,26 +1,37 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Linq;
 using FastMember;
 
 namespace SqlBulkHelpers.SqlBulkHelpers.QueryProcessing
 {
     internal sealed class SqlBulkHelpersDataReader<T> : IDataReader, IDisposable
     {
-        private readonly SqlBulkHelpersProcessingDefinition _processingDefinition;
+        private readonly PropInfoDefinition[] _processingFields;
         private readonly TypeAccessor _fastTypeAccessor = TypeAccessor.Create(typeof(T));
-        private readonly int _rowNumberColumnOrdinal;
-
+        private readonly int _rowNumberPseudoColumnOrdinal;
+        
         private IEnumerator<T> _dataEnumerator;
         private Dictionary<string, int> _processingDefinitionOrdinalDictionary;
         private int _entityCounter = 0;
 
-        public SqlBulkHelpersDataReader(IEnumerable<T> entityData, SqlBulkHelpersProcessingDefinition processingDefinition)
+        public SqlBulkHelpersDataReader(IEnumerable<T> entityData, SqlBulkHelpersProcessingDefinition processingDefinition, SqlBulkHelpersTableDefinition tableDefinition)
         {
             // ReSharper disable once PossibleMultipleEnumeration
             _dataEnumerator = entityData.AssertArgumentIsNotNull(nameof(entityData)).GetEnumerator();
-            _processingDefinition = processingDefinition.AssertArgumentIsNotNull(nameof(processingDefinition));
-            _rowNumberColumnOrdinal = _processingDefinition.PropertyDefinitions.Length;
+            
+            processingDefinition.AssertArgumentIsNotNull(nameof(processingDefinition));
+            tableDefinition.AssertArgumentIsNotNull(nameof(tableDefinition));
+
+            _processingFields = processingDefinition.PropertyDefinitions.Where(
+                p => tableDefinition.FindColumnCaseInsensitive(p.MappedDbFieldName) != null
+            ).ToArray();
+
+            _rowNumberPseudoColumnOrdinal = _processingFields.Length;
+
+            //Must ensure we include all Entity data fields as well as the Row Number pseudo-Column...
+            this.FieldCount = _processingFields.Length + 1;
         }
 
         #region IDataReader Members (Minimal methods to be Implemented as required by SqlBulkCopy)
@@ -45,12 +56,12 @@ namespace SqlBulkHelpers.SqlBulkHelpers.QueryProcessing
                 //Populate our Property Ordinal reverse lookup dictionary...
                 int i = 0;
                 _processingDefinitionOrdinalDictionary = new Dictionary<string, int>();
-                foreach (var propDef in _processingDefinition.PropertyDefinitions)
+                foreach (var propDef in _processingFields)
                     _processingDefinitionOrdinalDictionary[propDef.PropertyName] = i++;
             }
 
             if (SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME.Equals(name))
-                return _rowNumberColumnOrdinal;
+                return _rowNumberPseudoColumnOrdinal;
             else if (_processingDefinitionOrdinalDictionary.TryGetValue(name, out var ordinalIndex))
                 return ordinalIndex;
 
@@ -63,23 +74,22 @@ namespace SqlBulkHelpers.SqlBulkHelpers.QueryProcessing
                 throw new ObjectDisposedException(GetType().Name);
 
             //Handle RowNumber Pseudo Column...
-            if (i == _rowNumberColumnOrdinal)
+            if (i == _rowNumberPseudoColumnOrdinal)
                 return _entityCounter;
 
-            var propDef = _processingDefinition.PropertyDefinitions[i];
-            var propertyValue = _fastTypeAccessor[_dataEnumerator.Current, propDef.PropertyName];
+            //Otherwise retrieve from our Entity Data model...
+            var fieldDefinition = _processingFields[i];
+            var fieldValue = _fastTypeAccessor[_dataEnumerator.Current, fieldDefinition.PropertyName];
             
             //Handle special edge cases to ensure that invalid identity values are mapped to unique invalid values.
-            if (propDef.IsIdentityProperty && (int)propertyValue <= 0)
-            {
-                //Create a Unique but Invalid Fake Identity Id (e.g. negative number)!
-                propertyValue = _entityCounter * -1;
-            }
+            if (fieldDefinition.IsIdentityProperty && (int)fieldValue <= 0)
+                return _entityCounter * -1;
 
-            return propertyValue;
+            return fieldValue;
         }
 
-        public int FieldCount => _processingDefinition.PropertyDefinitions.Length;
+        //Must ensure we include all Entity data fields as well as the Row Number pseudo-Column...
+        public int FieldCount { get; }
 
         public void Close() => Dispose();
         public bool NextResult() => false;
@@ -107,7 +117,7 @@ namespace SqlBulkHelpers.SqlBulkHelpers.QueryProcessing
 
         public int RecordsAffected => -1;
 
-        protected TValue ThrowNotImplementedException<TValue>() => throw new NotImplementedException();
+        private static TValue ThrowNotImplementedException<TValue>() => throw new NotImplementedException();
 
         public DataTable GetSchemaTable() => ThrowNotImplementedException<DataTable>();
 

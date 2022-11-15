@@ -38,7 +38,7 @@ namespace SqlBulkHelpers.IntegrationTests
             Assert.AreEqual(schemaLoadersList[0], schemaLoadersList[2]);
             Assert.AreNotEqual(schemaLoadersList[2], schemaLoadersList[3]);
 
-            schemaLoadersList[1].InitializeSchemaDefinitions();
+            schemaLoadersList[1].GetTableSchemaDefinitionsLowercaseLookupFromLazyCache();
             Assert.IsTrue(((SqlBulkHelpersDBSchemaLoader)schemaLoadersList[0]).IsInitialized);
             Assert.IsTrue(((SqlBulkHelpersDBSchemaLoader)schemaLoadersList[1]).IsInitialized);
             Assert.IsTrue(((SqlBulkHelpersDBSchemaLoader)schemaLoadersList[2]).IsInitialized);
@@ -97,7 +97,7 @@ namespace SqlBulkHelpers.IntegrationTests
             Assert.IsNotNull(dbSchemaLoaderFromFactoryFunc);
             Assert.IsFalse(((SqlBulkHelpersDBSchemaLoader)dbSchemaLoaderFromFactoryFunc).IsInitialized);
 
-            var tableDefinitions = dbSchemaLoaderFromFactoryFunc.InitializeSchemaDefinitions();
+            var tableDefinitions = dbSchemaLoaderFromFactoryFunc.GetTableSchemaDefinitionsLowercaseLookupFromLazyCache();
             Assert.IsTrue(((SqlBulkHelpersDBSchemaLoader)dbSchemaLoaderFromFactoryFunc).IsInitialized);
             Assert.IsTrue(tableDefinitions.Count > 0);
         }
@@ -128,7 +128,7 @@ namespace SqlBulkHelpers.IntegrationTests
                 try
                 {
                     //Initial Call should result in SQL Exception due to Pending Transaction...
-                    var tableDefinitions = dbSchemaLoaderFromFactoryFuncInvalid.InitializeSchemaDefinitions();
+                    var tableDefinitions = dbSchemaLoaderFromFactoryFuncInvalid.GetTableSchemaDefinitionsLowercaseLookupFromLazyCache();
                     Assert.IsTrue(((SqlBulkHelpersDBSchemaLoader)dbSchemaLoaderFromFactoryFuncInvalid).IsInitialized);
                     Assert.IsTrue(tableDefinitions.Count > 0);
                 }
@@ -159,7 +159,7 @@ namespace SqlBulkHelpers.IntegrationTests
             );
 
             //Initial Call should result in SQL Exception due to Pending Transaction...
-            var tableDefinitionsSuccessful = dbSchemaLoaderFromFactoryFuncOk.InitializeSchemaDefinitions();
+            var tableDefinitionsSuccessful = dbSchemaLoaderFromFactoryFuncOk.GetTableSchemaDefinitionsLowercaseLookupFromLazyCache();
             Assert.IsTrue(((SqlBulkHelpersDBSchemaLoader)dbSchemaLoaderFromFactoryFuncOk).IsInitialized);
             Assert.IsTrue(tableDefinitionsSuccessful.Count > 0);
         }

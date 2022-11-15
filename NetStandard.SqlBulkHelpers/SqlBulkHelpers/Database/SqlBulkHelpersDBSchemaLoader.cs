@@ -20,37 +20,60 @@ namespace SqlBulkHelpers
 	/// </summary>
 	public class SqlBulkHelpersDBSchemaLoader : ISqlBulkHelpersDBSchemaLoader
 	{
-		private readonly Lazy<ILookup<string, SqlBulkHelpersTableDefinition>> _tableDefinitionsLookupLazy;
+		private Lazy<ILookup<string, SqlBulkHelpersTableDefinition>> _tableDefinitionsLowercaseLookupLazy;
+        private readonly ISqlBulkHelpersConnectionProvider _sqlConnectionProvider;
 
-		/// <summary>
-		/// Flag denoting if the Schema has been initialized/loaded yet; it is Lazy initialized on demand.
-		/// </summary>
-		public bool IsInitialized { get; protected set; } = false;
+        /// <summary>
+        /// Flag denoting if the Schema has been initialized/loaded yet; it is Lazy initialized on demand.
+        /// </summary>
+        public bool IsInitialized { get; protected set; } = false;
 		
 		public SqlBulkHelpersDBSchemaLoader(ISqlBulkHelpersConnectionProvider sqlConnectionProvider)
 		{
-			sqlConnectionProvider.AssertArgumentIsNotNull(nameof(sqlConnectionProvider));
+			_sqlConnectionProvider = sqlConnectionProvider.AssertArgumentIsNotNull(nameof(sqlConnectionProvider));
 
             //TODO: Critical Enhancement to improve and ensure that Exceptions are not Cached; enabling the code to re-attempt to load the cache until eventually a valid connection works and Cache then prevents reloading anymore!
-			//Safely initialize the Lazy<> loader for Table Definition Schemas.
+            //Safely initialize the Lazy<> loader for Table Definition Schemas.
             //NOTE: We use a Lazy<> here so that our manual locking does as little work as possible and simply initializes the Lazy<> reference,
             //          leaving the optimized locking for execution of the long-running logic to the underlying Lazy<> object to manage with
             //          maximum efficiency
-            _tableDefinitionsLookupLazy = new Lazy<ILookup<string, SqlBulkHelpersTableDefinition>>(() =>
-			{
-				var dbSchemaResults = LoadSqlBulkHelpersDBSchemaHelper(sqlConnectionProvider);
-				this.IsInitialized = true;
+            ResetSchemaLoaderLazyCache();
+        }
 
-				return dbSchemaResults;
-			});
-		}
+        private void ResetSchemaLoaderLazyCache()
+        {
+            _tableDefinitionsLowercaseLookupLazy = new Lazy<ILookup<string, SqlBulkHelpersTableDefinition>>(() =>
+            {
+                var dbSchemaResults = LoadSqlBulkHelpersDBSchemaHelper(_sqlConnectionProvider);
+                this.IsInitialized = true;
 
-		/// <summary>
-		/// BBernard
-		/// Add all table and their columns from the database into the dictionary in a fully Thread Safe manner using
-		/// the Static Constructor!
-		/// </summary>
-		private ILookup<string, SqlBulkHelpersTableDefinition> LoadSqlBulkHelpersDBSchemaHelper(ISqlBulkHelpersConnectionProvider sqlConnectionProvider)
+                return dbSchemaResults;
+            });
+        }
+
+        public virtual ILookup<string, SqlBulkHelpersTableDefinition> GetTableSchemaDefinitionsLowercaseLookupFromLazyCache()
+        {
+            try
+            {
+                //This will safely lazy load the Schema, if not already, in a Thread-safe manner by using the power of Lazy<>!
+                var tableSchemaLowercaseLookup = _tableDefinitionsLowercaseLookupLazy.Value;
+                return tableSchemaLowercaseLookup;
+            }
+            catch
+            {
+                //If an Exception occurs then there may have been a DB connection issue, etc. so we do not want to Cache the Exception
+                //	for the rest of the apps lifetime, instead we re-attempt next request, and then re-throw the exception to be handled!
+                ResetSchemaLoaderLazyCache();
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// BBernard
+        /// Add all table and their columns from the database into the dictionary in a fully Thread Safe manner using
+        /// the Static Constructor!
+        /// </summary>
+        private ILookup<string, SqlBulkHelpersTableDefinition> LoadSqlBulkHelpersDBSchemaHelper(ISqlBulkHelpersConnectionProvider sqlConnectionProvider)
 		{
 			var tableSchemaSql = @"
 				SELECT 
@@ -95,10 +118,10 @@ namespace SqlBulkHelpers
 
 					//Dynamically convert to a Lookup for immutable cache of data.
 					//NOTE: Lookup is immutable (vs Dictionary which is not) and performance for lookups is just as fast.
-					var tableDefinitionsLookup = tableDefinitionsList.Where(t => t != null).ToLookup(
+					var tableDefinitionsLowercaseLookup = tableDefinitionsList.Where(t => t != null).ToLookup(
 						t => $"{t.TableFullyQualifiedName.ToLowerInvariant()}"
 					);
-					return tableDefinitionsLookup;
+					return tableDefinitionsLowercaseLookup;
 				}
 			}
 			finally
@@ -112,44 +135,17 @@ namespace SqlBulkHelpers
 			}
 		}
 
-		public virtual ILookup<string, SqlBulkHelpersTableDefinition> InitializeSchemaDefinitions()
-		{
-			//This will safely lazy load teh Schema, if not already, in a Thread-safe manner by using the power of Lazy<>!
-			var schemaLookup = _tableDefinitionsLookupLazy.Value;
-			return schemaLookup;
-		}
-
 		public virtual SqlBulkHelpersTableDefinition GetTableSchemaDefinition(string tableName)
 		{
 			if (string.IsNullOrWhiteSpace(tableName)) return null;
 
 			//This will safely lazy load teh Schema, if not already, in a Thread-safe manner by using the power of Lazy<>!
-			var schemaLookup = InitializeSchemaDefinitions();
+			var tableSchemaLowercaseLookup = GetTableSchemaDefinitionsLowercaseLookupFromLazyCache();
 
 			//First Try a Direct Lookup and return if found...
-			var parsedTableName = ParseTableFullyQualifiedName(tableName);
-			var tableDefinition = schemaLookup[parsedTableName]?.FirstOrDefault();
+			var parsedTableName = tableName.ParseAsTableNameTerm();
+			var tableDefinition = tableSchemaLowercaseLookup[parsedTableName.FullyQualifiedTableName.ToLowerInvariant()]?.FirstOrDefault();
 			return tableDefinition;
-		}
-
-		private string ParseTableFullyQualifiedName(string tableName)
-		{
-			var loweredTableName = tableName.ToLowerInvariant();
-
-			//Second Try Parsing the Table & Schema name a Direct Lookup and return if found...
-			var terms = loweredTableName.Split('.');
-			switch (terms.Length)
-			{
-				//Split will always return an array with at least 1 element
-				case 1: return $"[dbo].[{TrimTableNameTerm(terms[0])}]";
-				default: return $"[{TrimTableNameTerm(terms[0])}].[{TrimTableNameTerm(terms[1])}]";
-			}
-		}
-
-		private string TrimTableNameTerm(string term)
-		{
-			var trimmedTerm = term.Trim('[', ']', ' ');
-			return trimmedTerm;
 		}
 	}
 }

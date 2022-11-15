@@ -82,7 +82,7 @@ namespace SqlBulkHelpers
             //NOTE: Since a Connection was passed in then we generally should immediately initialize the Schema Loader,
             //      because this connection or transaction may no longer be valid later.
             if(initializeImmediately)
-                schemaLoader.InitializeSchemaDefinitions();
+                schemaLoader.GetTableSchemaDefinitionsLowercaseLookupFromLazyCache();
 
             return schemaLoader;
         }

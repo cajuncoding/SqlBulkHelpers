@@ -1,7 +1,5 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SqlBulkHelpers.Tests;
-using System.Collections.Generic;
-using System.Configuration;
 using Microsoft.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
@@ -27,7 +25,9 @@ namespace SqlBulkHelpers.IntegrationTests
             using (SqlTransaction transaction = conn.BeginTransaction())
             {
                 ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(
-                    sqlConnectionProvider, TestHelpers.SqlTimeoutSeconds);
+                    sqlConnectionProvider, 
+                    TestHelpers.SqlTimeoutSeconds
+                );
                 
                 var results = await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(
                     testData, 

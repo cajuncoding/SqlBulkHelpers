@@ -451,7 +451,7 @@ namespace SqlBulkHelpers
 
             public IDataReader CreateEntityDataReader()
             {
-                var entityDataReader = new SqlBulkHelpersDataReader<T>(this.EntityData, this.ProcessingDefinition);
+                var entityDataReader = new SqlBulkHelpersDataReader<T>(this.EntityData, this.ProcessingDefinition, this.TableDefinition);
                 return entityDataReader;
             }
 
@@ -460,10 +460,6 @@ namespace SqlBulkHelpers
             /// </summary>
             public void Dispose()
             {
-                //Always clean up DataTables (as they can be heavy on memory until Garbage collection runs)
-                (this.EntityData as IDisposable)?.Dispose();
-                this.EntityData = null;
-
                 //Always clean up Sql Connection/Command objects as they can hold onto precious resources...
                 (this.SqlCommand as IDisposable)?.Dispose();
                 this.SqlCommand = null;

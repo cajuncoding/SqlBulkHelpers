@@ -5,7 +5,7 @@ namespace SqlBulkHelpers
 {
     public interface ISqlBulkHelpersDBSchemaLoader
     {
-        ILookup<string, SqlBulkHelpersTableDefinition> InitializeSchemaDefinitions();
+        ILookup<string, SqlBulkHelpersTableDefinition> GetTableSchemaDefinitionsLowercaseLookupFromLazyCache();
 
         SqlBulkHelpersTableDefinition GetTableSchemaDefinition(string tableName);
     }
