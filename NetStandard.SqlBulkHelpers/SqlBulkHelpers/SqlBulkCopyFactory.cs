@@ -30,9 +30,9 @@ namespace SqlBulkHelpers
             //NOTE: BBernard - We Map All valid columns (including Identity Key column) to support Insert or Updates!
             foreach (var fieldDefinition in processingDefinition.PropertyDefinitions)
             {
-                var dbColumnDef = tableDefinition.FindColumnCaseInsensitive(fieldDefinition.MappedDbFieldName);
+                var dbColumnDef = tableDefinition.FindColumnCaseInsensitive(fieldDefinition.MappedDbColumnName);
                 if (dbColumnDef != null)
-                    sqlBulk.ColumnMappings.Add(fieldDefinition.MappedDbFieldName, dbColumnDef.ColumnName);
+                    sqlBulk.ColumnMappings.Add(fieldDefinition.MappedDbColumnName, dbColumnDef.ColumnName);
             }
 
             //BBernard

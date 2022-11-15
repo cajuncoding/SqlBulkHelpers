@@ -18,31 +18,31 @@ namespace SqlBulkHelpers
             var tempOutputIdentityTableName = $"#SqlBulkHelpers_OUTPUT_IDENTITY_TABLE_{Guid.NewGuid()}";
             var hasIdentityColumn = tableDefinition.IdentityColumn != null;
             var identityColumnName = tableDefinition.IdentityColumn?.ColumnName ?? string.Empty;
-            SqlMergeMatchQualifierExpression sanitizedQualifierExpression = null;
+            bool uniqueMatchMergeValidationEnabled = matchQualifierExpression?.ThrowExceptionIfNonUniqueMatchesOccur ?? true;
 
             //Validate the MatchQualifiers that may be specified, and limit to ONLY valid fields of the Table Definition...
-            if (matchQualifierExpression != null)
-            {
-                var sanitizedQualifierFields = matchQualifierExpression
-                    .MatchQualifierFields
-                    .Where(q => tableDefinition.FindColumnCaseInsensitive(q.SanitizedName) != null);
+            //NOTE: We use the parameter argument for Match Qualifier if specified, otherwise we fall-back to to use the Identity Column.
+            var mergeQualifierExpression = matchQualifierExpression ?? (hasIdentityColumn ? new SqlMergeMatchQualifierExpression(identityColumnName): default);
 
-                //Re-initialize a valid Qualifier Expression parameter with ONLY the valid fields...
-                sanitizedQualifierExpression = new SqlMergeMatchQualifierExpression(sanitizedQualifierFields)
-                {
-                    //Need to correctly copy over the original setting for Non Unique Match validation!
-                    ThrowExceptionIfNonUniqueMatchesOccur = matchQualifierExpression.ThrowExceptionIfNonUniqueMatchesOccur
-                };
-            }
+            var sanitizedQualifierFields = mergeQualifierExpression?.MatchQualifierFields.Where(
+                q => tableDefinition.FindColumnCaseInsensitive(q.SanitizedName) != null
+            );
+
+            //Re-initialize a valid Qualifier Expression parameter with ONLY the valid fields...
+            var sanitizedQualifierExpression = new SqlMergeMatchQualifierExpression(sanitizedQualifierFields)
+            {
+                //Need to correctly copy over the original setting for Non Unique Match validation!
+                ThrowExceptionIfNonUniqueMatchesOccur = uniqueMatchMergeValidationEnabled
+            };
 
             //Validate that we have a valid state:
             //1. An Identity Column which can be used as the default Match Qualifier!
             //2. A set of Match Qualifier Fields is specified and used as an override, or required if no Identity Column exists to be used as default.
-            if (!hasIdentityColumn && (sanitizedQualifierExpression == null || sanitizedQualifierExpression.MatchQualifierFields.IsNullOrEmpty()))
+            if (sanitizedQualifierExpression.MatchQualifierFields.IsNullOrEmpty())
                 throw new ArgumentException(
-                $"No valid match qualifiers were specified for the target table {tableDefinition.TableFullyQualifiedName}, and the table does"
-                        + " not have an Identity Column to be used as the default match qualifier. At least one of these must be"
-                        + " provided to safely match the rows during the bulk merging process."
+                $"No valid match qualifiers could be resolved for the target table {tableDefinition.TableFullyQualifiedName}, and the table does"
+                        + " not have an Identity Column to be used as the default match qualifier. One or the other must be"
+                        + " provided/exist to safely match the rows during the bulk merging process."
                 );
 
             var columnNamesListWithoutIdentity = tableDefinition.GetColumnNames(false);
@@ -50,13 +50,12 @@ namespace SqlBulkHelpers
 
             //Dynamically build the Merge Match Qualifier Fields Expression
             //NOTE: This is an optional parameter when an Identity Column exists as it is initialized to the IdentityColumn as a Default (Validated above!)
-            var mergeQualifierExpression = sanitizedQualifierExpression ?? new SqlMergeMatchQualifierExpression(identityColumnName);
             var mergeMatchQualifierExpressionSql = BuildMergeMatchQualifierExpressionSql(mergeQualifierExpression);
 
             //Initialize/Create the Staging Table!
             //NOTE: THe ROWNUMBER_COLUMN_NAME (3'rd Column) IS CRITICAL because SqlBulkCopy and Sql Server OUTPUT claus do not
             //          preserve Order; e.g. it may change based on execution plan (indexes/no indexes, etc.).
-            String mergeTempTablesSql = string.Empty;
+            string mergeTempTablesSql;
             if (hasIdentityColumn)
             {
                 mergeTempTablesSql = $@"
@@ -102,7 +101,7 @@ namespace SqlBulkHelpers
 
             //NOTE: This is ALL now completed very efficiently on the Sql Server Database side with
             //          NO unnecessary round trips to the Database!
-            var mergeInsertSql = string.Empty;
+            string mergeInsertSql = string.Empty;
             if (mergeAction.HasFlag(SqlBulkHelpersMergeAction.Insert))
             {
                 mergeInsertSql = $@"
@@ -112,7 +111,7 @@ namespace SqlBulkHelpers
                 ";
             }
 
-            var mergeUpdateSql = string.Empty;
+            string mergeUpdateSql = string.Empty;
             if (mergeAction.HasFlag(SqlBulkHelpersMergeAction.Update))
             {
                 mergeUpdateSql = $@"
@@ -121,7 +120,7 @@ namespace SqlBulkHelpers
                 ";
             }
 
-            var mergeOutputSql = string.Empty;
+            string mergeOutputSql = string.Empty;
             if (hasIdentityColumn)
             {
                 //NOTE: We only Output results IF we have Identity Column data to return...
@@ -138,7 +137,7 @@ namespace SqlBulkHelpers
                 ";
             }
 
-            var mergeCleanupSql = string.Empty;
+            string mergeCleanupSql;
             if (hasIdentityColumn || mergeQualifierExpression.ThrowExceptionIfNonUniqueMatchesOccur)
             {
                 mergeCleanupSql = $@"

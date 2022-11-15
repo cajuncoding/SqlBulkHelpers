@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using RepoDb.Attributes;
+using SqlBulkHelpers.SqlBulkHelpers.Attributes;
 using SqlBulkHelpers.SqlBulkHelpers.Interfaces;
 
 namespace SqlBulkHelpers.Tests
@@ -45,7 +46,6 @@ namespace SqlBulkHelpers.Tests
         }
     }
 
-    [Table("TESTELEMENT")]
     public class TestElement
     {
         public int Id { get; set; }
@@ -58,13 +58,19 @@ namespace SqlBulkHelpers.Tests
         }
     }
 
+    [SqlBulkTable("TestElement")]
     public class TestElementMappedNames
     {
+        [SqlBulkMatchQualifier]
         [Map("Id")]
         public int MyId { get; set; }
+        
         [Column("Key")]
         public string MyKey { get; set; }
-        public string Value { get; set; }
+
+        [SqlBulkColumn("Value")]
+        [Map("INCORRECT_NAME_SHOULD_NOT_RESOLVE")]
+        public string MyValue { get; set; }
 
         public override string ToString()
         {

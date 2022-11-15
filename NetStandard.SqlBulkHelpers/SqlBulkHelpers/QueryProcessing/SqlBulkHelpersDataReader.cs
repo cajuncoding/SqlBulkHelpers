@@ -25,7 +25,7 @@ namespace SqlBulkHelpers.SqlBulkHelpers.QueryProcessing
             tableDefinition.AssertArgumentIsNotNull(nameof(tableDefinition));
 
             _processingFields = processingDefinition.PropertyDefinitions.Where(
-                p => tableDefinition.FindColumnCaseInsensitive(p.MappedDbFieldName) != null
+                p => tableDefinition.FindColumnCaseInsensitive(p.MappedDbColumnName) != null
             ).ToArray();
 
             _rowNumberPseudoColumnOrdinal = _processingFields.Length;

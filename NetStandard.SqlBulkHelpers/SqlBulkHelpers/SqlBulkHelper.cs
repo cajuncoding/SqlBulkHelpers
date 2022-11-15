@@ -49,7 +49,7 @@ namespace SqlBulkHelpers
                 entityList,
                 SqlBulkHelpersMergeAction.Insert,
                 transaction,
-                matchQualifierExpression: matchQualifierExpression
+                matchQualifierExpressionParam: matchQualifierExpression
             ).ConfigureAwait(false);
         }
 
@@ -65,7 +65,7 @@ namespace SqlBulkHelpers
                 SqlBulkHelpersMergeAction.Insert,
                 transaction,
                 tableName: tableName,
-                matchQualifierExpression: matchQualifierExpression
+                matchQualifierExpressionParam: matchQualifierExpression
             ).ConfigureAwait(false);
         }
 
@@ -79,7 +79,7 @@ namespace SqlBulkHelpers
                 entityList,
                 SqlBulkHelpersMergeAction.Update,
                 transaction,
-                matchQualifierExpression: matchQualifierExpression
+                matchQualifierExpressionParam: matchQualifierExpression
             ).ConfigureAwait(false);
         }
 
@@ -95,7 +95,7 @@ namespace SqlBulkHelpers
                 SqlBulkHelpersMergeAction.Update,
                 transaction,
                 tableName: tableName,
-                matchQualifierExpression: matchQualifierExpression
+                matchQualifierExpressionParam: matchQualifierExpression
             ).ConfigureAwait(false);
         }
 
@@ -109,7 +109,7 @@ namespace SqlBulkHelpers
                 entityList,
                 SqlBulkHelpersMergeAction.InsertOrUpdate,
                 transaction,
-                matchQualifierExpression: matchQualifierExpression
+                matchQualifierExpressionParam: matchQualifierExpression
             ).ConfigureAwait(false);
         }
 
@@ -125,7 +125,7 @@ namespace SqlBulkHelpers
                 SqlBulkHelpersMergeAction.InsertOrUpdate, 
                 transaction,
                 tableName: tableName,
-                matchQualifierExpression: matchQualifierExpression
+                matchQualifierExpressionParam: matchQualifierExpression
             ).ConfigureAwait(false);
         }
 
@@ -232,14 +232,14 @@ namespace SqlBulkHelpers
         /// <param name="tableName"></param>
         /// <param name="mergeAction"></param>
         /// <param name="transaction"></param>
-        /// <param name="matchQualifierExpression"></param>
+        /// <param name="matchQualifierExpressionParam"></param>
         /// <returns></returns>
         protected virtual async Task<IEnumerable<T>> BulkInsertOrUpdateInternalAsync(
             IEnumerable<T> entities, 
             SqlBulkHelpersMergeAction mergeAction, 
             SqlTransaction transaction,
             string tableName = null, //Optional / Nullable
-            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+            SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null
         )
         {
             //For Performance we ensure the entities are only ever enumerated One Time!
@@ -247,7 +247,7 @@ namespace SqlBulkHelpers
             var bulkOperationTimeoutSeconds = this.BulkOperationTimeoutSeconds;
 
             using (ProcessHelper processHelper = this.CreateProcessHelper(
-                entityList, mergeAction, transaction, bulkOperationTimeoutSeconds, tableName, matchQualifierExpression)
+                entityList, mergeAction, transaction, bulkOperationTimeoutSeconds, tableName, matchQualifierExpressionParam)
             ) {
                 var sqlCmd = processHelper.SqlCommand;
                 var sqlBulkCopy = processHelper.SqlBulkCopy;
@@ -393,7 +393,7 @@ namespace SqlBulkHelpers
         /// <param name="transaction"></param>
         /// <param name="timeoutSeconds"></param>
         /// <param name="tableNameOverride"></param>
-        /// <param name="matchQualifierExpression"></param>
+        /// <param name="matchQualifierExpressionParam"></param>
         /// <param name="enableSqlBulkCopyTableLock"></param>
         /// <returns></returns>
         protected virtual ProcessHelper CreateProcessHelper(
@@ -402,13 +402,13 @@ namespace SqlBulkHelpers
             SqlTransaction transaction,
             int timeoutSeconds,
             string tableNameOverride = null,
-            SqlMergeMatchQualifierExpression matchQualifierExpression = null,
+            SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null,
             bool enableSqlBulkCopyTableLock = false
         )
         {
             //***STEP #1: Get the Processing Definition (cached after initial Load)!!!
             var processingDefinition = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>();
-
+            
             //***STEP #2: Load the Table Schema Definitions (cached after initial Load)!!!
             //BBernard
             //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
@@ -418,7 +418,13 @@ namespace SqlBulkHelpers
             var tableDefinition = this.GetTableSchemaDefinition(tableName);
 
             //***STEP #3: Build all of the Sql Scripts needed to Process the entities based on the specified Table definition.
-            var sqlScripts = this.BuildSqlMergeScriptsHelper(tableDefinition, mergeAction, matchQualifierExpression);
+            var sqlScripts = this.BuildSqlMergeScriptsHelper(
+                tableDefinition, 
+                mergeAction,
+                //NOTE: We use the parameter argument for Match Qualifier if specified, otherwise we fall-back to to use what may
+                //      have been configured on the Entity model via SqlMatchQualifier property attributes.
+                matchQualifierExpressionParam ?? processingDefinition.MergeMatchQualifierExpressionFromEntityModel
+            );
 
             //***STEP #4: Dynamically Initialize the Bulk Copy Helper using our Table data and table Definition!
             var sqlBulkCopyHelper = this.CreateSqlBulkCopyHelper(entityData, tableDefinition, processingDefinition, transaction, timeoutSeconds, enableSqlBulkCopyTableLock);

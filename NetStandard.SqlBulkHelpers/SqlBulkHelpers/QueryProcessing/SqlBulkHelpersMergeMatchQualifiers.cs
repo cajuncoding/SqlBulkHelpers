@@ -51,7 +51,7 @@ namespace SqlBulkHelpers
             MatchQualifierFields = fieldsList;
         }
 
-        public List<SqlMatchQualifierField> MatchQualifierFields { get; }
+        public List<SqlMatchQualifierField> MatchQualifierFields { get; protected set; }
 
         /// <summary>
         /// BBernard - 12/08/2020

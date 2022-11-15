@@ -54,9 +54,9 @@ namespace SqlBulkHelpers
             this.IsIdentityColumn = isIdentityColumn;
         }
 
-        public String ColumnName { get; private set; }
+        public string ColumnName { get; private set; }
         public int OrdinalPosition { get; private set; }
-        public String DataType { get; private set; }
+        public string DataType { get; private set; }
         public bool IsIdentityColumn { get; private set; }
 
         public override string ToString()

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using SqlBulkHelpers.SqlBulkHelpers.CustomExtensions;
 using LazyCacheHelpers;
+using SqlBulkHelpers.SqlBulkHelpers.Attributes;
 
 namespace SqlBulkHelpers.SqlBulkHelpers.QueryProcessing
 {
@@ -49,6 +50,28 @@ namespace SqlBulkHelpers.SqlBulkHelpers.QueryProcessing
             PropertyDefinitions = propertyDefinitions.AssertArgumentIsNotNull(nameof(propertyDefinitions)).ToArray();
             IsRowNumberColumnNameEnabled = isRowNumberColumnNameEnabled;
             MappedDbTableName = GetMappedDbTableName(entityType);
+            IdentityPropDefinition = propertyDefinitions.FirstOrDefault(p => p.IsIdentityProperty);
+
+            if (entityType.FindAttributes(nameof(SqlBulkTableAttribute)).FirstOrDefault() is SqlBulkTableAttribute tableMappingAttr)
+            {
+                //NOTES: Defaults to true but can be overriden by the configuration on the Table attribute.
+                UniqueMatchMergeValidationEnabled = tableMappingAttr.UniqueMatchMergeValidationEnabled;
+            }
+
+            //If any Match Qualifier Fields are noted (by Attributes annotations we load them into the Match Qualifier expression...
+            var matchQualifierMappedDbColumnNames = propertyDefinitions
+                .Where(p => p.IsMatchQualifier)
+                .Select(p => p.MappedDbColumnName)
+                .ToList();
+
+            if (matchQualifierMappedDbColumnNames.Any())
+                MergeMatchQualifierExpressionFromEntityModel = new SqlMergeMatchQualifierExpression(matchQualifierMappedDbColumnNames)
+                {
+                    //NOTE: We need to ensure that our Merge Qualifier Expression configuration matches what may have been configured on Table attribute.
+                    ThrowExceptionIfNonUniqueMatchesOccur = UniqueMatchMergeValidationEnabled
+                };
+
+
         }
 
         public PropInfoDefinition[] PropertyDefinitions { get; protected set; }
@@ -57,33 +80,47 @@ namespace SqlBulkHelpers.SqlBulkHelpers.QueryProcessing
 
         public bool IsRowNumberColumnNameEnabled { get; protected set; }
 
+        public PropInfoDefinition IdentityPropDefinition { get; protected set; }
+
+        public SqlMergeMatchQualifierExpression MergeMatchQualifierExpressionFromEntityModel { get; protected set; }
+
+        public bool UniqueMatchMergeValidationEnabled { get; protected set; } = true;
+
         protected string GetMappedDbTableName(Type entityType)
         {
             var mappingAttribute = entityType.FindAttributes(
+                nameof(SqlBulkTableAttribute),
                 MappingAttributeNames.RepoDbTableMapAttributeName, 
                 MappingAttributeNames.DapperTableMapAttributeName
                 //NOTE: Removed because the value is identical to Dapper so it will be handled above.
                 //MappingAttributeNames.LinqToDbTableMapAttributeName
             ).FirstOrDefault();
 
-            //Default to the Class Type Name...
-            if (mappingAttribute == null)
-                return entityType.Name;
-
-            var attrAccessor = ObjectAccessor.Create(mappingAttribute);
-
-            switch (mappingAttribute?.GetType().Name)
+            switch (mappingAttribute)
             {
-                case MappingAttributeNames.RepoDbTableMapAttributeName:
-                    return attrAccessor[MappingAttributeNames.RepoDbTableMapAttributePropertyName].ToString();
-                //NOTE: Dapper and LinqToDb actually have the SAME Attribute & Property Name so this handles both...
-                case MappingAttributeNames.DapperTableMapAttributeName:
-                    return attrAccessor[MappingAttributeNames.DapperTableMapAttributePropertyName].ToString();
-                //NOTE: Removed because this conflicts with Dapper and both will be handled above.
-                //case MappingAttributeNames.LinqToDbTableMapAttributeName:
-                //    return attrAccessor[MappingAttributeNames.LinqToDbTableMapAttributePropertyName].ToString();
-                default:
+                //Default to the Class Type Name...
+                case null:
                     return entityType.Name;
+                case SqlBulkTableAttribute sqlBulkTableAttr:
+                    return sqlBulkTableAttr.FullyQualifiedTableName;
+                default:
+                {
+                    var attrAccessor = ObjectAccessor.Create(mappingAttribute);
+
+                    switch (mappingAttribute.GetType().Name)
+                    {
+                        case MappingAttributeNames.RepoDbTableMapAttributeName:
+                            return attrAccessor[MappingAttributeNames.RepoDbTableMapAttributePropertyName].ToString();
+                        //NOTE: Dapper and LinqToDb actually have the SAME Attribute & Property Name so this handles both...
+                        case MappingAttributeNames.DapperTableMapAttributeName:
+                            return attrAccessor[MappingAttributeNames.DapperTableMapAttributePropertyName].ToString();
+                        //NOTE: Removed because this conflicts with Dapper and both will be handled above.
+                        //case MappingAttributeNames.LinqToDbTableMapAttributeName:
+                        //    return attrAccessor[MappingAttributeNames.LinqToDbTableMapAttributePropertyName].ToString();
+                        default:
+                            return entityType.Name;
+                    }
+                }
             }
         }
     }
@@ -95,14 +132,16 @@ namespace SqlBulkHelpers.SqlBulkHelpers.QueryProcessing
             this.PropInfo = propInfo;
             this.PropertyName = propInfo.Name;
             this.PropertyType = propInfo.PropertyType;
-            this.MappedDbFieldName = GetMappedDbFieldName(propInfo);
+            this.MappedDbColumnName = GetMappedDbColumnName(propInfo);
+            this.IsMatchQualifier = propInfo.FindAttributes(nameof(SqlBulkMatchQualifierAttribute)).Any();
             //Early determination if a Property is an Identity Property for Fast processing later...
             this.IsIdentityProperty = identityColumnDef?.ColumnName?.Equals(propInfo.Name, StringComparison.OrdinalIgnoreCase) ?? false;
         }
 
         public string PropertyName { get; private set; }
-        public string MappedDbFieldName { get; private set; }
+        public string MappedDbColumnName { get; private set; }
         public bool IsIdentityProperty { get; private set; }
+        public bool IsMatchQualifier { get; private set; }
         public PropertyInfo PropInfo { get; private set; }
         public Type PropertyType { get; private set; }
 
@@ -111,24 +150,35 @@ namespace SqlBulkHelpers.SqlBulkHelpers.QueryProcessing
             return $"{this.PropertyName} [{this.PropertyType.Name}]";
         }
 
-        protected string GetMappedDbFieldName(PropertyInfo propInfo)
+        protected string GetMappedDbColumnName(PropertyInfo propInfo)
         {
-            var mappingAttribute = propInfo.FindAttributes(MappingAttributeNames.RepoDbFieldMapAttributeName, MappingAttributeNames.LinqToDbFieldMapAttributeName).FirstOrDefault();
+            var mappingAttribute = propInfo.FindAttributes(
+                nameof(SqlBulkColumnAttribute), 
+                MappingAttributeNames.RepoDbFieldMapAttributeName, 
+                MappingAttributeNames.LinqToDbFieldMapAttributeName
+            ).FirstOrDefault();
 
-            //Default to the Class Property Name...
-            if (mappingAttribute == null)
-                return propInfo.Name;
-
-            var attrAccessor = ObjectAccessor.Create(mappingAttribute);
-
-            switch (mappingAttribute?.GetType().Name)
+            switch (mappingAttribute)
             {
-                case MappingAttributeNames.RepoDbFieldMapAttributeName:
-                    return attrAccessor[MappingAttributeNames.RepoDbFieldMapAttributePropertyName].ToString();
-                case MappingAttributeNames.LinqToDbFieldMapAttributeName:
-                    return attrAccessor[MappingAttributeNames.LinqToDbFieldMapAttributePropertyName].ToString();
-                default:
+                //Default to the Class Property Name...
+                case null:
                     return propInfo.Name;
+                case SqlBulkColumnAttribute sqlBulkColumnAttr:
+                    return sqlBulkColumnAttr.Name;
+                default:
+                {
+                    var attrAccessor = ObjectAccessor.Create(mappingAttribute);
+
+                    switch (mappingAttribute.GetType().Name)
+                    {
+                        case MappingAttributeNames.RepoDbFieldMapAttributeName:
+                            return attrAccessor[MappingAttributeNames.RepoDbFieldMapAttributePropertyName].ToString();
+                        case MappingAttributeNames.LinqToDbFieldMapAttributeName:
+                            return attrAccessor[MappingAttributeNames.LinqToDbFieldMapAttributePropertyName].ToString();
+                        default:
+                            return propInfo.Name;
+                    }
+                }
             }
         }
     }

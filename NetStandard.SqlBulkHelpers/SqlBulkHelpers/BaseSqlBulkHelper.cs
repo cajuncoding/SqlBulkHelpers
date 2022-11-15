@@ -117,17 +117,17 @@ namespace SqlBulkHelpers
         protected virtual SqlMergeScriptResults BuildSqlMergeScriptsHelper(
             SqlBulkHelpersTableDefinition tableDefinition, 
             SqlBulkHelpersMergeAction mergeAction,
-            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+            SqlMergeMatchQualifierExpression matchQualifierExpression
         )
         {
             var mergeScriptBuilder = new SqlBulkHelpersMergeScriptBuilder();
-            var sqlScripts = mergeScriptBuilder.BuildSqlMergeScripts(
+            var sqlMergeScripts = mergeScriptBuilder.BuildSqlMergeScripts(
                 tableDefinition, 
                 mergeAction, 
                 matchQualifierExpression
             );
 
-            return sqlScripts;
+            return sqlMergeScripts;
         }
 
         //NOTE: This is Protected Class because it is ONLY needed by the SqlBulkHelper implementations with Merge Operations 
@@ -154,7 +154,7 @@ namespace SqlBulkHelpers
 
             //If there was no Identity Column or the validation of Unique Merge actions was disabled then we can
             //  short circuit the post-processing of results as there is nothing to do...
-            if (!hasIdentityColumn || !uniqueMatchValidationEnabled)
+            if (!hasIdentityColumn && !uniqueMatchValidationEnabled)
                 return entityList;
 
             //BBernard - 12/01/2021
@@ -167,15 +167,15 @@ namespace SqlBulkHelpers
             Type entityType = typeof(T);
             TypeAccessor fastTypeAccessor = TypeAccessor.Create(entityType);
 
-            if (!typeof(ISqlBulkHelperIdentitySetter).IsAssignableFrom(entityType))
+            if (hasIdentityColumn && !typeof(ISqlBulkHelperIdentitySetter).IsAssignableFrom(entityType))
             {
                 var processingDefinition = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>(identityColumnDefinition);
-                var identityPropDef = processingDefinition.PropertyDefinitions.FirstOrDefault(pi => pi.IsIdentityProperty);
-                identityPropertyName = identityPropDef?.PropertyName;
+                identityPropertyName = processingDefinition.IdentityPropDefinition?.PropertyName;
 
-                //If there is no Identity Column (e.g. no Identity Column Definition and/or no PropInfo can be found) then we can short circuit.
+                //If there is no Identity Column (e.g. no Identity Column Definition and/or no PropInfo can be found)
+                //  then we can skip processing of Identity values....
                 if (identityPropertyName == null)
-                    return entityList;
+                    hasIdentityColumn = false;
             }
 
             ////Get all Items Inserted or Updated....

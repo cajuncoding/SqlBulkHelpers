@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using Microsoft.IdentityModel.Protocols;
 
 namespace SqlBulkHelpers.SqlBulkHelpers.CustomExtensions
 {
@@ -27,22 +28,25 @@ namespace SqlBulkHelpers.SqlBulkHelpers.CustomExtensions
             return FindAttributes(attributes, attributeNames);
         }
 
-        public static IEnumerable<Attribute> FindAttributes(this IEnumerable<Attribute> attributes, params string[] attributeNames)
+        public static IEnumerable<Attribute> FindAttributes(this IEnumerable<Attribute> attributes, params string[] attributeNamesToFind)
         {
 
-            if (attributeNames.IsNullOrEmpty())
-                throw new ArgumentNullException(nameof(attributeNames));
+            if (attributeNamesToFind.IsNullOrEmpty())
+                throw new ArgumentNullException(nameof(attributeNamesToFind));
 
-            var attributeNamesToSearch = attributeNames.Select(
-                name => name.EndsWith(nameof(Attribute), StringComparison.OrdinalIgnoreCase) ? name : $"{name}{nameof(Attribute)}"
-            );
+            var results = new List<Attribute>();
+            var attributesArray = attributes as Attribute[] ?? attributes.ToArray();
 
-            var results = attributes
-                .Where(attr =>
-                {
-                    var attrName = attr?.GetType().Name;
-                    return attrName != null && attributeNamesToSearch.ContainsIgnoreCase(attrName);
-                });
+            foreach (var findName in attributeNamesToFind)
+            {
+                var findAttrName = findName.EndsWith(nameof(Attribute), StringComparison.OrdinalIgnoreCase)
+                    ? findName
+                    : string.Concat(findName, nameof(Attribute));
+
+                var foundAttr = attributesArray.FirstOrDefault(attr => attr.GetType().Name.Equals(findAttrName, StringComparison.OrdinalIgnoreCase));
+                if(foundAttr != null)
+                    results.Add(foundAttr);
+            }
 
             return results;
         }

@@ -6,6 +6,8 @@ namespace SqlBulkHelpers
 {
     internal static class SqlBulkHelpersCustomExtensions
     {
+        public const string DefaultSchemaName = "dbo";
+
         public static T AssertArgumentIsNotNull<T>(this T arg, string argName)
         {
             if (arg == null) throw new ArgumentNullException(argName);
@@ -22,7 +24,7 @@ namespace SqlBulkHelpers
         {
             var loweredTableName = tableName.ToLowerInvariant();
 
-            string parsedSchemaName = "dbo";
+            string parsedSchemaName = DefaultSchemaName;
             string parsedTableName = null;
 
             //Second Try Parsing the Table & Schema name a Direct Lookup and return if found...
@@ -34,16 +36,27 @@ namespace SqlBulkHelpers
                     parsedTableName = TrimTableNameTerm(terms[0]);
                     break;
                 default:
-                    parsedSchemaName = TrimTableNameTerm(terms[0]);
+                    var schemaTerm = TrimTableNameTerm(terms[0]);
+                    parsedSchemaName = schemaTerm ?? DefaultSchemaName;
                     parsedTableName = TrimTableNameTerm(terms[1]);
                     break;
             }
 
-            return (parsedSchemaName, parsedTableName, $"[{parsedSchemaName}].[{parsedTableName}]");
+            if(parsedTableName == null)
+                throw new ArgumentException("The Table Name specified could not be parsed; parsing resulted in null/empty value.");
+
+            return (
+                parsedSchemaName, 
+                parsedTableName, 
+                $"[{parsedSchemaName}].[{parsedTableName}]"
+            );
         }
 
         private static string TrimTableNameTerm(string term)
         {
+            if (string.IsNullOrWhiteSpace(term))
+                return null;
+
             var trimmedTerm = term.Trim('[', ']', ' ');
             return trimmedTerm;
         }
