@@ -27,7 +27,7 @@ namespace SqlBulkHelpersSample.ConsoleApp
             using (var conn = await sqlConnectionProvider.NewConnectionAsync())
             using (var transaction = conn.BeginTransaction())
             {
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(conn, transaction);
+                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(transaction);
 
                 await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(
                     testData,
@@ -44,6 +44,12 @@ namespace SqlBulkHelpersSample.ConsoleApp
 
         public static async Task RunBenchmarksAsync(string sqlConnectionString)
         {
+            //Initialize Sql Bulk Helpers Configuration Defaults...
+            SqlBulkHelpersConfig.ConfigureDefaults(config =>
+            {
+                config.SqlBulkPerBatchTimeoutSeconds = SqlBulkHelpersSampleApp.SqlTimeoutSeconds;
+            });
+
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
 
             using (var conn = await sqlConnectionProvider.NewConnectionAsync())
@@ -51,11 +57,7 @@ namespace SqlBulkHelpersSample.ConsoleApp
             {
                 var tableName = SqlBulkHelpersSampleApp.TestTableName;
 
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(
-                    conn, 
-                    transaction, 
-                    SqlBulkHelpersSampleApp.SqlTimeoutSeconds
-                );
+                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(transaction);
 
                 var timer = new Stopwatch();
 

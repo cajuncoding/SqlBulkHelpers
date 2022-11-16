@@ -18,7 +18,7 @@ namespace SqlBulkHelpersSample.ConsoleApp
             {
                 var tableName = SqlBulkHelpersSampleApp.TestTableName;
 
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(conn, transaction);
+                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(transaction);
 
                 var timer = new Stopwatch();
 

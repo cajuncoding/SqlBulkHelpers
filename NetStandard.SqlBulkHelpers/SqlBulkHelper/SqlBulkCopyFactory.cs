@@ -6,22 +6,29 @@ namespace SqlBulkHelpers
 {
     public class SqlBulkCopyFactory
     {
-        public virtual int BulkCopyBatchSize { get; set; } = 2000; //General guidance is that 2000-5000 is efficient enough.
-        public virtual int BulkCopyPerBatchTimeoutSeconds { get; set; } = SqlBulkHelpersConstants.DefaultBulkOperationPerBatchTimeoutSeconds; //Microsoft's Default is only 30 seconds, but we intentionally wait a bit longer in case it is needed.
+        protected ISqlBulkHelpersConfig SqlBulkConfig { get; set; }
 
-        public virtual SqlBulkCopyOptions BulkCopyOptions { get; set; } = SqlBulkCopyOptions.Default;
+        public SqlBulkCopyFactory(ISqlBulkHelpersConfig bulkHelpersConfig = null)
+        {
+            SqlBulkConfig = bulkHelpersConfig ?? SqlBulkHelpersConfig.DefaultConfig;
+        }
 
-        public virtual SqlBulkCopy CreateSqlBulkCopy<T>(List<T> entities, SqlBulkHelpersProcessingDefinition processingDefinition, SqlBulkHelpersTableDefinition tableDefinition, SqlTransaction transaction)
+        public virtual SqlBulkCopy CreateSqlBulkCopy<T>(
+            List<T> entities, 
+            SqlBulkHelpersProcessingDefinition processingDefinition, 
+            SqlBulkHelpersTableDefinition tableDefinition, 
+            SqlTransaction transaction
+        )
         {
             entities.AssertArgumentIsNotNull(nameof(entities));
             processingDefinition.AssertArgumentIsNotNull(nameof(processingDefinition));
             tableDefinition.AssertArgumentIsNotNull(nameof(tableDefinition));
 
-            var sqlBulk = new SqlBulkCopy(transaction.Connection, this.BulkCopyOptions, transaction)
+            var sqlBulk = new SqlBulkCopy(transaction.Connection, SqlBulkConfig.SqlBulkCopyOptions, transaction)
             {
                 //Always initialize a Batch size & Timeout
-                BatchSize = this.BulkCopyBatchSize, 
-                BulkCopyTimeout = this.BulkCopyPerBatchTimeoutSeconds,
+                BatchSize = SqlBulkConfig.SqlBulkBatchSize, 
+                BulkCopyTimeout = SqlBulkConfig.SqlBulkPerBatchTimeoutSeconds,
             };
 
             //First initialize the Column Mappings for the SqlBulkCopy

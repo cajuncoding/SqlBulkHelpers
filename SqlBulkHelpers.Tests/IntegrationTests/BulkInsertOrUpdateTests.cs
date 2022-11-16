@@ -26,7 +26,7 @@ namespace SqlBulkHelpers.IntegrationTests
             {
                 ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(
                     sqlConnectionProvider, 
-                    TestHelpers.SqlTimeoutSeconds
+                    TestHelpers.BulkHelpersConfig
                 );
                 
                 var results = await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(
@@ -82,7 +82,9 @@ namespace SqlBulkHelpers.IntegrationTests
             using (SqlTransaction transaction = conn.BeginTransaction())
             {
                 ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(
-                    sqlConnectionProvider, TestHelpers.SqlTimeoutSeconds);
+                    sqlConnectionProvider, 
+                    TestHelpers.BulkHelpersConfig
+                );
 
                 var results = await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(
                     testData,

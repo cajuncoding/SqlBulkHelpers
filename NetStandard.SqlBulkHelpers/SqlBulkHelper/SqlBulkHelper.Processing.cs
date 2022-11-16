@@ -21,7 +21,7 @@ namespace SqlBulkHelpers
         /// <param name="mergeAction"></param>
         /// <param name="sqlTransaction"></param>
         /// <param name="matchQualifierExpressionParam"></param>
-        /// <param name="enableSqlBulkCopyTableLockParam"></param>
+        /// <param name="bulkHelpersConfig"></param>
         /// <returns></returns>
         protected virtual async Task<IEnumerable<T>> BulkInsertOrUpdateInternalAsync(
             IEnumerable<T> entities, 
@@ -29,19 +29,16 @@ namespace SqlBulkHelpers
             SqlTransaction sqlTransaction,
             string tableNameParam = null, //Optional / Nullable
             SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null,
-            bool? enableSqlBulkCopyTableLockParam = null
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
         )
         {
             //For Performance we ensure the entities are only ever enumerated One Time!
             var entityList = entities.ToList();
-            var bulkOperationPerBatchTimeoutSeconds = this.BulkOperationPerBatchTimeoutSeconds;
+            var bulkOperationPerBatchTimeoutSeconds = this.BulkHelpersConfig;
 
-            //Default to true since our process always Writes to the Temp Table!
-            //TODO: Initialize SqlBulkCopyTable Lock from global configuration if not specified...
-            var sqlBulkCopyTableLockEnabled = enableSqlBulkCopyTableLockParam ?? true;
 
             using (ProcessHelper processHelper = this.CreateProcessHelper(
-                entityList, mergeAction, sqlTransaction, bulkOperationPerBatchTimeoutSeconds, sqlBulkCopyTableLockEnabled, tableNameParam, matchQualifierExpressionParam)
+                entityList, mergeAction, sqlTransaction, tableNameParam, matchQualifierExpressionParam)
             ) {
                 var sqlCmd = processHelper.SqlCommand;
                 var sqlBulkCopy = processHelper.SqlBulkCopy;
@@ -104,7 +101,7 @@ namespace SqlBulkHelpers
         /// <param name="mergeAction"></param>
         /// <param name="sqlTransaction"></param>
         /// <param name="matchQualifierExpressionParam"></param>
-        /// <param name="enableSqlBulkCopyTableLockParam"></param>
+        /// <param name="bulkHelpersConfig"></param>
         /// <returns></returns>
         protected virtual IEnumerable<T> BulkInsertOrUpdateInternal(
             IEnumerable<T> entities, 
@@ -112,19 +109,15 @@ namespace SqlBulkHelpers
             SqlTransaction sqlTransaction,
             string tableNameParam = null,   //Optional/Nullable! 
             SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null,
-            bool? enableSqlBulkCopyTableLockParam = null
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
         )
         {
             //For Performance we ensure the entities are only ever enumerated One Time!
             var entityList = entities.ToList();
-            var bulkOperationTimeoutSeconds = this.BulkOperationPerBatchTimeoutSeconds;
-
-            //Default to true since our process always Writes to the Temp Table!
-            //TODO: Initialize SqlBulkCopyTable Lock from global configuration if not specified...
-            var sqlBulkCopyTableLockEnabled = enableSqlBulkCopyTableLockParam ?? true;
+            var bulkOperationTimeoutSeconds = this.BulkHelpersConfig;
 
             using (ProcessHelper processHelper = this.CreateProcessHelper(
-                entityList, mergeAction, sqlTransaction, bulkOperationTimeoutSeconds, sqlBulkCopyTableLockEnabled, tableNameParam, matchQualifierExpressionParam))
+                entityList, mergeAction, sqlTransaction, tableNameParam, matchQualifierExpressionParam))
             {
                 var sqlCmd = processHelper.SqlCommand;
                 var sqlBulkCopy = processHelper.SqlBulkCopy;
@@ -191,33 +184,22 @@ namespace SqlBulkHelpers
         /// <param name="entityData"></param>
         /// <param name="mergeAction"></param>
         /// <param name="sqlTransaction"></param>
-        /// <param name="perBatchTimeoutSeconds"></param>
         /// <param name="tableNameParam"></param>
         /// <param name="matchQualifierExpressionParam"></param>
-        /// <param name="enableSqlBulkCopyTableLock"></param>
+        /// <param name="bulkHelpersConfig"></param>
         /// <returns></returns>
         protected virtual ProcessHelper CreateProcessHelper(
             List<T> entityData, 
             SqlBulkHelpersMergeAction mergeAction, 
             SqlTransaction sqlTransaction,
-            int perBatchTimeoutSeconds,
-            bool enableSqlBulkCopyTableLock,
             string tableNameParam = null,
             SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null
         )
         {
-            //***STEP #1: Get the Processing Definition (cached after initial Load)!!!
-            var processingDefinition = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>();
+            //***STEP #1: Get the Table & Model Processing Definitions (cached after initial Load)!!!
+            var (tableDefinition, processingDefinition) = this.GetTableSchemaAndProcessingDefinitions(tableNameParam);
             
-            //***STEP #2: Load the Table Schema Definitions (cached after initial Load)!!!
-            //BBernard
-            //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
-            //      we eliminate risk of Sql Injection.
-            //NOTE: All other parameters are Strongly typed (vs raw Strings) thus eliminating risk of Sql Injection
-            var tableName = !string.IsNullOrWhiteSpace(tableNameParam) ? tableNameParam : processingDefinition.MappedDbTableName;
-            var tableDefinition = this.GetTableSchemaDefinition(tableName);
-
-            //***STEP #3: Build all of the Sql Scripts needed to Process the entities based on the specified Table definition.
+            //***STEP #2: Build all of the Sql Scripts needed to Process the entities based on the specified Table definition.
             var sqlScripts = this.BuildSqlMergeScriptsInternal(
                 tableDefinition, 
                 mergeAction,
@@ -226,14 +208,12 @@ namespace SqlBulkHelpers
                 matchQualifierExpressionParam ?? processingDefinition.MergeMatchQualifierExpressionFromEntityModel
             );
 
-            //***STEP #4: Dynamically Initialize the Bulk Copy Helper using our Table data and table Definition!
+            //***STEP #3: Dynamically Initialize the Bulk Copy Helper using our Table data and table Definition!
             var sqlBulkCopy = this.CreateSqlBulkCopyInternal(
                 entityData, 
                 tableDefinition, 
                 processingDefinition, 
-                sqlTransaction, 
-                perBatchTimeoutSeconds, 
-                enableSqlBulkCopyTableLock
+                sqlTransaction
             );
 
             return new ProcessHelper()
@@ -242,9 +222,9 @@ namespace SqlBulkHelpers
                 ProcessingDefinition = processingDefinition,
                 EntityData = entityData,
                 SqlMergeScripts = sqlScripts,
-                SqlCommand = new SqlCommand(String.Empty, sqlTransaction.Connection, sqlTransaction)
+                SqlCommand = new SqlCommand(string.Empty, sqlTransaction.Connection, sqlTransaction)
                 {
-                    CommandTimeout = perBatchTimeoutSeconds
+                    CommandTimeout = BulkHelpersConfig.SqlBulkPerBatchTimeoutSeconds
                 },
                 SqlBulkCopy = sqlBulkCopy
             };

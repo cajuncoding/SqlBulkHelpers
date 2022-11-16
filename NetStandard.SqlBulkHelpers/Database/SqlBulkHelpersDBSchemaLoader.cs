@@ -82,25 +82,130 @@ namespace SqlBulkHelpers
         private static ILookup<string, SqlBulkHelpersTableDefinition> LoadSqlBulkHelpersDBSchemaHelper(ISqlBulkHelpersConnectionProvider sqlConnectionProvider)
 		{
 			var tableSchemaSql = @"
-				SELECT 
-					[TABLE_SCHEMA] as TableSchema, 
-					[TABLE_NAME] as TableName,
+				WITH TablesCte AS (
+					SELECT
+						TableSchema = t.[TABLE_SCHEMA], 
+						TableName = t.[TABLE_NAME],
+						TableCatalog = t.[TABLE_CATALOG],
+						ObjectId = OBJECT_ID('['+t.TABLE_SCHEMA+'].['+t.TABLE_NAME+']')
+					FROM INFORMATION_SCHEMA.TABLES t
+				)
+				SELECT
+					t.TableSchema, 
+					t.TableName,
 					[Columns] = (
 						SELECT 
-							COLUMN_NAME as ColumnName,
-							ORDINAL_POSITION as OrdinalPosition,
-							DATA_TYPE as DataType,
-							COLUMNPROPERTY(OBJECT_ID(table_schema+'.'+table_name), COLUMN_NAME, 'IsIdentity') as IsIdentityColumn
+							OrdinalPosition = ORDINAL_POSITION,
+							ColumnName = COLUMN_NAME,
+							DataType = DATA_TYPE,
+							IsIdentityColumn = CAST(COLUMNPROPERTY(t.ObjectId, COLUMN_NAME, 'IsIdentity') AS bit)
 						FROM INFORMATION_SCHEMA.COLUMNS c
 						WHERE 
-							c.TABLE_NAME = t.TABLE_NAME
-							and c.TABLE_SCHEMA = t.TABLE_SCHEMA 
-							and c.TABLE_CATALOG = t.TABLE_CATALOG 
+							c.TABLE_NAME = t.TableName
+							and c.TABLE_SCHEMA = t.TableSchema 
+							and c.TABLE_CATALOG = t.TableCatalog 
 						ORDER BY c.ORDINAL_POSITION
 						FOR JSON PATH
-					)
-				FROM INFORMATION_SCHEMA.TABLES t
-				ORDER BY t.TABLE_NAME
+					),
+                    [ColumnDefaultConstraints] = (
+						SELECT
+							ConstraintName = dc.[name],
+							[ColumnName] = col.[name],
+							[Definition] = dc.[definition]
+						FROM sys.default_constraints dc
+							INNER JOIN sys.columns AS col ON (col.default_object_id = dc.[object_id])
+						WHERE DC.[parent_object_id] = t.ObjectId
+						FOR JSON PATH
+					),
+					[ColumnCheckConstraints] = (
+                        SELECT 
+	                        ConstraintName = c.CONSTRAINT_NAME, 
+							[CheckClause] = (
+								SELECT TOP (1) cc.CHECK_CLAUSE 
+								FROM INFORMATION_SCHEMA.CHECK_CONSTRAINTS cc 
+								WHERE 
+									cc.CONSTRAINT_CATALOG = c.CONSTRAINT_CATALOG
+									AND cc.CONSTRAINT_SCHEMA = c.CONSTRAINT_SCHEMA 
+									AND cc.CONSTRAINT_NAME = c.CONSTRAINT_NAME
+							)
+                            FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS c
+						    WHERE 
+								c.TABLE_NAME = t.TableName
+								AND c.TABLE_SCHEMA = t.TableSchema 
+								AND c.TABLE_CATALOG = t.TableCatalog
+								AND c.CONSTRAINT_TYPE = 'CHECK'
+                        FOR JSON PATH
+					),
+					[KeyConstraints] = (
+                        SELECT 
+	                        ConstraintName = c.CONSTRAINT_NAME,
+	                        ConstraintType = CASE c.CONSTRAINT_TYPE
+								WHEN 'FOREIGN KEY' THEN 'ForeignKey'
+								WHEN 'PRIMARY KEY' THEN 'PrimaryKey'
+							END,
+	                        [KeyColumns] = (
+		                        SELECT 
+									OrdinalPosition = col.ORDINAL_POSITION,
+									ColumnName = col.COLUMN_NAME
+		                        FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE col
+		                        WHERE 
+									col.TABLE_NAME = c.TABLE_NAME 
+									AND col.TABLE_SCHEMA = c.TABLE_SCHEMA 
+									AND col.CONSTRAINT_SCHEMA = c.CONSTRAINT_SCHEMA
+		                        ORDER BY col.ORDINAL_POSITION
+		                        FOR JSON PATH
+	                        )
+                            FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS c
+						    WHERE 
+								c.TABLE_NAME = t.TableName
+								AND c.TABLE_SCHEMA = t.TableSchema 
+								AND c.TABLE_CATALOG = t.TableCatalog
+								AND c.CONSTRAINT_TYPE IN ('PRIMARY KEY', 'FOREIGN KEY')
+                        FOR JSON PATH
+                    ),
+                    [TableIndexes] = (
+                        SELECT 
+	                        IndexId = i.index_id, 
+	                        IndexName= i.[name],
+	                        IsUnique = i.is_unique,
+	                        IsUniqueConstraint = i.is_unique_constraint,
+	                        FilterDefinition = i.filter_definition,
+	                        [KeyColumns] = (
+		                        SELECT 
+									OrdinalPosition = ic.index_column_id,
+			                        ColumnName = c.[name], 
+			                        IsDescending = ic.is_descending_key
+		                        FROM sys.index_columns ic
+			                        INNER JOIN sys.columns c ON (c.[object_id] = ic.[object_id] and c.column_id = ic.column_id)
+		                        WHERE 
+									ic.index_id = i.index_id 
+									AND ic.[object_id] = i.[object_id] 
+									AND key_ordinal > 0 -- KeyOrdinal > 0 are Key Columns
+		                        ORDER BY ic.index_column_id
+		                        FOR JSON PATH
+	                        ),
+	                        [IncludeColumns] = (
+		                        SELECT
+									OrdinalPosition = ic.index_column_id,
+			                        ColumnName = c.[name], 
+			                        IsDescending = ic.is_descending_key
+		                        FROM sys.index_columns ic
+			                        INNER JOIN sys.columns c ON (c.[object_id] = ic.[object_id] and c.column_id = ic.column_id)
+		                        WHERE 
+									ic.index_id = i.index_id 
+									AND ic.[object_id] = i.[object_id] 
+									AND key_ordinal = 0 -- KeyOrdinal == 0 are Include Columns
+		                        ORDER BY ic.index_column_id
+		                        FOR JSON PATH
+	                        )
+                        FROM sys.indexes i
+	                    WHERE 
+							[type] = 2 -- Type 2 are NONCLUSTERED Table Indexes
+							AND [object_id] = t.ObjectId
+                        FOR JSON PATH
+                    )
+				FROM TablesCte t
+				ORDER BY t.TableName
 				FOR JSON PATH
 			";
 
@@ -119,7 +224,7 @@ namespace SqlBulkHelpers
 			try
 			{
 				using (SqlCommand sqlCmd = new SqlCommand(tableSchemaSql, sqlConn, sqlTransaction))
-				{
+				{ 
 					var tableDefinitionsList = sqlCmd.ExecuteForJson<List<SqlBulkHelpersTableDefinition>>();
 
 					//Dynamically convert to a Lookup for immutable cache of data.
@@ -149,8 +254,8 @@ namespace SqlBulkHelpers
 			var tableSchemaLowercaseLookup = GetTableSchemaDefinitionsLowercaseLookupFromLazyCache();
 
 			//First Try a Direct Lookup and return if found...
-			var parsedTableName = tableName.ParseAsTableNameTerm();
-			var tableDefinition = tableSchemaLowercaseLookup[parsedTableName.FullyQualifiedTableName.ToLowerInvariant()]?.FirstOrDefault();
+			var tableNameTerm = tableName.ParseAsTableNameTerm();
+			var tableDefinition = tableSchemaLowercaseLookup[tableNameTerm.FullyQualifiedTableName.ToLowerInvariant()]?.FirstOrDefault();
 			return tableDefinition;
 		}
 	}

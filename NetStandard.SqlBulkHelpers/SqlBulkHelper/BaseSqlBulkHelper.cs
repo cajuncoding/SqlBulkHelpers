@@ -7,103 +7,39 @@ using SqlBulkHelpers.Interfaces;
 namespace SqlBulkHelpers
 {
     //BBernard - Base Class for future flexibility...
-    public abstract class BaseSqlBulkHelper<T> where T: class
+    public abstract class BaseSqlBulkHelper<T> : BaseHelper<T> where T : class
     {
-        public ISqlBulkHelpersDBSchemaLoader SqlDbSchemaLoader { get; protected set; }
-
-        public int BulkOperationPerBatchTimeoutSeconds { get; set; }
-        
         #region Constructors
 
-        /// <summary>
-        /// Constructor that support passing in a customized Sql DB Schema Loader implementation.
-        /// NOTE: This is usually a shared/cached/static class (such as SqlBulkHelpersDBSchemaStaticLoader) because it may 
-        ///         cache the Sql DB Schema for maximum performance of all Bulk insert/update activities within an application; 
-        ///         because Schemas usually do not change during the lifetime of an application restart.
-        /// NOTE: With this overload there is no internal caching done, as it assumes that the instance provided is already
-        ///         being managed for performance (e.g. is static in the consuming code logic).
-        /// </summary>
-        /// <param name="sqlDbSchemaLoader"></param>
-        /// <param name="perBatchTimeoutSeconds"></param>
-        protected BaseSqlBulkHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader, int perBatchTimeoutSeconds = SqlBulkHelpersConstants.DefaultBulkOperationPerBatchTimeoutSeconds)
-        {
-            this.SqlDbSchemaLoader = sqlDbSchemaLoader;
-            this.BulkOperationPerBatchTimeoutSeconds = perBatchTimeoutSeconds;
-        }
-
-        /// <summary>
-        /// Constructor that support passing in an SqlConnection Provider which will enable deferred (lazy) initialization of the
-        /// Sql DB Schema Loader and Schema Definitions internally. the Sql DB Schema Loader will be resolved internally using
-        /// the SqlBulkHelpersSchemaLoaderCache manager for performance.
-        /// NOTE: With this overload the resolve ISqlBulkHelpersDBSchemaLoader will be resolved for this unique Connection,
-        ///         as an internally managed cached resource for performance.
-        /// </summary>
-        /// <param name="sqlBulkHelpersConnectionProvider"></param>
-        /// <param name="perBatchTimeoutSeconds"></param>
-        protected BaseSqlBulkHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider, int perBatchTimeoutSeconds = SqlBulkHelpersConstants.DefaultBulkOperationPerBatchTimeoutSeconds)
-        {
-            this.SqlDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlBulkHelpersConnectionProvider);
-            this.BulkOperationPerBatchTimeoutSeconds = perBatchTimeoutSeconds;
-        }
-
-        /// <summary>
-        /// Convenience constructor that support passing in an existing Transaction for an open Connection; whereby
-        /// the Sql DB Schema Loader will be resolved internally using the SqlBulkHelpersSchemaLoaderCache manager.
-        /// NOTE: With this overload the resolve ISqlBulkHelpersDBSchemaLoader will be resolved for this unique Connection,
-        ///         as an internally managed cached resource for performance.
-        /// </summary>
-        /// <param name="sqlTransaction"></param>
-        /// <param name="perBatchTimeoutSeconds"></param>
-        protected BaseSqlBulkHelper(SqlTransaction sqlTransaction, int perBatchTimeoutSeconds = SqlBulkHelpersConstants.DefaultBulkOperationPerBatchTimeoutSeconds)
-            : this(sqlTransaction?.Connection, sqlTransaction, perBatchTimeoutSeconds)
+        /// <inheritdoc/>
+        protected BaseSqlBulkHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            : base(sqlDbSchemaLoader, bulkHelpersConfig)
         {
         }
 
-        /// <summary>
-        /// Convenience constructor that support passing in an existing Transaction for an open Connection; whereby
-        /// the Sql DB Schema Loader will be resolved internally using the SqlBulkHelpersSchemaLoaderCache manager.
-        /// NOTE: With this overload the resolve ISqlBulkHelpersDBSchemaLoader will be resolved for this unique Connection,
-        ///         as an internally managed cached resource for performance.
-        /// </summary>
-        /// <param name="sqlConnection"></param>
-        /// <param name="sqlTransaction"></param>
-        /// <param name="perBatchTimeoutSeconds"></param>
-        protected BaseSqlBulkHelper(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null, int perBatchTimeoutSeconds = SqlBulkHelpersConstants.DefaultBulkOperationPerBatchTimeoutSeconds)
+        /// <inheritdoc/>
+        protected BaseSqlBulkHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            : base(sqlBulkHelpersConnectionProvider, bulkHelpersConfig)
         {
-            //For safety since a Connection was passed in then we generally should immediately initialize the Schema Loader,
-            //      because this connection or transaction may no longer be valid later.
-            this.SqlDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnection, sqlTransaction, true);
-            this.BulkOperationPerBatchTimeoutSeconds = perBatchTimeoutSeconds;
+        }
+
+        /// <inheritdoc/>
+        protected BaseSqlBulkHelper(SqlTransaction sqlTransaction, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            : base(sqlTransaction, bulkHelpersConfig)
+        {
         }
 
         #endregion
-
-        public virtual SqlBulkHelpersTableDefinition GetTableSchemaDefinition(string tableName)
-        {
-            //BBernard
-            //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
-            //      we eliminate risk of Sql Injection.
-            var tableDefinition = this.SqlDbSchemaLoader.GetTableSchemaDefinition(tableName);
-            if (tableDefinition == null) throw new ArgumentOutOfRangeException(nameof(tableName), $"The specified {nameof(tableName)} argument value of [{tableName}] is invalid.");
-            return tableDefinition;
-        }
 
         protected virtual SqlBulkCopy CreateSqlBulkCopyInternal(
             List<T> entities,
             SqlBulkHelpersTableDefinition tableDefinition,
             SqlBulkHelpersProcessingDefinition processingDefinition,
-            SqlTransaction transaction,
-            int perBatchTimeoutSeconds,
-            bool enableBulkCopyTableLock
+            SqlTransaction transaction
         )
         {
             //Initialize the BulkCopy Factory class with parameters...
-            var factory = new SqlBulkCopyFactory()
-            {
-                BulkCopyPerBatchTimeoutSeconds = perBatchTimeoutSeconds,
-                BulkCopyOptions = enableBulkCopyTableLock ? SqlBulkCopyOptions.TableLock : SqlBulkCopyOptions.Default
-            };
-
+            var factory = new SqlBulkCopyFactory(BulkHelpersConfig);
             var sqlBulkCopy = factory.CreateSqlBulkCopy(entities, processingDefinition, tableDefinition, transaction);
             return sqlBulkCopy;
         }

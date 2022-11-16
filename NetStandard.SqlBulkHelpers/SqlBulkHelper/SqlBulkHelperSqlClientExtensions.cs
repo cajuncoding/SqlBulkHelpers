@@ -1,7 +1,6 @@
 ﻿using Microsoft.Data.SqlClient;
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace SqlBulkHelpers.SqlBulkHelpers
@@ -15,17 +14,16 @@ namespace SqlBulkHelpers.SqlBulkHelpers
             IEnumerable<T> entities,
             string tableName = null,
             SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null,
-            bool? enableSqlBulkCopyTableLockParam = null
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
         ) where T : class
         {
 
-            var results = await new SqlBulkHelper<T>(sqlTransaction)
+            var results = await new SqlBulkHelper<T>(sqlTransaction, bulkHelpersConfig)
                 .BulkInsertAsync(
                     entities, 
                     sqlTransaction, 
                     tableNameParam: tableName, 
-                    matchQualifierExpression: matchQualifierExpressionParam, 
-                    enableSqlBulkCopyTableLockParam: enableSqlBulkCopyTableLockParam
+                    matchQualifierExpression: matchQualifierExpressionParam
                 )
                 .ConfigureAwait(false);
 
@@ -37,15 +35,14 @@ namespace SqlBulkHelpers.SqlBulkHelpers
             IEnumerable<T> entities,
             string tableName = null,
             SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null,
-            bool? enableSqlBulkCopyTableLockParam = null
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
         ) where T : class
         {
-            var results = await new SqlBulkHelper<T>(sqlTransaction)
+            var results = await new SqlBulkHelper<T>(sqlTransaction, bulkHelpersConfig)
                 .BulkUpdateAsync(entities,
                     sqlTransaction,
                     tableNameParam: tableName,
-                    matchQualifierExpression: matchQualifierExpressionParam,
-                    enableSqlBulkCopyTableLockParam: enableSqlBulkCopyTableLockParam
+                    matchQualifierExpression: matchQualifierExpressionParam
                 )
                 .ConfigureAwait(false);
 
@@ -57,15 +54,14 @@ namespace SqlBulkHelpers.SqlBulkHelpers
             IEnumerable<T> entities,
             string tableName = null,
             SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null,
-            bool? enableSqlBulkCopyTableLockParam = null
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
         ) where T : class
         {
-            var results = await new SqlBulkHelper<T>(sqlTransaction)
+            var results = await new SqlBulkHelper<T>(sqlTransaction, bulkHelpersConfig)
                 .BulkInsertOrUpdateAsync(entities,
                     sqlTransaction,
                     tableNameParam: tableName,
-                    matchQualifierExpression: matchQualifierExpressionParam,
-                    enableSqlBulkCopyTableLockParam: enableSqlBulkCopyTableLockParam
+                    matchQualifierExpression: matchQualifierExpressionParam
                 )
                 .ConfigureAwait(false);
 
@@ -77,15 +73,17 @@ namespace SqlBulkHelpers.SqlBulkHelpers
             IEnumerable<T> entities,
             string tableName = null,
             SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null,
-            bool? enableSqlBulkCopyTableLockParam = null
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
         ) where T : class
         {
-            var results = new SqlBulkHelper<T>(sqlTransaction).BulkInsert(entities,
-                sqlTransaction,
-                tableNameParam: tableName,
-                matchQualifierExpression: matchQualifierExpressionParam,
-                enableSqlBulkCopyTableLockParam: enableSqlBulkCopyTableLockParam
-            );
+            var results = new SqlBulkHelper<T>(sqlTransaction, bulkHelpersConfig)
+                .BulkInsert(
+                    entities,
+                    sqlTransaction,
+                    tableNameParam: tableName,
+                    matchQualifierExpression: matchQualifierExpressionParam
+                );
+
             return results;
         }
 
@@ -94,15 +92,17 @@ namespace SqlBulkHelpers.SqlBulkHelpers
             IEnumerable<T> entities,
             string tableName = null,
             SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null,
-            bool? enableSqlBulkCopyTableLockParam = null
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
         ) where T : class
         {
-            var results = new SqlBulkHelper<T>(sqlTransaction).BulkUpdate(entities,
-                sqlTransaction,
-                tableNameParam: tableName,
-                matchQualifierExpression: matchQualifierExpressionParam,
-                enableSqlBulkCopyTableLockParam: enableSqlBulkCopyTableLockParam
-            );
+            var results = new SqlBulkHelper<T>(sqlTransaction, bulkHelpersConfig)
+                .BulkUpdate(
+                    entities,
+                    sqlTransaction,
+                    tableNameParam: tableName,
+                    matchQualifierExpression: matchQualifierExpressionParam
+                );
+    
             return results;
         }
 
@@ -111,15 +111,17 @@ namespace SqlBulkHelpers.SqlBulkHelpers
             IEnumerable<T> entities,
             string tableName = null,
             SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null,
-            bool? enableSqlBulkCopyTableLockParam = null
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
         ) where T : class
         {
-            var results = new SqlBulkHelper<T>(sqlTransaction).BulkInsertOrUpdate(entities,
-                sqlTransaction,
-                tableNameParam: tableName,
-                matchQualifierExpression: matchQualifierExpressionParam,
-                enableSqlBulkCopyTableLockParam: enableSqlBulkCopyTableLockParam
-            );
+            var results = new SqlBulkHelper<T>(sqlTransaction, bulkHelpersConfig)
+                .BulkInsertOrUpdate(
+                    entities,
+                    sqlTransaction,
+                    tableNameParam: tableName,
+                    matchQualifierExpression: matchQualifierExpressionParam
+                );
+
             return results;
         }
 

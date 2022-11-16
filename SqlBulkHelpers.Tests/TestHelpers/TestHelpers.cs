@@ -14,6 +14,11 @@ namespace SqlBulkHelpers.Tests
 
         public const int SqlTimeoutSeconds = 150;
 
+        public static SqlBulkHelpersConfig BulkHelpersConfig { get; } = SqlBulkHelpersConfig.Create(config =>
+        {
+            config.SqlBulkPerBatchTimeoutSeconds = SqlTimeoutSeconds;
+        });
+
         public static List<TestElement> CreateTestData(int dataSize)
         {
 

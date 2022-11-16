@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using Microsoft.Data.SqlClient;
 using System.Threading.Tasks;
 
@@ -11,26 +10,20 @@ namespace SqlBulkHelpers
         #region Constructors
 
         /// <inheritdoc/>
-        public SqlBulkHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader, int perBatchTimeoutSeconds = SqlBulkHelpersConstants.DefaultBulkOperationPerBatchTimeoutSeconds)
-            : base(sqlDbSchemaLoader, perBatchTimeoutSeconds)
+        public SqlBulkHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            : base(sqlDbSchemaLoader, bulkHelpersConfig)
         {
         }
 
         /// <inheritdoc/>
-        public SqlBulkHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider, int perBatchTimeoutSeconds = SqlBulkHelpersConstants.DefaultBulkOperationPerBatchTimeoutSeconds)
-            : base(sqlBulkHelpersConnectionProvider, perBatchTimeoutSeconds)
+        public SqlBulkHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            : base(sqlBulkHelpersConnectionProvider, bulkHelpersConfig)
         {
         }
 
         /// <inheritdoc/>
-        public SqlBulkHelper(SqlTransaction sqlTransaction, int perBatchTimeoutSeconds = SqlBulkHelpersConstants.DefaultBulkOperationPerBatchTimeoutSeconds)
-            : base(sqlTransaction, perBatchTimeoutSeconds)
-        {
-        }
-
-        /// <inheritdoc/>
-        public SqlBulkHelper(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null, int perBatchTimeoutSeconds = SqlBulkHelpersConstants.DefaultBulkOperationPerBatchTimeoutSeconds)
-            : base(sqlConnection, sqlTransaction, perBatchTimeoutSeconds)
+        public SqlBulkHelper(SqlTransaction sqlTransaction, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            : base(sqlTransaction, bulkHelpersConfig)
         {
         }
 
@@ -42,8 +35,7 @@ namespace SqlBulkHelpers
             IEnumerable<T> entityList,
             SqlTransaction sqlTransaction,
             string tableNameParam = null,
-            SqlMergeMatchQualifierExpression matchQualifierExpression = null,
-            bool? enableSqlBulkCopyTableLockParam = null
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
         )
         {
             return await BulkInsertOrUpdateInternalAsync(
@@ -51,8 +43,7 @@ namespace SqlBulkHelpers
                 SqlBulkHelpersMergeAction.Insert,
                 sqlTransaction,
                 tableNameParam: tableNameParam,
-                matchQualifierExpressionParam: matchQualifierExpression,
-                enableSqlBulkCopyTableLockParam: enableSqlBulkCopyTableLockParam
+                matchQualifierExpressionParam: matchQualifierExpression
             ).ConfigureAwait(false);
         }
 
@@ -60,8 +51,7 @@ namespace SqlBulkHelpers
             IEnumerable<T> entityList,
             SqlTransaction sqlTransaction,
             string tableNameParam = null,
-            SqlMergeMatchQualifierExpression matchQualifierExpression = null,
-            bool? enableSqlBulkCopyTableLockParam = null
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
         )
         {
             return await BulkInsertOrUpdateInternalAsync(
@@ -69,8 +59,7 @@ namespace SqlBulkHelpers
                 SqlBulkHelpersMergeAction.Update,
                 sqlTransaction,
                 tableNameParam: tableNameParam,
-                matchQualifierExpressionParam: matchQualifierExpression,
-                enableSqlBulkCopyTableLockParam: enableSqlBulkCopyTableLockParam
+                matchQualifierExpressionParam: matchQualifierExpression
             ).ConfigureAwait(false);
         }
 
@@ -78,8 +67,7 @@ namespace SqlBulkHelpers
             IEnumerable<T> entityList,
             SqlTransaction sqlTransaction,
             string tableNameParam = null,
-            SqlMergeMatchQualifierExpression matchQualifierExpression = null,
-            bool? enableSqlBulkCopyTableLockParam = null
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
         )
         {
             return await BulkInsertOrUpdateInternalAsync(
@@ -87,8 +75,7 @@ namespace SqlBulkHelpers
                 SqlBulkHelpersMergeAction.InsertOrUpdate,
                 sqlTransaction,
                 tableNameParam: tableNameParam,
-                matchQualifierExpressionParam: matchQualifierExpression,
-                enableSqlBulkCopyTableLockParam: enableSqlBulkCopyTableLockParam
+                matchQualifierExpressionParam: matchQualifierExpression
             ).ConfigureAwait(false);
         }
 
@@ -97,8 +84,7 @@ namespace SqlBulkHelpers
             IEnumerable<T> entityList,
             SqlTransaction sqlTransaction,
             string tableNameParam = null,
-            SqlMergeMatchQualifierExpression matchQualifierExpression = null,
-            bool? enableSqlBulkCopyTableLockParam = null
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
         )
         {
             return BulkInsertOrUpdateInternal(
@@ -106,8 +92,7 @@ namespace SqlBulkHelpers
                 SqlBulkHelpersMergeAction.Insert,
                 sqlTransaction,
                 tableNameParam: tableNameParam,
-                matchQualifierExpressionParam: matchQualifierExpression,
-                enableSqlBulkCopyTableLockParam: enableSqlBulkCopyTableLockParam
+                matchQualifierExpressionParam: matchQualifierExpression
             );
         }
 
@@ -115,8 +100,7 @@ namespace SqlBulkHelpers
             IEnumerable<T> entityList,
             SqlTransaction sqlTransaction,
             string tableNameParam = null,
-            SqlMergeMatchQualifierExpression matchQualifierExpression = null,
-            bool? enableSqlBulkCopyTableLockParam = null
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
         )
         {
             return BulkInsertOrUpdateInternal(
@@ -124,8 +108,7 @@ namespace SqlBulkHelpers
                 SqlBulkHelpersMergeAction.Update,
                 sqlTransaction,
                 tableNameParam: tableNameParam,
-                matchQualifierExpressionParam: matchQualifierExpression,
-                enableSqlBulkCopyTableLockParam: enableSqlBulkCopyTableLockParam
+                matchQualifierExpressionParam: matchQualifierExpression
             );
         }
 
@@ -133,8 +116,7 @@ namespace SqlBulkHelpers
             IEnumerable<T> entityList,
             SqlTransaction sqlTransaction,
             string tableNameParam = null,
-            SqlMergeMatchQualifierExpression matchQualifierExpression = null,
-            bool? enableSqlBulkCopyTableLockParam = null
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null
         )
         {
             return BulkInsertOrUpdateInternal(
@@ -142,12 +124,16 @@ namespace SqlBulkHelpers
                 SqlBulkHelpersMergeAction.InsertOrUpdate,
                 sqlTransaction,
                 tableNameParam: tableNameParam,
-                matchQualifierExpressionParam: matchQualifierExpression,
-                enableSqlBulkCopyTableLockParam: enableSqlBulkCopyTableLockParam
+                matchQualifierExpressionParam: matchQualifierExpression
             );
         }
 
-        #endregion
+        public SqlBulkHelpersTableDefinition GetTableSchemaDefinition(string tableName = null)
+        {
+            var definitions = this.GetTableSchemaAndProcessingDefinitions(tableName);
+            return definitions.TableDefinition;
+        }
 
+        #endregion
     }
 }

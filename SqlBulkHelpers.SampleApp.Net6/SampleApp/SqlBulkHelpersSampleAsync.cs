@@ -11,6 +11,12 @@ namespace SqlBulkHelpersSample.ConsoleApp
     {
         public static async Task RunSampleAsync(string sqlConnectionString)
         {
+            //Initialize Sql Bulk Helpers Configuration Defaults...
+            SqlBulkHelpersConfig.ConfigureDefaults(config =>
+            {
+                config.SqlBulkPerBatchTimeoutSeconds = SqlBulkHelpersSampleApp.SqlTimeoutSeconds;
+            });
+
             //Initialize with a Connection String (using our Config Key or your own, or any other initialization
             //  of the Connection String (e.g. perfect for DI initialization, etc.):
             //NOTE: The ISqlBulkHelpersConnectionProvider interface provides a great abstraction that most projects don't
@@ -28,11 +34,7 @@ namespace SqlBulkHelpersSample.ConsoleApp
             await using SqlConnection conn = await sqlConnectionProvider.NewConnectionAsync();
             await using SqlTransaction transaction = conn.BeginTransaction();
 
-            ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(
-                conn, 
-                transaction, 
-                SqlBulkHelpersSampleApp.SqlTimeoutSeconds
-            );
+            ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(transaction);
 
             await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(
                 testData,
@@ -48,6 +50,12 @@ namespace SqlBulkHelpersSample.ConsoleApp
 
         public static async Task RunBenchmarksAsync(string sqlConnectionString)
         {
+                        //Initialize Sql Bulk Helpers Configuration Defaults...
+            SqlBulkHelpersConfig.ConfigureDefaults(config =>
+            {
+                config.SqlBulkPerBatchTimeoutSeconds = SqlBulkHelpersSampleApp.SqlTimeoutSeconds;
+            });
+
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
 
             await using var conn = await sqlConnectionProvider.NewConnectionAsync();
@@ -55,11 +63,7 @@ namespace SqlBulkHelpersSample.ConsoleApp
             
             var tableName = SqlBulkHelpersSampleApp.TestTableName;
 
-            ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(
-                conn, 
-                transaction, 
-                SqlBulkHelpersSampleApp.SqlTimeoutSeconds
-            );
+            ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(transaction);
 
             var timer = new Stopwatch();
 

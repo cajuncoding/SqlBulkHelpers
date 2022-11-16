@@ -8,7 +8,7 @@ namespace SqlBulkHelpers
     public interface ISqlBulkHelper<T> where T: class
     {
         #region Dependency / Helper Methods
-        SqlBulkHelpersTableDefinition GetTableSchemaDefinition(String tableName);
+        SqlBulkHelpersTableDefinition GetTableSchemaDefinition(string tableName = null);
         #endregion
 
         #region Async Operation Methods

@@ -18,7 +18,10 @@ namespace SqlBulkHelpers
 
         public SqlBulkTableAttribute(string tableName)
         {
-            (this.SchemaName, this.TableName, this.FullyQualifiedTableName) = tableName.ParseAsTableNameTerm();
+            var tableNameTerm = tableName.ParseAsTableNameTerm();
+            this.SchemaName = tableNameTerm.SchemaName;
+            this.TableName = tableNameTerm.TableName;
+            this.FullyQualifiedTableName = tableNameTerm.FullyQualifiedTableName;
         }
     }
 }
