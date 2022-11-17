@@ -9,7 +9,7 @@ namespace SqlBulkHelpers
         public SqlMatchQualifierField(string fieldName)
         {
             this.Name = fieldName;
-            this.SanitizedName = fieldName.Trim('[', ']');
+            this.SanitizedName = fieldName.TrimTableNameTerm();
         }
 
         public string Name { get; }

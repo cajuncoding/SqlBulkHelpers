@@ -62,19 +62,24 @@ namespace SqlBulkHelpers.Tests
         }
     }
 
-    [SqlBulkTable("TestElement")]
-    public class TestElementMappedNames
+    [SqlBulkTable("TestElement", uniqueMatchMergeValidationEnabled: false)]
+    public class TestElementWithMappedNames
     {
         [SqlBulkMatchQualifier]
         [Map("Id")]
         public int MyId { get; set; }
         
         [Column("Key")]
+        [SqlBulkMatchQualifier]
         public string MyKey { get; set; }
 
+        //Regardless of attribute order the SqlBulkColumn should take precedent!
+        [Column("INCORRECT_NAME_SHOULD_NOT_RESOLVE")]
         [SqlBulkColumn("Value")]
         [Map("INCORRECT_NAME_SHOULD_NOT_RESOLVE")]
         public string MyValue { get; set; }
+
+        public int UnMappedProperty { get; set; }
 
         public override string ToString()
         {

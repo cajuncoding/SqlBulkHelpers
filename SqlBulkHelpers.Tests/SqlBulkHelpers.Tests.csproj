@@ -72,6 +72,7 @@
     <Compile Include="IntegrationTests\SchemaLoaderCacheTests.cs" />
     <Compile Include="IntegrationTests\ConnectionAndConstructorTests.cs" />
     <Compile Include="IntegrationTests\BulkInsertTests.cs" />
+    <Compile Include="IntegrationTests\ProcessingDefinitionTests.cs" />
     <Compile Include="IntegrationTests\SchemaLoaderTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TestHelpers\SqlConnectionHelper.cs" />

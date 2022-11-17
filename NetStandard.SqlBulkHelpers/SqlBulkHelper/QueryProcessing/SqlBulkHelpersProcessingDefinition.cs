@@ -45,7 +45,7 @@ namespace SqlBulkHelpers
                 cacheValueFactory: key =>
                 {
                     var propertyInfos = type.GetProperties().Select(pi => new PropInfoDefinition(pi, identityColumnDefinition)).ToList();
-                    var newProcessingDefinition = new SqlBulkHelpersProcessingDefinition(propertyInfos, type, isRowNumberColumnNameEnabled: true);
+                    var newProcessingDefinition = new SqlBulkHelpersProcessingDefinition(propertyInfos, type);
                     return newProcessingDefinition;
                 }
             );

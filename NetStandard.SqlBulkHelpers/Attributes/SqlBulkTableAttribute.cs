@@ -11,17 +11,18 @@ namespace SqlBulkHelpers
         public bool UniqueMatchMergeValidationEnabled { get; protected set; }
 
         public SqlBulkTableAttribute(string schemaName, string tableName, bool uniqueMatchMergeValidationEnabled = true)
-            : this($"[{schemaName}].[{tableName}]")
+            : this($"[{schemaName.TrimTableNameTerm()}].[{tableName.TrimTableNameTerm()}]")
         {
             this.UniqueMatchMergeValidationEnabled = uniqueMatchMergeValidationEnabled;
         }
 
-        public SqlBulkTableAttribute(string tableName)
+        public SqlBulkTableAttribute(string tableName, bool uniqueMatchMergeValidationEnabled = true)
         {
             var tableNameTerm = tableName.ParseAsTableNameTerm();
             this.SchemaName = tableNameTerm.SchemaName;
             this.TableName = tableNameTerm.TableName;
             this.FullyQualifiedTableName = tableNameTerm.FullyQualifiedTableName;
+            this.UniqueMatchMergeValidationEnabled = uniqueMatchMergeValidationEnabled;
         }
     }
 }

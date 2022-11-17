@@ -50,7 +50,7 @@ namespace SqlBulkHelpers
 
             //Dynamically build the Merge Match Qualifier Fields Expression
             //NOTE: This is an optional parameter when an Identity Column exists as it is initialized to the IdentityColumn as a Default (Validated above!)
-            var mergeMatchQualifierExpressionSql = BuildMergeMatchQualifierExpressionSql(mergeQualifierExpression);
+            var mergeMatchQualifierExpressionSql = BuildMergeMatchQualifierExpressionSql(sanitizedQualifierExpression);
 
             //Initialize/Create the Staging Table!
             //NOTE: THe ROWNUMBER_COLUMN_NAME (3'rd Column) IS CRITICAL because SqlBulkCopy and Sql Server OUTPUT claus do not
