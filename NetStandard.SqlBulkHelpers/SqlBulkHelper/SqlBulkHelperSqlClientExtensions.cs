@@ -130,7 +130,7 @@ namespace SqlBulkHelpers.SqlBulkHelpers
         #region Other Convenience Methods
 
         public static SqlBulkHelpersTableDefinition GetTableSchemaDefinition(this SqlConnection sqlConn, string tableName)
-            => GetTableSchemaDefinition<object>(sqlConn, tableName);
+            => GetTableSchemaDefinition<ISkipMappingLookup>(sqlConn, tableName);
 
         public static SqlBulkHelpersTableDefinition GetTableSchemaDefinition<T>(
             this SqlConnection sqlConn,
@@ -144,7 +144,7 @@ namespace SqlBulkHelpers.SqlBulkHelpers
         }
 
         public static SqlBulkHelpersTableDefinition GetTableSchemaDefinition(this SqlTransaction sqlTransaction, string tableName)
-            => GetTableSchemaDefinition<object>(sqlTransaction, tableName);
+            => GetTableSchemaDefinition<ISkipMappingLookup>(sqlTransaction, tableName);
 
         public static SqlBulkHelpersTableDefinition GetTableSchemaDefinition<T>(
             this SqlTransaction sqlTransaction,
@@ -152,8 +152,8 @@ namespace SqlBulkHelpers.SqlBulkHelpers
         ) where T : class
         {
             var sqlBulkHelper = new SqlBulkHelper<T>(sqlTransaction);
-            var tableInfo = sqlBulkHelper.GetTableSchemaAndProcessingDefinitions(sqlTransaction, tableName);
-            return tableInfo.TableDefinition;
+            var tableDefinition = sqlBulkHelper.GetTableSchemaDefinition(sqlTransaction, tableName);
+            return tableDefinition;
         }
 
         #endregion

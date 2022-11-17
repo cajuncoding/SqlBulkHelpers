@@ -9,6 +9,8 @@ namespace SqlBulkHelpers
 
         public ISqlBulkHelpersConfig BulkHelpersConfig { get; protected set; }
 
+        protected SqlBulkHelpersProcessingDefinition BulkHelpersProcessingDefinition { get; set; }
+
         #region Constructors
 
         /// <summary>
@@ -22,9 +24,9 @@ namespace SqlBulkHelpers
         /// <param name="sqlDbSchemaLoader"></param>
         /// <param name="bulkHelpersConfig"></param>
         protected BaseHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            : this(bulkHelpersConfig)
         {
             this.SqlDbSchemaLoader = sqlDbSchemaLoader.AssertArgumentIsNotNull(nameof(sqlDbSchemaLoader));
-            this.BulkHelpersConfig = bulkHelpersConfig ?? SqlBulkHelpersConfig.DefaultConfig;
         }
 
         /// <summary>
@@ -37,11 +39,10 @@ namespace SqlBulkHelpers
         /// <param name="sqlBulkHelpersConnectionProvider"></param>
         /// <param name="bulkHelpersConfig"></param>
         protected BaseHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            : this(bulkHelpersConfig)
         {
-            this.SqlDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(
-                sqlBulkHelpersConnectionProvider.AssertArgumentIsNotNull(nameof(sqlBulkHelpersConnectionProvider))
-            );
-            this.BulkHelpersConfig = bulkHelpersConfig ?? SqlBulkHelpersConfig.DefaultConfig;
+            sqlBulkHelpersConnectionProvider.AssertArgumentIsNotNull(nameof(sqlBulkHelpersConnectionProvider));
+            this.SqlDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlBulkHelpersConnectionProvider);
         }
 
         /// <summary>
@@ -53,13 +54,17 @@ namespace SqlBulkHelpers
         /// <param name="sqlTransaction"></param>
         /// <param name="bulkHelpersConfig"></param>
         protected BaseHelper(SqlTransaction sqlTransaction, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            : this(bulkHelpersConfig)
         {
             sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
-
-            //For safety since a Connection was passed in then we generally should immediately initialize the Schema Loader,
-            //      because this connection or transaction may no longer be valid later.
             this.SqlDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlTransaction.Connection.ConnectionString);
+        }
+
+        //Private Constructor for common element initialization...
+        private BaseHelper(ISqlBulkHelpersConfig bulkHelpersConfig = null)
+        {
             this.BulkHelpersConfig = bulkHelpersConfig ?? SqlBulkHelpersConfig.DefaultConfig;
+            this.BulkHelpersProcessingDefinition = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>();
         }
 
         #endregion
@@ -68,23 +73,15 @@ namespace SqlBulkHelpers
         //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
         //      we eliminate risk of Sql Injection.
         //NOTE: All other parameters are Strongly typed (vs raw Strings) thus eliminating risk of Sql Injection
-        public virtual (
-            SqlBulkHelpersTableDefinition TableDefinition, 
-            SqlBulkHelpersProcessingDefinition ProcessingDefinition
-        ) GetTableSchemaAndProcessingDefinitions(SqlTransaction sqlTransaction, string tableNameParam = null)
+        protected virtual SqlBulkHelpersTableDefinition GetTableSchemaDefinitionInternal(SqlTransaction sqlTransaction, string tableNameParam = null)
         {
-            //***STEP #1: Get the Processing Definition (cached after initial Load)!!!
-            var processingDefinition = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>();
+            //***STEP #1: Get the correct table name to lookup whether it is specified or if we fall back to the mapped data from the Model.
+            string tableName = tableNameParam;
+            if (string.IsNullOrWhiteSpace(tableName) && this.BulkHelpersProcessingDefinition.IsMappingLookupEnabled)
+                tableName = this.BulkHelpersProcessingDefinition.MappedDbTableName;
 
-            //***STEP #2: Load the Table Schema Definitions (cached after initial Load)!!!
-            //BBernard
-            //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
-            //      we eliminate risk of Sql Injection.
-            //NOTE: All other parameters are Strongly typed (vs raw Strings) thus eliminating risk of Sql Injection
-            var tableName = !string.IsNullOrWhiteSpace(tableNameParam) 
-                ? tableNameParam 
-                : processingDefinition.MappedDbTableName;
-            
+
+            //***STEP #2: Load the Table Schema Definitions from the name provided or fall-back to use mapped data
             //BBernard
             //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
             //      we eliminate risk of Sql Injection.
@@ -92,7 +89,7 @@ namespace SqlBulkHelpers
             if (tableDefinition == null) 
                 throw new ArgumentOutOfRangeException(nameof(tableNameParam), $"The specified {nameof(tableNameParam)} argument value of [{tableNameParam}] is invalid; no table definition could be resolved.");
             
-            return (tableDefinition, processingDefinition);
+            return tableDefinition;
         }
 
     }

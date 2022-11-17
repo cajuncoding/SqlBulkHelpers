@@ -23,7 +23,7 @@ namespace SqlBulkHelpers
         public override string ToString() => FullyQualifiedTableName;
 
         public static TableNameTerm From(string tableNameOverride)
-            => From<object>(tableNameOverride);
+            => From<ISkipMappingLookup>(tableNameOverride);
 
         public static TableNameTerm From<T>(string tableNameOverride = null)
         {

@@ -8,6 +8,13 @@ using LazyCacheHelpers;
 
 namespace SqlBulkHelpers
 {
+    /// <summary>
+    /// Marker interface to denote that there is no Model to be used to get Mapping Details for...
+    /// </summary>
+    internal interface ISkipMappingLookup
+    {
+    }
+
     internal static class MappingAttributeNames
     {
         public const string RepoDbFieldMapAttributeName = "MapAttribute";
@@ -27,10 +34,12 @@ namespace SqlBulkHelpers
     public class SqlBulkHelpersProcessingDefinition
     {
         private static readonly LazyStaticInMemoryCache<string, SqlBulkHelpersProcessingDefinition> _processingDefinitionsLazyCache = new LazyStaticInMemoryCache<string, SqlBulkHelpersProcessingDefinition>();
+        private static readonly Type _skipMappingLookupType = typeof(ISkipMappingLookup);
 
         public static SqlBulkHelpersProcessingDefinition GetProcessingDefinition<T>(TableColumnDefinition identityColumnDefinition = null)
         {
             var type = typeof(T);
+
             var processingDefinition = _processingDefinitionsLazyCache.GetOrAdd(
                 key: $"[Type={type.Name}][Identity={identityColumnDefinition?.ColumnName ?? "N/A"}]",  //Cache Key
                 cacheValueFactory: key =>
@@ -46,6 +55,7 @@ namespace SqlBulkHelpers
         
         protected SqlBulkHelpersProcessingDefinition(List<PropInfoDefinition> propertyDefinitions, Type entityType, bool isRowNumberColumnNameEnabled = true)
         {
+            IsMappingLookupEnabled = !_skipMappingLookupType.IsAssignableFrom(entityType);
             PropertyDefinitions = propertyDefinitions.AssertArgumentIsNotNull(nameof(propertyDefinitions)).ToArray();
             IsRowNumberColumnNameEnabled = isRowNumberColumnNameEnabled;
             MappedDbTableName = GetMappedDbTableName(entityType);
@@ -69,9 +79,12 @@ namespace SqlBulkHelpers
                     //NOTE: We need to ensure that our Merge Qualifier Expression configuration matches what may have been configured on Table attribute.
                     ThrowExceptionIfNonUniqueMatchesOccur = UniqueMatchMergeValidationEnabled
                 };
-
-
         }
+
+        /// <summary>
+        /// Determines if the Entity Type Mapping information is enabled or if it should be ignored (e.g. implements ISkipMappingLookup)
+        /// </summary>
+        public bool IsMappingLookupEnabled { get; protected set; }
 
         public PropInfoDefinition[] PropertyDefinitions { get; protected set; }
 
@@ -84,7 +97,7 @@ namespace SqlBulkHelpers
         public SqlMergeMatchQualifierExpression MergeMatchQualifierExpressionFromEntityModel { get; protected set; }
 
         public bool UniqueMatchMergeValidationEnabled { get; protected set; } = true;
-
+        
         protected string GetMappedDbTableName(Type entityType)
         {
             var mappingAttribute = entityType.FindAttributes(

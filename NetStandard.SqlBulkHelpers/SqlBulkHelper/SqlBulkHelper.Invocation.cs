@@ -130,8 +130,8 @@ namespace SqlBulkHelpers
 
         public SqlBulkHelpersTableDefinition GetTableSchemaDefinition(SqlTransaction sqlTransaction, string tableName = null)
         {
-            var definitions = this.GetTableSchemaAndProcessingDefinitions(sqlTransaction, tableName);
-            return definitions.TableDefinition;
+            var tableDefinition = this.GetTableSchemaDefinitionInternal(sqlTransaction, tableName);
+            return tableDefinition;
         }
 
         #endregion
