@@ -3,9 +3,8 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SqlBulkHelpers.Tests;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
-using Microsoft.Data.SqlClient;
+
 
 namespace SqlBulkHelpers.IntegrationTests
 {
@@ -22,10 +21,7 @@ namespace SqlBulkHelpers.IntegrationTests
                 SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnectionProvider), //0
                 SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnectionProvider), //1
                 SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnectionProvider), //2
-                SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader( //3
-                    "SECOND_CONNECTION_TEST", 
-                    () => new SqlConnection(SqlConnectionHelper.GetSqlConnectionString())
-                ),
+                SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader("SECOND_CONNECTION_TEST"), //3
             };
 
             Assert.IsNotNull(schemaLoadersList[0]);
@@ -38,18 +34,15 @@ namespace SqlBulkHelpers.IntegrationTests
             Assert.AreEqual(schemaLoadersList[0], schemaLoadersList[2]);
             Assert.AreNotEqual(schemaLoadersList[2], schemaLoadersList[3]);
 
-            schemaLoadersList[1].GetTableSchemaDefinitionsLowercaseLookupFromLazyCache();
-            Assert.IsTrue(((SqlBulkHelpersDBSchemaLoader)schemaLoadersList[0]).IsInitialized);
-            Assert.IsTrue(((SqlBulkHelpersDBSchemaLoader)schemaLoadersList[1]).IsInitialized);
-            Assert.IsTrue(((SqlBulkHelpersDBSchemaLoader)schemaLoadersList[2]).IsInitialized);
-
             //Validate that the second connection was never initialized!
             var secondConnectionSchemaLoader = (SqlBulkHelpersDBSchemaLoader)schemaLoadersList[3];
-            Assert.IsFalse(secondConnectionSchemaLoader.IsInitialized);
+            Assert.IsNotNull(secondConnectionSchemaLoader);
+
+            Assert.AreEqual(2, SqlBulkHelpersSchemaLoaderCache.Count);
         }
 
         [TestMethod]
-        public async Task TestSchemaLoaderCacheWithExistingConnectionAndImmediateLoadingAsync()
+        public async Task TestSchemaLoaderCacheWithExistingConnectionAsync()
         {
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
 
@@ -57,17 +50,17 @@ namespace SqlBulkHelpers.IntegrationTests
 
             using (var conn = await sqlConnectionProvider.NewConnectionAsync())
             {
-                schemaLoadersList.Add(SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(conn));
+                schemaLoadersList.Add(SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(conn.ConnectionString));
             }
 
             using (var conn = await sqlConnectionProvider.NewConnectionAsync())
             {
-                schemaLoadersList.Add(SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(conn));
+                schemaLoadersList.Add(SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(conn.ConnectionString));
             }
 
             using (var conn = await sqlConnectionProvider.NewConnectionAsync())
             {
-                schemaLoadersList.Add(SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(conn));
+                schemaLoadersList.Add(SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(conn.ConnectionString));
             }
 
             Assert.IsNotNull(schemaLoadersList[0]);
@@ -78,28 +71,7 @@ namespace SqlBulkHelpers.IntegrationTests
             Assert.AreEqual(schemaLoadersList[1], schemaLoadersList[2]);
             Assert.AreEqual(schemaLoadersList[0], schemaLoadersList[2]);
 
-            //ALL should already be initialized since used existing connections to construct them!
-            Assert.IsTrue(((SqlBulkHelpersDBSchemaLoader)schemaLoadersList[0]).IsInitialized);
-            Assert.IsTrue(((SqlBulkHelpersDBSchemaLoader)schemaLoadersList[1]).IsInitialized);
-            Assert.IsTrue(((SqlBulkHelpersDBSchemaLoader)schemaLoadersList[2]).IsInitialized);
-        }
-
-        [TestMethod]
-        public void TestSchemaLoaderCacheFromConnectionFactoryInitializationAsync()
-        {
-            string sqlConnectionString = SqlConnectionHelper.GetSqlConnectionString();
-
-            var dbSchemaLoaderFromFactoryFunc = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(
-                $"SQL_CONNECTION_CUSTOM_CACHE_KEY::{Guid.NewGuid()}",
-                () => new SqlConnection(sqlConnectionString)
-            );
-
-            Assert.IsNotNull(dbSchemaLoaderFromFactoryFunc);
-            Assert.IsFalse(((SqlBulkHelpersDBSchemaLoader)dbSchemaLoaderFromFactoryFunc).IsInitialized);
-
-            var tableDefinitions = dbSchemaLoaderFromFactoryFunc.GetTableSchemaDefinitionsLowercaseLookupFromLazyCache();
-            Assert.IsTrue(((SqlBulkHelpersDBSchemaLoader)dbSchemaLoaderFromFactoryFunc).IsInitialized);
-            Assert.IsTrue(tableDefinitions.Count > 0);
+            Assert.AreEqual(1, SqlBulkHelpersSchemaLoaderCache.Count);
         }
 
         [TestMethod]
@@ -112,13 +84,9 @@ namespace SqlBulkHelpers.IntegrationTests
             //START a Pending Transaction which will NOT be available to the DBSchemaLoader (as of v1.2)!
             using var sqlTrans = sqlConnInvalidWithTransaction.BeginTransaction();
 
-            var dbSchemaLoaderFromFactoryFuncInvalid = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(
-                $"SQL_INVALID_CONNECTION_CACHE_KEY::{Guid.NewGuid()}",
-                () => sqlConnInvalidWithTransaction
-            );
+            var dbSchemaLoaderFromFactoryFuncInvalid = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader($"SQL_INVALID_CONNECTION_CACHE_KEY::{Guid.NewGuid()}");
 
             Assert.IsNotNull(dbSchemaLoaderFromFactoryFuncInvalid);
-            Assert.IsFalse(((SqlBulkHelpersDBSchemaLoader)dbSchemaLoaderFromFactoryFuncInvalid).IsInitialized);
 
             List<Exception> exceptions = new();
             var loopCount = 3;
@@ -128,9 +96,11 @@ namespace SqlBulkHelpers.IntegrationTests
                 try
                 {
                     //Initial Call should result in SQL Exception due to Pending Transaction...
-                    var tableDefinitions = dbSchemaLoaderFromFactoryFuncInvalid.GetTableSchemaDefinitionsLowercaseLookupFromLazyCache();
-                    Assert.IsTrue(((SqlBulkHelpersDBSchemaLoader)dbSchemaLoaderFromFactoryFuncInvalid).IsInitialized);
-                    Assert.IsTrue(tableDefinitions.Count > 0);
+                    var tableDefinition = dbSchemaLoaderFromFactoryFuncInvalid.GetTableSchemaDefinition(
+                        TestHelpers.TestTableNameFullyQualified, 
+                        sqlConnectionFactory: () => sqlConnInvalidWithTransaction
+                    );
+                    Assert.IsNotNull(tableDefinition);
                 }
                 catch (Exception exc)
                 {
@@ -151,17 +121,15 @@ namespace SqlBulkHelpers.IntegrationTests
             //Create a NEW Connection now that is Valid without the Transaction (but the originals are STILL IN SCOPE...
             using var sqlConnOkNewConnection = SqlConnectionHelper.NewConnection();
 
-            var dbSchemaLoaderFromFactoryFuncOk = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(
-                new SqlBulkHelpersConnectionProvider(
-                    $"SQL_VALID_CONNECTION_CUSTOM_CACHE_KEY::{Guid.NewGuid()}",
-                    () => sqlConnOkNewConnection
-                )
+            var dbSchemaLoaderFromFactoryFuncOk = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader($"SQL_VALID_CONNECTION_CUSTOM_CACHE_KEY::{Guid.NewGuid()}");
+
+            var validTableDefinition = dbSchemaLoaderFromFactoryFuncInvalid.GetTableSchemaDefinition(
+                TestHelpers.TestTableNameFullyQualified,
+                sqlConnectionFactory: () => sqlConnOkNewConnection
             );
 
             //Initial Call should result in SQL Exception due to Pending Transaction...
-            var tableDefinitionsSuccessful = dbSchemaLoaderFromFactoryFuncOk.GetTableSchemaDefinitionsLowercaseLookupFromLazyCache();
-            Assert.IsTrue(((SqlBulkHelpersDBSchemaLoader)dbSchemaLoaderFromFactoryFuncOk).IsInitialized);
-            Assert.IsTrue(tableDefinitionsSuccessful.Count > 0);
+            Assert.IsNotNull(validTableDefinition);
         }
     }
 }

@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Configuration;
-using System.Runtime.InteropServices;
 using Microsoft.Data.SqlClient;
 
 namespace SqlBulkHelpers.Tests

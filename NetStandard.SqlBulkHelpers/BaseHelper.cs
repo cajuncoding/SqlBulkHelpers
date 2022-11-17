@@ -58,7 +58,7 @@ namespace SqlBulkHelpers
 
             //For safety since a Connection was passed in then we generally should immediately initialize the Schema Loader,
             //      because this connection or transaction may no longer be valid later.
-            this.SqlDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlTransaction.Connection, sqlTransaction, true);
+            this.SqlDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlTransaction.Connection.ConnectionString);
             this.BulkHelpersConfig = bulkHelpersConfig ?? SqlBulkHelpersConfig.DefaultConfig;
         }
 
@@ -71,7 +71,7 @@ namespace SqlBulkHelpers
         public virtual (
             SqlBulkHelpersTableDefinition TableDefinition, 
             SqlBulkHelpersProcessingDefinition ProcessingDefinition
-        ) GetTableSchemaAndProcessingDefinitions(string tableNameParam = null)
+        ) GetTableSchemaAndProcessingDefinitions(SqlTransaction sqlTransaction, string tableNameParam = null)
         {
             //***STEP #1: Get the Processing Definition (cached after initial Load)!!!
             var processingDefinition = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>();
@@ -88,7 +88,7 @@ namespace SqlBulkHelpers
             //BBernard
             //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
             //      we eliminate risk of Sql Injection.
-            var tableDefinition = this.SqlDbSchemaLoader.GetTableSchemaDefinition(tableName);
+            var tableDefinition = this.SqlDbSchemaLoader.GetTableSchemaDefinition(tableName, sqlTransaction);
             if (tableDefinition == null) 
                 throw new ArgumentOutOfRangeException(nameof(tableNameParam), $"The specified {nameof(tableNameParam)} argument value of [{tableNameParam}] is invalid; no table definition could be resolved.");
             

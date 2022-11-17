@@ -1,7 +1,6 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SqlBulkHelpers.Tests;
 using System.Collections.Generic;
-using System.Configuration;
 using Microsoft.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
@@ -36,7 +35,7 @@ namespace SqlBulkHelpers.IntegrationTests
             {
                 //TEST the code flow where the DB Schema Loader is initialized from existing
                 //Connection + Transaction and immediately initialized
-                var sqlBulkDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(conn, transaction, true);
+                var sqlBulkDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(conn.ConnectionString);
 
                 ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(sqlBulkDbSchemaLoader);
 
@@ -57,26 +56,6 @@ namespace SqlBulkHelpers.IntegrationTests
                 await DoInsertOrUpdateTestAsync(sqlBulkIdentityHelper, transaction);
             }
         }
-
-        //[TestMethod]
-        //public async Task TestBulkInsertConstructorWithExistingConnectionOnlyAsync()
-        //{
-        //    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
-
-        //    using (var conn = await sqlConnectionProvider.NewConnectionAsync())
-        //    {
-        //        //NOTE: IN THIS CASE we must initialize BEFORE the transaction is created or an error may occur
-        //        //          when initializing the DB Schema Definitions because we are intentionally not passing
-        //        //          in the Transaction to test this code flow.
-        //        ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(conn);
-
-        //        using (SqlTransaction transaction = conn.BeginTransaction())
-        //        {
-
-        //            await DoInsertOrUpdateTestAsync(sqlBulkIdentityHelper, transaction);
-        //        }
-        //    }
-        //}
 
         [TestMethod]
         public async Task TestBulkInsertConstructorWithExistingConnectionAndTransactionAsync()

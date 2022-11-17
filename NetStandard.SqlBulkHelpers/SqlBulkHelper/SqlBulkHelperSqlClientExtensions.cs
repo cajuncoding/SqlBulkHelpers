@@ -126,5 +126,37 @@ namespace SqlBulkHelpers.SqlBulkHelpers
         }
 
         #endregion
+
+        #region Other Convenience Methods
+
+        public static SqlBulkHelpersTableDefinition GetTableSchemaDefinition(this SqlConnection sqlConn, string tableName)
+            => GetTableSchemaDefinition<object>(sqlConn, tableName);
+
+        public static SqlBulkHelpersTableDefinition GetTableSchemaDefinition<T>(
+            this SqlConnection sqlConn,
+            string tableName = null
+        ) where T: class
+        {
+            using (var sqlTransaction = sqlConn.BeginTransaction())
+            {
+                return GetTableSchemaDefinition<T>(sqlTransaction, tableName);
+            }
+        }
+
+        public static SqlBulkHelpersTableDefinition GetTableSchemaDefinition(this SqlTransaction sqlTransaction, string tableName)
+            => GetTableSchemaDefinition<object>(sqlTransaction, tableName);
+
+        public static SqlBulkHelpersTableDefinition GetTableSchemaDefinition<T>(
+            this SqlTransaction sqlTransaction,
+            string tableName = null
+        ) where T : class
+        {
+            var sqlBulkHelper = new SqlBulkHelper<T>(sqlTransaction);
+            var tableInfo = sqlBulkHelper.GetTableSchemaAndProcessingDefinitions(sqlTransaction, tableName);
+            return tableInfo.TableDefinition;
+        }
+
+        #endregion
+
     }
 }

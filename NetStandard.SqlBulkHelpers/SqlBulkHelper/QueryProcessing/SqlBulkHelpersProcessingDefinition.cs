@@ -28,7 +28,7 @@ namespace SqlBulkHelpers
     {
         private static readonly LazyStaticInMemoryCache<string, SqlBulkHelpersProcessingDefinition> _processingDefinitionsLazyCache = new LazyStaticInMemoryCache<string, SqlBulkHelpersProcessingDefinition>();
 
-        public static SqlBulkHelpersProcessingDefinition GetProcessingDefinition<T>(SqlBulkHelpersColumnDefinition identityColumnDefinition = null)
+        public static SqlBulkHelpersProcessingDefinition GetProcessingDefinition<T>(TableColumnDefinition identityColumnDefinition = null)
         {
             var type = typeof(T);
             var processingDefinition = _processingDefinitionsLazyCache.GetOrAdd(
@@ -126,7 +126,7 @@ namespace SqlBulkHelpers
 
     public class PropInfoDefinition
     {
-        public PropInfoDefinition(PropertyInfo propInfo, SqlBulkHelpersColumnDefinition identityColumnDef = null)
+        public PropInfoDefinition(PropertyInfo propInfo, TableColumnDefinition identityColumnDef = null)
         {
             this.PropInfo = propInfo;
             this.PropertyName = propInfo.Name;

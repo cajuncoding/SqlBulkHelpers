@@ -21,20 +21,17 @@ namespace SqlBulkHelpers
         /// <param name="mergeAction"></param>
         /// <param name="sqlTransaction"></param>
         /// <param name="matchQualifierExpressionParam"></param>
-        /// <param name="bulkHelpersConfig"></param>
         /// <returns></returns>
         protected virtual async Task<IEnumerable<T>> BulkInsertOrUpdateInternalAsync(
             IEnumerable<T> entities, 
             SqlBulkHelpersMergeAction mergeAction, 
             SqlTransaction sqlTransaction,
             string tableNameParam = null, //Optional / Nullable
-            SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null,
-            ISqlBulkHelpersConfig bulkHelpersConfig = null
+            SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null
         )
         {
             //For Performance we ensure the entities are only ever enumerated One Time!
             var entityList = entities.ToList();
-            var bulkOperationPerBatchTimeoutSeconds = this.BulkHelpersConfig;
 
 
             using (ProcessHelper processHelper = this.CreateProcessHelper(
@@ -186,7 +183,6 @@ namespace SqlBulkHelpers
         /// <param name="sqlTransaction"></param>
         /// <param name="tableNameParam"></param>
         /// <param name="matchQualifierExpressionParam"></param>
-        /// <param name="bulkHelpersConfig"></param>
         /// <returns></returns>
         protected virtual ProcessHelper CreateProcessHelper(
             List<T> entityData, 
@@ -197,7 +193,7 @@ namespace SqlBulkHelpers
         )
         {
             //***STEP #1: Get the Table & Model Processing Definitions (cached after initial Load)!!!
-            var (tableDefinition, processingDefinition) = this.GetTableSchemaAndProcessingDefinitions(tableNameParam);
+            var (tableDefinition, processingDefinition) = this.GetTableSchemaAndProcessingDefinitions(sqlTransaction, tableNameParam);
             
             //***STEP #2: Build all of the Sql Scripts needed to Process the entities based on the specified Table definition.
             var sqlScripts = this.BuildSqlMergeScriptsInternal(

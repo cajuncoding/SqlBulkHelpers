@@ -128,9 +128,9 @@ namespace SqlBulkHelpers
             );
         }
 
-        public SqlBulkHelpersTableDefinition GetTableSchemaDefinition(string tableName = null)
+        public SqlBulkHelpersTableDefinition GetTableSchemaDefinition(SqlTransaction sqlTransaction, string tableName = null)
         {
-            var definitions = this.GetTableSchemaAndProcessingDefinitions(tableName);
+            var definitions = this.GetTableSchemaAndProcessingDefinitions(sqlTransaction, tableName);
             return definitions.TableDefinition;
         }
 

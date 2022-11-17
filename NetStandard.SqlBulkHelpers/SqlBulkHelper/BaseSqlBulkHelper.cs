@@ -72,7 +72,7 @@ namespace SqlBulkHelpers
         protected virtual List<T> PostProcessEntitiesWithMergeResults(
             List<T> entityList, 
             List<MergeResult> mergeResultsList, 
-            SqlBulkHelpersColumnDefinition identityColumnDefinition, 
+            TableColumnDefinition identityColumnDefinition, 
             SqlMergeMatchQualifierExpression sqlMatchQualifierExpression
         )
         {

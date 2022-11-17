@@ -1,6 +1,5 @@
 ﻿using System;
 using LazyCacheHelpers;
-using Microsoft.Data.SqlClient;
 
 namespace SqlBulkHelpers
 {
@@ -13,76 +12,32 @@ namespace SqlBulkHelpers
             new LazyStaticInMemoryCache<string, ISqlBulkHelpersDBSchemaLoader>();
 
         /// <summary>
-        /// This is the preferred way to initialize the Schema Loader. This will retrieve a DB Schema Loader using the
-        /// SqlConnection Factory specified.  With an Sql Connection Factory, we can defer (e.g. lazy load)
-        /// the the creation of a DB Connection if, and only when, it is actually needed; this eliminates the creation of
-        /// an Sql Connection once the DB Schema cache is initialized.
+        /// Load the DB Schema Provider based on the unique caching identifier specified (e.g. usually a unique string for each Datasource/Database).
         /// </summary>
-        /// <param name="sqlConnectionProvider"></param>
+        /// <param name="uniqueDbCachingIdentifier"></param>
         /// <returns></returns>
-        public static ISqlBulkHelpersDBSchemaLoader GetSchemaLoader(ISqlBulkHelpersConnectionProvider sqlConnectionProvider)
+        public static ISqlBulkHelpersDBSchemaLoader GetSchemaLoader(string uniqueDbCachingIdentifier)
         {
-            //Validate arg is a Static Schema Loader...
-            var sqlConnProvider = sqlConnectionProvider.AssertArgumentIsNotNull(nameof(sqlConnectionProvider));
-
             //Init cached version if it exists; which may already be initialized!
             var resultLoader = SchemaLoaderLazyCache.GetOrAdd(
-                sqlConnProvider.GetDbConnectionUniqueIdentifier(),
-                (uniqueId) => new SqlBulkHelpersDBSchemaLoader(sqlConnectionProvider)
+                key: uniqueDbCachingIdentifier,
+                cacheValueFactory: (uniqueId) => new SqlBulkHelpersDBSchemaLoader()
             );
 
             return resultLoader;
         }
 
         /// <summary>
-        /// This is the preferred way to initialize the Schema Loader. This will retrieve a DB Schema Loader using the
-        /// SqlConnection Factory specified.  With an Sql Connection Factory, we can defer (e.g. lazy load)
-        /// the the creation of a DB Connection if, and only when, it is actually needed; this eliminates the creation of
-        /// an Sql Connection once the DB Schema cache is initialized.
+        /// This is the preferred way to initialize the Schema Loader this will Load the DB Schema Provider based unique connection identifier provided
+        /// by the ISqlBulkHelpersConnectionProvider.
         /// </summary>
-        /// <param name="uniqueDbCachingIdentifier"></param>
-        /// <param name="sqlConnectionFactory"></param>
+        /// <param name="sqlConnectionProvider"></param>
         /// <returns></returns>
-        public static ISqlBulkHelpersDBSchemaLoader GetSchemaLoader(string uniqueDbCachingIdentifier, Func<SqlConnection> sqlConnectionFactory)
+        public static ISqlBulkHelpersDBSchemaLoader GetSchemaLoader(ISqlBulkHelpersConnectionProvider sqlConnectionProvider)
         {
-            //The Sql Connection Provider will validate the parameters...
-            //NOTE: We can create our default provider from the factory Func provided.
-            var sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(uniqueDbCachingIdentifier, sqlConnectionFactory);
-            return GetSchemaLoader(sqlConnectionProvider);
-        }
-
-        /// <summary>
-        /// It's recommended to use the other overloads by providing a Connection Factory Func or implement ISqlBulkHelpersConnectionProvider
-        /// however, this convenience method is now provided for use cases where only a valid SqlConnection exists but the actual ConnectionString
-        /// is not available to initialize an ISqlBulkHelpersConnectionProvider.
-        /// 
-        /// By default, this will retrieve a DB Schema Loader using the existing SqlConnection provided.  This will immediately initialize the DB Schema
-        /// definitions from the database when executed, because the SqlConnection is assumed to be valid now, but may not be in
-        /// the future when lazy initialization would occur; such as if the Connection is closed, or a Transaction may not yet be started but may later be initialized,
-        /// which would then result in errors, etc.
-        /// </summary>
-        /// <param name="sqlConnection"></param>
-        /// <param name="sqlTransaction"></param>
-        /// <param name="initializeImmediately"></param>
-        /// <returns></returns>
-        public static ISqlBulkHelpersDBSchemaLoader GetSchemaLoader(
-            SqlConnection sqlConnection, 
-            SqlTransaction sqlTransaction = null, 
-            bool initializeImmediately = true
-        )
-        {
-            //The Connection Proxy Provider will validate the parameters...
-            var sqlConnProvider = new SqlBulkHelpersConnectionProxyExistingProvider(sqlConnection, sqlTransaction);
-
-            //Use the Proxy Connection provider for the existing connection to get or initialize the DB Schema Loader.
-            var schemaLoader = GetSchemaLoader(sqlConnProvider);
-
-            //NOTE: Since a Connection was passed in then we generally should immediately initialize the Schema Loader,
-            //      because this connection or transaction may no longer be valid later.
-            if(initializeImmediately)
-                schemaLoader.GetTableSchemaDefinitionsLowercaseLookupFromLazyCache();
-
-            return schemaLoader;
+            //Validate arg is a Static Schema Loader...
+            sqlConnectionProvider.AssertArgumentIsNotNull(nameof(sqlConnectionProvider));
+            return GetSchemaLoader(sqlConnectionProvider.GetDbConnectionUniqueIdentifier());
         }
 
         /// <summary>
@@ -90,5 +45,10 @@ namespace SqlBulkHelpers
         /// </summary>
         public static void ClearCache()
             => SchemaLoaderLazyCache.ClearCache();
+
+        /// <summary>
+        /// Gets the Count of SchemaLoaders in the Cache.
+        /// </summary>
+        public static int Count => SchemaLoaderLazyCache.GetCacheCount();
     }
 }
