@@ -91,6 +91,13 @@ namespace SqlBulkHelpers
             return trimmedTerm;
         }
 
+        public static string QualifySqlTerm(this string term)
+        {
+            return string.IsNullOrWhiteSpace(term) 
+                ? null 
+                : $"[{term.TrimTableNameTerm()}]";
+        }
+
         public static TValue GetValueOrDefault<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key)
             => dictionary.TryGetValue(key, out var value) ? value : default;
 

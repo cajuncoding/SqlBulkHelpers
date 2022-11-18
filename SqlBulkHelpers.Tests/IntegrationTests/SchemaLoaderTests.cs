@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SqlBulkHelpers.SqlBulkHelpers;
 
@@ -31,11 +28,9 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
             Assert.AreEqual(tableNameTerm.SchemaName, tableDefinition.TableSchema);
             Assert.AreEqual(tableNameTerm.TableName, tableDefinition.TableName);
             Assert.AreEqual(tableNameTerm.FullyQualifiedTableName, tableDefinition.TableFullyQualifiedName);
-            
-            Assert.IsTrue(tableDefinition.KeyConstraints.Count > 0);
-            Assert.IsTrue(tableDefinition.TableColumns.Count > 0);
-
+            Assert.AreEqual(3, tableDefinition.TableColumns.Count);
             Assert.IsNotNull(tableDefinition.PrimaryKeyConstraint);
+            Assert.AreEqual(0, tableDefinition.ForeignKeyConstraints.Count);
             Assert.IsNotNull(tableDefinition.IdentityColumn);
         }
 
@@ -53,7 +48,7 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
             Assert.AreEqual(tableNameTerm.TableName, tableDefinition.TableName);
             Assert.AreEqual(tableNameTerm.FullyQualifiedTableName, tableDefinition.TableFullyQualifiedName);
 
-            Assert.IsTrue(tableDefinition.KeyConstraints.Count > 0);
+            Assert.IsTrue(tableDefinition.ForeignKeyConstraints.Count > 0);
             Assert.IsTrue(tableDefinition.TableColumns.Count > 0);
 
             Assert.IsNotNull(tableDefinition.PrimaryKeyConstraint);

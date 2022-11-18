@@ -45,7 +45,7 @@ namespace SqlBulkHelpers
 					SELECT TOP (1)
 						TableSchema = t.[TABLE_SCHEMA], 
 						TableName = t.[TABLE_NAME],
-						TableCatalog = t.[TABLE_CATALOG],
+						--TableCatalog = t.[TABLE_CATALOG],
 						ObjectId = OBJECT_ID('['+t.TABLE_SCHEMA+'].['+t.TABLE_NAME+']')
 					FROM INFORMATION_SCHEMA.TABLES t
                     WHERE 
@@ -60,40 +60,86 @@ namespace SqlBulkHelpers
 							OrdinalPosition = ORDINAL_POSITION,
 							ColumnName = COLUMN_NAME,
 							DataType = DATA_TYPE,
-							IsIdentityColumn = CAST(COLUMNPROPERTY(t.ObjectId, COLUMN_NAME, 'IsIdentity') AS bit)
+							IsIdentityColumn = CAST(COLUMNPROPERTY(t.ObjectId, COLUMN_NAME, 'IsIdentity') AS bit),
+							CharacterMaxLength = CHARACTER_MAXIMUM_LENGTH,
+							NumericPrecision = NUMERIC_PRECISION,
+							NumericPrecisionRadix = NUMERIC_PRECISION_RADIX,
+							NumericScale = NUMERIC_SCALE,
+							DateTimePrecision = DATETIME_PRECISION
 						FROM INFORMATION_SCHEMA.COLUMNS c
 						WHERE 
-							c.TABLE_NAME = t.TableName
-							and c.TABLE_SCHEMA = t.TableSchema 
-							and c.TABLE_CATALOG = t.TableCatalog 
+							c.TABLE_SCHEMA = t.TableSchema 
+							AND c.TABLE_NAME = t.TableName
 						ORDER BY c.ORDINAL_POSITION
 						FOR JSON PATH
 					),
-					[KeyConstraints] = (
-                        SELECT 
+					[PrimaryKeyConstraint] = JSON_QUERY((
+                        SELECT TOP (1)
 	                        ConstraintName = c.CONSTRAINT_NAME,
-	                        ConstraintType = CASE c.CONSTRAINT_TYPE
-								WHEN 'FOREIGN KEY' THEN 'ForeignKey'
-								WHEN 'PRIMARY KEY' THEN 'PrimaryKey'
-							END,
+	                        ConstraintType = 'PrimaryKey',
 	                        [KeyColumns] = (
 		                        SELECT 
 									OrdinalPosition = col.ORDINAL_POSITION,
 									ColumnName = col.COLUMN_NAME
 		                        FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE col
 		                        WHERE 
-									col.TABLE_NAME = c.TABLE_NAME 
-									AND col.TABLE_SCHEMA = c.TABLE_SCHEMA 
+									col.TABLE_SCHEMA = c.TABLE_SCHEMA
+									AND col.TABLE_NAME = c.TABLE_NAME 
 									AND col.CONSTRAINT_SCHEMA = c.CONSTRAINT_SCHEMA
+                                    AND col.CONSTRAINT_NAME = c.CONSTRAINT_NAME
 		                        ORDER BY col.ORDINAL_POSITION
 		                        FOR JSON PATH
 	                        )
                         FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS c
-						WHERE 
-							c.TABLE_NAME = t.TableName
-							AND c.TABLE_SCHEMA = t.TableSchema 
-							AND c.TABLE_CATALOG = t.TableCatalog
-							AND c.CONSTRAINT_TYPE IN ('PRIMARY KEY', 'FOREIGN KEY')
+						WHERE
+                            c.TABLE_SCHEMA = t.TableSchema
+							AND c.TABLE_NAME = t.TableName 
+							AND c.CONSTRAINT_TYPE = 'PRIMARY KEY'
+                        FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+                    )),
+					[ForeignKeyConstraints] = (
+						-- DISTINCT is REQUIRED to Pull Reference Table up to Top Level of the Constraint!
+						SELECT DISTINCT 
+	                        ConstraintName = c.CONSTRAINT_NAME,
+	                        ConstraintType = 'ForeignKey',
+                            ReferenceTableSchema = rcol.TABLE_SCHEMA,
+                            ReferenceTableName = rcol.TABLE_NAME,
+                            ReferentialMatchOption = rc.MATCH_OPTION,
+                            ReferentialUpdateRuleClause = rc.UPDATE_RULE,
+                            ReferentialDeleteRuleClause = rc.DELETE_RULE,
+	                        [KeyColumns] = (
+		                        SELECT 
+									OrdinalPosition = col.ORDINAL_POSITION,
+									ColumnName = col.COLUMN_NAME
+		                        FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE col
+		                        WHERE 
+									col.TABLE_SCHEMA = c.TABLE_SCHEMA 
+									AND col.TABLE_NAME = c.TABLE_NAME 
+									AND col.CONSTRAINT_SCHEMA = c.CONSTRAINT_SCHEMA
+                                    AND col.CONSTRAINT_NAME = c.CONSTRAINT_NAME
+		                        ORDER BY col.ORDINAL_POSITION
+		                        FOR JSON PATH
+	                        ),
+                            [ReferenceColumns] = (
+		                        SELECT 
+									OrdinalPosition = col.ORDINAL_POSITION,
+									ColumnName = col.COLUMN_NAME
+		                        FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE col
+                                WHERE 
+	                                --FKeys MUST reference to the Unique Constraints or PKey Unique Constraints...
+                                    col.CONSTRAINT_SCHEMA = rc.UNIQUE_CONSTRAINT_SCHEMA
+	                                AND col.CONSTRAINT_NAME = rc.UNIQUE_CONSTRAINT_NAME
+		                        ORDER BY col.ORDINAL_POSITION
+		                        FOR JSON PATH
+                            )
+                        FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS c
+	                        INNER JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc ON (rc.CONSTRAINT_SCHEMA = c.CONSTRAINT_SCHEMA AND rc.CONSTRAINT_NAME = c.CONSTRAINT_NAME)
+	                        --FKeys MUST reference to the Unique Constraints or PKey Unique Constraints...
+	                        INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE rcol ON (rcol.CONSTRAINT_SCHEMA = rc.UNIQUE_CONSTRAINT_SCHEMA AND rcol.CONSTRAINT_NAME = rc.UNIQUE_CONSTRAINT_NAME)                            
+						WHERE
+							c.TABLE_SCHEMA = t.TableSchema
+                            AND c.TABLE_NAME = t.TableName
+							AND c.CONSTRAINT_TYPE = 'FOREIGN KEY'
                         FOR JSON PATH
                     ),
                     [ColumnDefaultConstraints] = (
@@ -119,9 +165,8 @@ namespace SqlBulkHelpers
 							)
                         FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS c
 						WHERE 
-							c.TABLE_NAME = t.TableName
-							AND c.TABLE_SCHEMA = t.TableSchema 
-							AND c.TABLE_CATALOG = t.TableCatalog
+							c.TABLE_SCHEMA = t.TableSchema 
+							AND c.TABLE_NAME = t.TableName
 							AND c.CONSTRAINT_TYPE = 'CHECK'
                         FOR JSON PATH
 					),

@@ -12,8 +12,9 @@ namespace SqlBulkHelpers
         public SqlBulkHelpersTableDefinition(
             string tableSchema, 
             string tableName, 
-            List<TableColumnDefinition> tableColumns, 
-            List<KeyConstraintDefinition> keyConstraints,
+            List<TableColumnDefinition> tableColumns,
+            PrimaryKeyConstraintDefinition primaryKeyConstraint,
+            List<ForeignKeyConstraintDefinition> foreignKeyConstraints,
             List<ColumnDefaultConstraintDefinition> columnDefaultConstraints,
             List<ColumnCheckConstraintDefinition> columnCheckConstraints,
             List<TableIndexDefinition> tableIndexes)
@@ -25,14 +26,14 @@ namespace SqlBulkHelpers
 
             //Ensure that the Columns, Constraints, etc. collections are always NullSafe and is Immutable/ReadOnly!
             TableColumns = (tableColumns ?? new List<TableColumnDefinition>()).AsReadOnly();
-            KeyConstraints = (keyConstraints ?? new List<KeyConstraintDefinition>()).AsReadOnly();
+            PrimaryKeyConstraint = primaryKeyConstraint;
+            ForeignKeyConstraints = (foreignKeyConstraints ?? new List<ForeignKeyConstraintDefinition>()).AsReadOnly();
             ColumnDefaultConstraints = (columnDefaultConstraints ?? new List<ColumnDefaultConstraintDefinition>()).AsReadOnly();
             ColumnCheckConstraints = (columnCheckConstraints ?? new List<ColumnCheckConstraintDefinition>()).AsReadOnly();
             TableIndexes = (tableIndexes ?? new List<TableIndexDefinition>()).AsReadOnly();
 
             //Derived Key/Constraint properties for Convenience/Fast Processing
             IdentityColumn = this.TableColumns.FirstOrDefault(c => c.IsIdentityColumn);
-            PrimaryKeyConstraint = this.KeyConstraints.FirstOrDefault(kc => kc.ConstraintType == KeyConstraintType.PrimaryKey);
 
             //Initialize the Case-insensitive Dictionary for quickly looking up Columns...
             ColumnCaseInsensitiveDictionary = this.TableColumns.ToDictionary(c => c.ColumnName, c => c, StringComparer.OrdinalIgnoreCase);
@@ -42,14 +43,14 @@ namespace SqlBulkHelpers
         public string TableName { get; }
         public string TableFullyQualifiedName { get; }
         public IList<TableColumnDefinition> TableColumns { get; }
-        public IList<KeyConstraintDefinition> KeyConstraints { get; }
+        public PrimaryKeyConstraintDefinition PrimaryKeyConstraint { get; }
+        public IList<ForeignKeyConstraintDefinition> ForeignKeyConstraints { get; }
         public IList<ColumnDefaultConstraintDefinition> ColumnDefaultConstraints { get; }
         public IList<ColumnCheckConstraintDefinition> ColumnCheckConstraints { get; }
         public IList<TableIndexDefinition> TableIndexes { get; }
 
         //The following are derived references for Convenience...
         public TableColumnDefinition IdentityColumn { get; }
-        public KeyConstraintDefinition PrimaryKeyConstraint { get; }
 
         //The following are Helper Methods for processing...
         public IList<string> GetColumnNames(bool includeIdentityColumn = true)
@@ -70,18 +71,38 @@ namespace SqlBulkHelpers
 
     public class TableColumnDefinition
     {
-        public TableColumnDefinition(int ordinalPosition, string columnName, string dataType, bool isIdentityColumn)
+        public TableColumnDefinition(
+            int ordinalPosition, 
+            string columnName, 
+            string dataType, 
+            bool isIdentityColumn,
+            int? charactersMaxLength,
+            int? numericPrecision,
+            int? numericPrecisionRadix,
+            int? numericScale,
+            int? dateTimePrecision
+        )
         {
             this.OrdinalPosition = ordinalPosition;
             this.ColumnName = columnName;
             this.DataType = dataType;
             this.IsIdentityColumn = isIdentityColumn;
+            CharacterMaxLength = charactersMaxLength;
+            NumericPrecision = numericPrecision;
+            NumericPrecisionRadix = numericPrecisionRadix;
+            NumericScale = numericScale;
+            DateTimePrecision = dateTimePrecision;
         }
 
         public int OrdinalPosition { get; }
         public string ColumnName { get; }
         public string DataType { get; }
         public bool IsIdentityColumn { get; }
+        public int? CharacterMaxLength { get; }
+        public int? NumericPrecision { get; }
+        public int? NumericPrecisionRadix { get; }
+        public int? NumericScale { get; }
+        public int? DateTimePrecision { get; }
 
         public override string ToString()
         {
@@ -90,9 +111,9 @@ namespace SqlBulkHelpers
     }
 
     [JsonConverter(typeof(JsonStringEnumConverter))]
-    public class KeyConstraintDefinition
+    public abstract class KeyConstraintDefinition
     {
-        public KeyConstraintDefinition(string constraintName, KeyConstraintType constraintType, List<KeyColumnDefinition> keyColumns)
+        protected KeyConstraintDefinition(string constraintName, KeyConstraintType constraintType, List<KeyColumnDefinition> keyColumns)
         {
             ConstraintName = constraintName;
             ConstraintType = constraintType;
@@ -101,6 +122,50 @@ namespace SqlBulkHelpers
         public string ConstraintName { get; }
         public KeyConstraintType ConstraintType { get; }
         public IList<KeyColumnDefinition> KeyColumns { get; }
+
+        public override string ToString() => ConstraintName;
+    }
+
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public class PrimaryKeyConstraintDefinition : KeyConstraintDefinition
+    {
+        public PrimaryKeyConstraintDefinition(string constraintName, KeyConstraintType constraintType, List<KeyColumnDefinition> keyColumns)
+            : base(constraintName, constraintType, keyColumns)
+        {
+        }
+    }
+
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public class ForeignKeyConstraintDefinition : KeyConstraintDefinition
+    {
+        public ForeignKeyConstraintDefinition(
+            string constraintName, 
+            KeyConstraintType constraintType,
+            string referenceTableSchema,
+            string referenceTableName,
+            List<KeyColumnDefinition> keyColumns, 
+            List<KeyColumnDefinition> referenceColumns,
+            string referentialMatchOption, 
+            string referentialUpdateRuleClause, 
+            string referentialDeleteRuleClause
+        ) : base(constraintName, constraintType, keyColumns)
+        {
+            ReferenceTableSchema = referenceTableSchema;
+            ReferenceTableName = referenceTableName;
+            ReferenceTableFullyQualifiedName = $"[{referenceTableSchema}].[{referenceTableName}]";
+            ReferenceColumns = referenceColumns;
+            ReferentialMatchOption = referentialMatchOption;
+            ReferentialUpdateRuleClause = referentialUpdateRuleClause;
+            ReferentialDeleteRuleClause = referentialDeleteRuleClause;
+        }
+
+        public string ReferenceTableSchema { get; }
+        public string ReferenceTableName { get; }
+        public string ReferenceTableFullyQualifiedName { get; }
+        public string ReferentialMatchOption { get; }
+        public string ReferentialUpdateRuleClause { get; }
+        public string ReferentialDeleteRuleClause { get; }
+        public IList<KeyColumnDefinition> ReferenceColumns { get; }
     }
 
     public enum KeyConstraintType
@@ -120,6 +185,8 @@ namespace SqlBulkHelpers
         public string ConstraintName { get; }
         public string ColumnName { get; }
         public string Definition { get; }
+
+        public override string ToString() => ConstraintName;
     }
 
     public class ColumnCheckConstraintDefinition
@@ -131,11 +198,21 @@ namespace SqlBulkHelpers
         }
         public string ConstraintName { get; }
         public string CheckClause { get; }
+
+        public override string ToString() => ConstraintName;
     }
 
     public class TableIndexDefinition
     {
-        public TableIndexDefinition(int indexId, string indexName, bool isUnique, bool isUniqueConstraint, string filterDefinition, List<KeyColumnDefinition> keyColumns, List<IncludeColumnDefinition> includeColumns)
+        public TableIndexDefinition(
+            int indexId, 
+            string indexName, 
+            bool isUnique, 
+            bool isUniqueConstraint, 
+            string filterDefinition, 
+            List<IndexKeyColumnDefinition> keyColumns, 
+            List<IndexIncludeColumnDefinition> includeColumns
+        )
         {
             IndexId = indexId;
             IndexName = indexName;
@@ -151,8 +228,10 @@ namespace SqlBulkHelpers
         public bool IsUnique { get; }
         public bool IsUniqueConstraint { get; }
         public string FilterDefinition { get; }
-        public IList<KeyColumnDefinition> KeyColumns { get; }
-        public IList<IncludeColumnDefinition> IncludeColumns { get; }
+        public IList<IndexKeyColumnDefinition> KeyColumns { get; }
+        public IList<IndexIncludeColumnDefinition> IncludeColumns { get; }
+
+        public override string ToString() => IndexName;
     }
 
     public class IndexKeyColumnDefinition : KeyColumnDefinition
@@ -165,6 +244,14 @@ namespace SqlBulkHelpers
         public bool IsDescending { get; }
     }
 
+    public class IndexIncludeColumnDefinition : KeyColumnDefinition
+    {
+        public IndexIncludeColumnDefinition(int ordinalPosition, string columnName)
+            : base(ordinalPosition, columnName)
+        {
+        }
+    }
+
     public class KeyColumnDefinition
     {
         public KeyColumnDefinition(int ordinalPosition, string columnName)
@@ -174,14 +261,7 @@ namespace SqlBulkHelpers
         }
         public int OrdinalPosition { get; }
         public string ColumnName { get; }
-    }
 
-    public class IncludeColumnDefinition : KeyColumnDefinition
-    {
-        public IncludeColumnDefinition(int ordinalPosition, string columnName)
-            : base(ordinalPosition, columnName)
-        {
-        }
+        public override string ToString() => $"[{OrdinalPosition}] {ColumnName}";
     }
-
 }
