@@ -11,6 +11,7 @@ namespace SqlBulkHelpers.Tests
     {
         public const string TestTableName = "SqlBulkHelpersTestElements";
         public const string TestTableNameFullyQualified = "[dbo].[SqlBulkHelpersTestElements]";
+        public const string MaterializeDataLoadingSchema = "materialized_data";
 
         public const int SqlTimeoutSeconds = 150;
 

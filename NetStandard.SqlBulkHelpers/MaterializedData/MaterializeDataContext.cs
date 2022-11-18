@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace SqlBulkHelpers.SqlBulkHelpers.MaterializedData
+namespace SqlBulkHelpers.MaterializedData
 {
     public class MaterializeDataContext
     {

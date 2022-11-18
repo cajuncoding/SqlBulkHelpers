@@ -69,6 +69,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="IntegrationTests\BulkInsertOrUpdateTests.cs" />
+    <Compile Include="IntegrationTests\MaterializeDataTests.cs" />
     <Compile Include="IntegrationTests\SchemaLoaderCacheTests.cs" />
     <Compile Include="IntegrationTests\ConnectionAndConstructorTests.cs" />
     <Compile Include="IntegrationTests\BulkInsertTests.cs" />
@@ -79,7 +80,9 @@
     <Compile Include="TestHelpers\TestHelpers.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="App.config" />
+    <None Include="App.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Content Include="SqlScripts\InitTestDBTable.txt" />

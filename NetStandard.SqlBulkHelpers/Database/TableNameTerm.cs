@@ -1,4 +1,5 @@
 ﻿using System;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace SqlBulkHelpers
 {
@@ -17,7 +18,12 @@ namespace SqlBulkHelpers
         public string SchemaName { get; }
         public string TableName { get; }
         public string FullyQualifiedTableName { get; }
+
         public override string ToString() => FullyQualifiedTableName;
+        public static implicit operator string(TableNameTerm t) => t.ToString();
+
+        public static TableNameTerm From(string schemaName, string tableName)
+            => new TableNameTerm(schemaName, tableName);
 
         public static TableNameTerm From(string tableNameOverride)
             => From<ISkipMappingLookup>(tableNameOverride);
@@ -34,8 +40,8 @@ namespace SqlBulkHelpers
                 var processingDef = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>();
                 tableNameTerm = processingDef.MappedDbTableName.ParseAsTableNameTerm();
             }
-
             return tableNameTerm;
         }
+
     }
 }

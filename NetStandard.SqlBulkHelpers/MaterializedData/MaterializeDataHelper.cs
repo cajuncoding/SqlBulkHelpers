@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Text;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 
@@ -45,9 +45,22 @@ namespace SqlBulkHelpers.MaterializedData
                 targetTable = new TableNameTerm(BulkHelpersConfig.MaterializedDataDefaultLoadingSchema, targetTable.TableName);
             }
 
+            var sourceTableSchema = SqlBulkHelpersSchemaLoaderCache
+                .GetSchemaLoader(sqlTransaction.Connection.ConnectionString)
+                ?.GetTableSchemaDefinition(sourceTable.FullyQualifiedTableName, sqlTransaction);
+
+            if (sourceTableSchema == null)
+                throw new ArgumentException($"Could not resolve the source table schema for {sourceTable.FullyQualifiedTableName} on the provided connection.");
+
+
             var cloneTableStructureSql = MaterializedDataScriptBuilder
                 .NewScript()
-                .CloneTableStructure(sourceTable, targetTable, recreateIfExists)
+                .CloneTableStructure(sourceTable, targetTable, ScriptAction.RecreateIfExists)
+                .AddPrimaryKeyConstraint(targetTable, sourceTableSchema.PrimaryKeyConstraint)
+                .AddForeignKeyConstraints(targetTable, sourceTableSchema.ForeignKeyConstraints.ToArray())
+                .AddColumnDefaultConstraints(targetTable, sourceTableSchema.ColumnDefaultConstraints.ToArray())
+                .AddColumnCheckConstraints(targetTable, sourceTableSchema.ColumnCheckConstraints.ToArray())
+                .AddTableIndexes(targetTable, sourceTableSchema.TableIndexes.ToArray())
                 .BuildSqlScript();
 
             using (var sqlCmd = new SqlCommand(cloneTableStructureSql, sqlTransaction.Connection, sqlTransaction))

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Serialization;
+using SqlBulkHelpers.CustomExtensions;
 
 namespace SqlBulkHelpers
 {
@@ -72,6 +73,8 @@ namespace SqlBulkHelpers
     public class TableColumnDefinition
     {
         public TableColumnDefinition(
+            string sourceTableSchema,
+            string sourceTableName,
             int ordinalPosition, 
             string columnName, 
             string dataType, 
@@ -83,10 +86,12 @@ namespace SqlBulkHelpers
             int? dateTimePrecision
         )
         {
-            this.OrdinalPosition = ordinalPosition;
-            this.ColumnName = columnName;
-            this.DataType = dataType;
-            this.IsIdentityColumn = isIdentityColumn;
+            SourceTableSchema = sourceTableSchema;
+            SourceTableName = sourceTableName;
+            OrdinalPosition = ordinalPosition;
+            ColumnName = columnName;
+            DataType = dataType;
+            IsIdentityColumn = isIdentityColumn;
             CharacterMaxLength = charactersMaxLength;
             NumericPrecision = numericPrecision;
             NumericPrecisionRadix = numericPrecisionRadix;
@@ -94,6 +99,8 @@ namespace SqlBulkHelpers
             DateTimePrecision = dateTimePrecision;
         }
 
+        public string SourceTableSchema { get; }
+        public string SourceTableName { get; }
         public int OrdinalPosition { get; }
         public string ColumnName { get; }
         public string DataType { get; }
@@ -111,26 +118,58 @@ namespace SqlBulkHelpers
     }
 
     [JsonConverter(typeof(JsonStringEnumConverter))]
-    public abstract class KeyConstraintDefinition
+    public abstract class CommonConstraintDefinition
     {
-        protected KeyConstraintDefinition(string constraintName, KeyConstraintType constraintType, List<KeyColumnDefinition> keyColumns)
+        protected CommonConstraintDefinition(
+            string sourceTableSchema,
+            string sourceTableName,
+            string constraintName,
+            KeyConstraintType constraintType
+        )
         {
+            SourceTableSchema = sourceTableSchema;
+            SourceTableName = sourceTableName;
             ConstraintName = constraintName;
             ConstraintType = constraintType;
-            KeyColumns = keyColumns;
         }
+        public string SourceTableSchema { get; }
+        public string SourceTableName { get; }
         public string ConstraintName { get; }
         public KeyConstraintType ConstraintType { get; }
-        public IList<KeyColumnDefinition> KeyColumns { get; }
 
         public override string ToString() => ConstraintName;
+
+        public string MapConstraintNameToTarget(TableNameTerm targetTable)
+            => this.ConstraintName.ReplaceCaseInsensitive(this.SourceTableName, targetTable.TableName).QualifySqlTerm();
+    }
+
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public abstract class KeyConstraintDefinition : CommonConstraintDefinition
+    {
+        protected KeyConstraintDefinition(
+            string sourceTableSchema,
+            string sourceTableName, 
+            string constraintName, 
+            KeyConstraintType constraintType, 
+            List<KeyColumnDefinition> keyColumns
+        ) : base(sourceTableSchema, sourceTableName, constraintName, constraintType)
+        {
+            KeyColumns = keyColumns;
+        }
+        public IList<KeyColumnDefinition> KeyColumns { get; }
     }
 
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public class PrimaryKeyConstraintDefinition : KeyConstraintDefinition
     {
-        public PrimaryKeyConstraintDefinition(string constraintName, KeyConstraintType constraintType, List<KeyColumnDefinition> keyColumns)
-            : base(constraintName, constraintType, keyColumns)
+        public PrimaryKeyConstraintDefinition(
+            string sourceTableSchema,
+            string sourceTableName,
+            string constraintName, 
+            KeyConstraintType constraintType, 
+            List<KeyColumnDefinition> keyColumns
+        )
+            : base(sourceTableSchema, sourceTableName, constraintName, constraintType, keyColumns)
         {
         }
     }
@@ -139,6 +178,8 @@ namespace SqlBulkHelpers
     public class ForeignKeyConstraintDefinition : KeyConstraintDefinition
     {
         public ForeignKeyConstraintDefinition(
+            string sourceTableSchema, 
+            string sourceTableName, 
             string constraintName, 
             KeyConstraintType constraintType,
             string referenceTableSchema,
@@ -148,7 +189,7 @@ namespace SqlBulkHelpers
             string referentialMatchOption, 
             string referentialUpdateRuleClause, 
             string referentialDeleteRuleClause
-        ) : base(constraintName, constraintType, keyColumns)
+        ) : base(sourceTableSchema, sourceTableName, constraintName, constraintType, keyColumns)
         {
             ReferenceTableSchema = referenceTableSchema;
             ReferenceTableName = referenceTableName;
@@ -171,40 +212,38 @@ namespace SqlBulkHelpers
     public enum KeyConstraintType
     {
         PrimaryKey, 
-        ForeignKey
+        ForeignKey,
+        ColumnDefaultConstraint,
+        ColumnCheckConstraint
     }
 
-    public class ColumnDefaultConstraintDefinition
+    public class ColumnDefaultConstraintDefinition : CommonConstraintDefinition
     {
-        public ColumnDefaultConstraintDefinition(string constraintName, string columnName, string definition)
+        public ColumnDefaultConstraintDefinition(string sourceTableSchema, string sourceTableName, string constraintName, string columnName, string definition)
+            : base(sourceTableSchema, sourceTableName, constraintName, KeyConstraintType.ColumnDefaultConstraint)
         {
-            ConstraintName = constraintName;
             ColumnName = columnName;
             Definition = definition;
         }
-        public string ConstraintName { get; }
         public string ColumnName { get; }
         public string Definition { get; }
-
-        public override string ToString() => ConstraintName;
     }
 
-    public class ColumnCheckConstraintDefinition
+    public class ColumnCheckConstraintDefinition : CommonConstraintDefinition
     {
-        public ColumnCheckConstraintDefinition(string constraintName, string checkClause)
+        public ColumnCheckConstraintDefinition(string sourceTableSchema, string sourceTableName, string constraintName, string checkClause)
+            : base(sourceTableSchema, sourceTableName, constraintName, KeyConstraintType.ColumnCheckConstraint)
         {
-            ConstraintName = constraintName;
             CheckClause = checkClause;
         }
-        public string ConstraintName { get; }
         public string CheckClause { get; }
-
-        public override string ToString() => ConstraintName;
     }
 
     public class TableIndexDefinition
     {
         public TableIndexDefinition(
+            string sourceTableSchema, 
+            string sourceTableName, 
             int indexId, 
             string indexName, 
             bool isUnique, 
@@ -214,6 +253,8 @@ namespace SqlBulkHelpers
             List<IndexIncludeColumnDefinition> includeColumns
         )
         {
+            SourceTableSchema = sourceTableSchema;
+            SourceTableName = sourceTableName;
             IndexId = indexId;
             IndexName = indexName;
             IsUnique = isUnique;
@@ -222,6 +263,9 @@ namespace SqlBulkHelpers
             KeyColumns = keyColumns;
             IncludeColumns = includeColumns;
         }
+
+        public string SourceTableSchema { get; }
+        public string SourceTableName { get; }
 
         public int IndexId { get; }
         public string IndexName { get; }
@@ -232,6 +276,9 @@ namespace SqlBulkHelpers
         public IList<IndexIncludeColumnDefinition> IncludeColumns { get; }
 
         public override string ToString() => IndexName;
+
+        public string MapIndexNameToTarget(TableNameTerm targetTable)
+            => this.IndexName.ReplaceCaseInsensitive(this.SourceTableName, targetTable.TableName).QualifySqlTerm();
     }
 
     public class IndexKeyColumnDefinition : KeyColumnDefinition
