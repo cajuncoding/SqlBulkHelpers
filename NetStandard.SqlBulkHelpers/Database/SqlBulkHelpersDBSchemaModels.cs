@@ -20,10 +20,11 @@ namespace SqlBulkHelpers
             List<ColumnCheckConstraintDefinition> columnCheckConstraints,
             List<TableIndexDefinition> tableIndexes)
         {
-            TableSchema = tableSchema.AssertArgumentIsNotNullOrWhiteSpace(nameof(tableSchema));
-            TableName = tableName.AssertArgumentIsNotNullOrWhiteSpace(nameof(tableName));
-            //Derived Table properties...
-            TableFullyQualifiedName = $"[{TableSchema}].[{TableName}]";
+            //Initialize our Table Name Term properties...
+            TableNameTerm = TableNameTerm.From(
+                tableSchema.AssertArgumentIsNotNullOrWhiteSpace(nameof(tableSchema)),
+                tableName.AssertArgumentIsNotNullOrWhiteSpace(nameof(tableName))
+            );
 
             //Ensure that the Columns, Constraints, etc. collections are always NullSafe and is Immutable/ReadOnly!
             TableColumns = (tableColumns ?? new List<TableColumnDefinition>()).AsReadOnly();
@@ -40,9 +41,10 @@ namespace SqlBulkHelpers
             ColumnCaseInsensitiveDictionary = this.TableColumns.ToDictionary(c => c.ColumnName, c => c, StringComparer.OrdinalIgnoreCase);
         }
 
-        public string TableSchema { get; }
-        public string TableName { get; }
-        public string TableFullyQualifiedName { get; }
+        public TableNameTerm TableNameTerm { get; }
+        public string TableSchema => TableNameTerm.SchemaName;
+        public string TableName => TableNameTerm.TableName;
+        public string TableFullyQualifiedName => TableNameTerm.FullyQualifiedTableName;
         public IList<TableColumnDefinition> TableColumns { get; }
         public PrimaryKeyConstraintDefinition PrimaryKeyConstraint { get; }
         public IList<ForeignKeyConstraintDefinition> ForeignKeyConstraints { get; }
@@ -67,7 +69,7 @@ namespace SqlBulkHelpers
         public TableColumnDefinition FindColumnCaseInsensitive(string columnName)
             => ColumnCaseInsensitiveDictionary.GetValueOrDefault(columnName);
 
-        public override string ToString() => this.TableFullyQualifiedName;
+        public override string ToString() => TableNameTerm.FullyQualifiedTableName;
     }
 
     public class TableColumnDefinition

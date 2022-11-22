@@ -5,19 +5,22 @@ using System.Text;
 
 namespace SqlBulkHelpers.MaterializedData
 {
-    public enum ScriptAction
+    public enum IfExists
     {
-        RecreateIfExists,
-        StopProcessingIfExists,
-        ContinueProcessingIfExists
+        Recreate,
+        StopProcessing,
+        ContinueProcessing
     }
 
     public class MaterializedDataScriptBuilder : ISqlScriptBuilder
     {
+        protected bool IsRootTryCatchStarted { get; set; } = false;
         protected StringBuilder ScriptBuilder { get; } = new StringBuilder();
 
         protected MaterializedDataScriptBuilder()
         {
+            ScriptBuilder.Append("BEGIN TRY");
+            IsRootTryCatchStarted = true;
         }
 
         public static MaterializedDataScriptBuilder NewScript() => new MaterializedDataScriptBuilder();
@@ -49,23 +52,43 @@ namespace SqlBulkHelpers.MaterializedData
             return this;
         }
 
-        public MaterializedDataScriptBuilder CloneTableStructure(TableNameTerm sourceTable, TableNameTerm targetTable, ScriptAction ifExistsAction = ScriptAction.RecreateIfExists)
+        public MaterializedDataScriptBuilder CloneTableWithAllElements(SqlBulkHelpersTableDefinition sourceTableDefinition, TableNameTerm targetTable, IfExists ifExists = IfExists.Recreate)
+        {
+            sourceTableDefinition.AssertArgumentIsNotNull(nameof(sourceTableDefinition));
+            targetTable.AssertArgumentIsNotNull(nameof(targetTable));
+
+            this
+                .CloneTableWithColumnsOnly(sourceTableDefinition.TableNameTerm, targetTable, ifExists)
+                .AddPrimaryKeyConstraint(targetTable, sourceTableDefinition.PrimaryKeyConstraint)
+                .AddForeignKeyConstraints(targetTable, sourceTableDefinition.ForeignKeyConstraints.ToArray())
+                .AddColumnDefaultConstraints(targetTable, sourceTableDefinition.ColumnDefaultConstraints.ToArray())
+                .AddColumnCheckConstraints(targetTable, sourceTableDefinition.ColumnCheckConstraints.ToArray())
+                .AddTableIndexes(targetTable, sourceTableDefinition.TableIndexes.ToArray());
+
+            return this;
+        }
+
+        public MaterializedDataScriptBuilder CloneTableWithColumnsOnly(TableNameTerm sourceTable, TableNameTerm targetTable, IfExists ifExists = IfExists.Recreate)
         {
             CreateSchema(targetTable.SchemaName);
-            if (ifExistsAction == ScriptAction.RecreateIfExists)
+            bool addTableCopyScript = false;
+            if (ifExists == IfExists.Recreate)
             {
+                addTableCopyScript = true;
                 DropTable(targetTable);
             }
-            else if (ifExistsAction == ScriptAction.StopProcessingIfExists)
+            else if (ifExists == IfExists.StopProcessing)
             {
+                addTableCopyScript = true;
                 ScriptBuilder.Append($@"
                     --Create the new Target Table by copying the core structure from the Source Table...
 	                --Run only if the Table doesn't Already Exist (Idempotent)
                     IF EXISTS (SELECT TOP (1) 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '{targetTable.SchemaName}' AND TABLE_NAME = '{targetTable.TableName}')
-                        RETURN;
+                        RAISERROR('Failed to clone table {targetTable.FullyQualifiedTableName}; the table already exists and no option to re-create or continue was specified.', 1, 1);;
                 ");
             }
-            else if (ifExistsAction == ScriptAction.ContinueProcessingIfExists)
+            
+            if (addTableCopyScript || ifExists == IfExists.ContinueProcessing)
             {
                 ScriptBuilder.Append($@"
                     --Create the new Target Table by copying the core structure from the Source Table...
@@ -186,10 +209,32 @@ namespace SqlBulkHelpers.MaterializedData
 
         public string BuildSqlScript()
         {
+
             ScriptBuilder.Append($@"
                 --Return IsSuccessful = true once completed...
                 SELECT IsSuccessful = CAST(1 as BIT); 
             ");
+
+            if (IsRootTryCatchStarted)
+            {
+                ScriptBuilder
+                    .Append(Environment.NewLine)
+                    .Append("END TRY").Append(Environment.NewLine)
+                    .Append("BEGIN CATCH").Append(Environment.NewLine);
+
+                ScriptBuilder.Append($@"
+                    --Return failed status and Error details...
+                    SELECT 
+                        IsSuccessful = CAST(1 as BIT),
+                        ErrorMessage = ERROR_MESSAGE(),
+                        ErrorLine = ERROR_LINE(),
+                        ErrorNumber = ERROR_NUMBER();
+                ");
+
+                ScriptBuilder
+                    .Append(Environment.NewLine)
+                    .Append("END CATCH");
+            }
 
             return ScriptBuilder.ToString();
         }

@@ -16,6 +16,8 @@ namespace SqlBulkHelpers.MaterializedData
             ISqlBulkHelpersConfig bulkHelpersConfig = null
         )
         {
+            sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
+
             var results = await new MaterializeDataHelper<ISkipMappingLookup>(sqlTransaction, bulkHelpersConfig)
                 .CloneTableStructureAsync(sqlTransaction, sourceTableName, targetTableName, recreateIfExists)
                 .ConfigureAwait(false);
@@ -31,6 +33,8 @@ namespace SqlBulkHelpers.MaterializedData
             ISqlBulkHelpersConfig bulkHelpersConfig = null
         ) where T : class
         {
+            sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
+
             var results = await new MaterializeDataHelper<T>(sqlTransaction, bulkHelpersConfig)
                 .CloneTableStructureAsync(sqlTransaction, sourceTableNameOverride, targetTableNameOverride, recreateIfExists)
                 .ConfigureAwait(false);

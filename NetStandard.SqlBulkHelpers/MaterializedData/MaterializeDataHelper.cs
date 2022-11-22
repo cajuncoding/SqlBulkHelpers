@@ -45,34 +45,42 @@ namespace SqlBulkHelpers.MaterializedData
                 targetTable = new TableNameTerm(BulkHelpersConfig.MaterializedDataDefaultLoadingSchema, targetTable.TableName);
             }
 
-            var sourceTableSchema = SqlBulkHelpersSchemaLoaderCache
+            var sourceTableSchemaDefinition = SqlBulkHelpersSchemaLoaderCache
                 .GetSchemaLoader(sqlTransaction.Connection.ConnectionString)
                 ?.GetTableSchemaDefinition(sourceTable.FullyQualifiedTableName, sqlTransaction);
 
-            if (sourceTableSchema == null)
+            if (sourceTableSchemaDefinition == null)
                 throw new ArgumentException($"Could not resolve the source table schema for {sourceTable.FullyQualifiedTableName} on the provided connection.");
 
 
             var cloneTableStructureSql = MaterializedDataScriptBuilder
                 .NewScript()
-                .CloneTableStructure(sourceTable, targetTable, ScriptAction.RecreateIfExists)
-                .AddPrimaryKeyConstraint(targetTable, sourceTableSchema.PrimaryKeyConstraint)
-                .AddForeignKeyConstraints(targetTable, sourceTableSchema.ForeignKeyConstraints.ToArray())
-                .AddColumnDefaultConstraints(targetTable, sourceTableSchema.ColumnDefaultConstraints.ToArray())
-                .AddColumnCheckConstraints(targetTable, sourceTableSchema.ColumnCheckConstraints.ToArray())
-                .AddTableIndexes(targetTable, sourceTableSchema.TableIndexes.ToArray())
+                .CloneTableWithAllElements(sourceTableSchemaDefinition, targetTable, recreateIfExists ? IfExists.Recreate : IfExists.StopProcessing)
                 .BuildSqlScript();
 
             using (var sqlCmd = new SqlCommand(cloneTableStructureSql, sqlTransaction.Connection, sqlTransaction))
             {
                 sqlCmd.CommandTimeout = BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds;
 
-                var isSuccessful = (bool)await sqlCmd.ExecuteScalarAsync();
+                using (var sqlReader = await sqlCmd.ExecuteReaderAsync())
+                {
+                    bool isSuccessful = false;
+                    if((await sqlReader.ReadAsync()) && sqlReader.FieldCount >= 1 && sqlReader.GetFieldType(0) == typeof(bool))
+                    {
+                        isSuccessful = await sqlReader.GetFieldValueAsync<bool>(0);
+                        if(!isSuccessful && sqlReader.FieldCount >= 2 && sqlReader.GetFieldType(1) == typeof(string))
+                        {
+                            var errorMessage = await sqlReader.GetFieldValueAsync<string>(1);
+                            throw new InvalidOperationException(errorMessage);
+                        }
 
-                //This pretty-much will never happen as SQL Server will likely raise it's own exceptions/errors;
-                //  but at least if it does we cancel the process and raise an exception...
-                if (!isSuccessful)
-                    throw new InvalidOperationException("An unknown error occurred while executing the SQL Script.");
+                    }
+
+                    //This pretty-much will never happen as SQL Server will likely raise it's own exceptions/errors;
+                    //  but at least if it does we cancel the process and raise an exception...
+                    if (!isSuccessful)
+                        throw new InvalidOperationException("An unknown error occurred while executing the SQL Script.");
+                }
             }
 
             return new CloneTableInfo(sourceTable, targetTable);
