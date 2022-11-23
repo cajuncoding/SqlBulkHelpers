@@ -8,7 +8,7 @@ namespace SqlBulkHelpers.MaterializedData
     public enum IfExists
     {
         Recreate,
-        StopProcessing,
+        StopProcessingWithException,
         ContinueProcessing
     }
 
@@ -17,10 +17,13 @@ namespace SqlBulkHelpers.MaterializedData
         protected bool IsRootTryCatchStarted { get; set; } = false;
         protected StringBuilder ScriptBuilder { get; } = new StringBuilder();
 
-        protected MaterializedDataScriptBuilder()
+        protected MaterializedDataScriptBuilder(bool rootTryCatchEnabled = false)
         {
-            ScriptBuilder.Append("BEGIN TRY");
-            IsRootTryCatchStarted = true;
+            if (rootTryCatchEnabled)
+            {
+                ScriptBuilder.Append("BEGIN TRY");
+                IsRootTryCatchStarted = true;
+            }
         }
 
         public static MaterializedDataScriptBuilder NewScript() => new MaterializedDataScriptBuilder();
@@ -46,7 +49,7 @@ namespace SqlBulkHelpers.MaterializedData
         {
             ScriptBuilder.Append($@"
 	            --Run only if the Table actually exists (Idempotent)
-                IF EXISTS (SELECT TOP (1) 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '{tableName.SchemaName}' AND TABLE_NAME = '{tableName.TableName}')
+                IF OBJECT_ID('{tableName.FullyQualifiedTableName}') IS NOT NULL
                     EXEC('DROP TABLE {tableName.FullyQualifiedTableName}');
                 ");
             return this;
@@ -71,20 +74,22 @@ namespace SqlBulkHelpers.MaterializedData
         public MaterializedDataScriptBuilder CloneTableWithColumnsOnly(TableNameTerm sourceTable, TableNameTerm targetTable, IfExists ifExists = IfExists.Recreate)
         {
             CreateSchema(targetTable.SchemaName);
+
             bool addTableCopyScript = false;
             if (ifExists == IfExists.Recreate)
             {
                 addTableCopyScript = true;
                 DropTable(targetTable);
             }
-            else if (ifExists == IfExists.StopProcessing)
+            else if (ifExists == IfExists.StopProcessingWithException)
             {
                 addTableCopyScript = true;
                 ScriptBuilder.Append($@"
                     --Create the new Target Table by copying the core structure from the Source Table...
 	                --Run only if the Table doesn't Already Exist (Idempotent)
-                    IF EXISTS (SELECT TOP (1) 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '{targetTable.SchemaName}' AND TABLE_NAME = '{targetTable.TableName}')
-                        RAISERROR('Failed to clone table {targetTable.FullyQualifiedTableName}; the table already exists and no option to re-create or continue was specified.', 1, 1);;
+					IF OBJECT_ID('{targetTable.FullyQualifiedTableName}') IS NOT NULL
+                        --NOTE: Error severity must be 16 to ensure that the Exception is thrown to the catch block or to C#...
+                        RAISERROR('Failed to clone table {targetTable.FullyQualifiedTableName}; the table already exists and no option to re-create or continue was specified.', 16, 0);;
                 ");
             }
             
@@ -93,7 +98,7 @@ namespace SqlBulkHelpers.MaterializedData
                 ScriptBuilder.Append($@"
                     --Create the new Target Table by copying the core structure from the Source Table...
 	                --Run only if the Table doesn't Already Exist (Idempotent)
-                    IF NOT EXISTS (SELECT TOP (1) 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '{targetTable.SchemaName}' AND TABLE_NAME = '{targetTable.TableName}')
+                    IF OBJECT_ID('{targetTable.FullyQualifiedTableName}') IS NULL
                         EXEC('SELECT TOP (0) * INTO {targetTable.FullyQualifiedTableName} FROM {sourceTable.FullyQualifiedTableName}');
                 ");
             }
@@ -130,10 +135,10 @@ namespace SqlBulkHelpers.MaterializedData
 
                 ScriptBuilder.Append($@"
                     ALTER TABLE {tableName.FullyQualifiedTableName} ADD CONSTRAINT {fkeyName} 
-	                        FOREIGN KEY ({keyColumns.ToCSV()}) 
-                            REFERENCES {fkeyConstraint.ReferenceTableFullyQualifiedName} ({referenceColumns.ToCSV()})
-	                        ON UPDATE {fkeyConstraint.ReferentialUpdateRuleClause}
-                            ON DELETE {fkeyConstraint.ReferentialDeleteRuleClause};
+	                    FOREIGN KEY ({keyColumns.ToCSV()}) 
+                        REFERENCES {fkeyConstraint.ReferenceTableFullyQualifiedName} ({referenceColumns.ToCSV()})
+	                    ON UPDATE {fkeyConstraint.ReferentialUpdateRuleClause}
+                        ON DELETE {fkeyConstraint.ReferentialDeleteRuleClause};
                 ");
             }
 
@@ -225,7 +230,7 @@ namespace SqlBulkHelpers.MaterializedData
                 ScriptBuilder.Append($@"
                     --Return failed status and Error details...
                     SELECT 
-                        IsSuccessful = CAST(1 as BIT),
+                        IsSuccessful = CAST(0 as BIT),
                         ErrorMessage = ERROR_MESSAGE(),
                         ErrorLine = ERROR_LINE(),
                         ErrorNumber = ERROR_NUMBER();

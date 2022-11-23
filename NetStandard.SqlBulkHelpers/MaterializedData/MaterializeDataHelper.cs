@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
@@ -55,7 +56,7 @@ namespace SqlBulkHelpers.MaterializedData
 
             var cloneTableStructureSql = MaterializedDataScriptBuilder
                 .NewScript()
-                .CloneTableWithAllElements(sourceTableSchemaDefinition, targetTable, recreateIfExists ? IfExists.Recreate : IfExists.StopProcessing)
+                .CloneTableWithAllElements(sourceTableSchemaDefinition, targetTable, recreateIfExists ? IfExists.Recreate : IfExists.StopProcessingWithException)
                 .BuildSqlScript();
 
             using (var sqlCmd = new SqlCommand(cloneTableStructureSql, sqlTransaction.Connection, sqlTransaction))
@@ -65,15 +66,14 @@ namespace SqlBulkHelpers.MaterializedData
                 using (var sqlReader = await sqlCmd.ExecuteReaderAsync())
                 {
                     bool isSuccessful = false;
-                    if((await sqlReader.ReadAsync()) && sqlReader.FieldCount >= 1 && sqlReader.GetFieldType(0) == typeof(bool))
+                    if ((await sqlReader.ReadAsync()) && sqlReader.FieldCount >= 1 && sqlReader.GetFieldType(0) == typeof(bool))
                     {
                         isSuccessful = await sqlReader.GetFieldValueAsync<bool>(0);
-                        if(!isSuccessful && sqlReader.FieldCount >= 2 && sqlReader.GetFieldType(1) == typeof(string))
+                        if (!isSuccessful && sqlReader.FieldCount >= 2 && sqlReader.GetFieldType(1) == typeof(string))
                         {
                             var errorMessage = await sqlReader.GetFieldValueAsync<string>(1);
                             throw new InvalidOperationException(errorMessage);
                         }
-
                     }
 
                     //This pretty-much will never happen as SQL Server will likely raise it's own exceptions/errors;
@@ -86,5 +86,25 @@ namespace SqlBulkHelpers.MaterializedData
             return new CloneTableInfo(sourceTable, targetTable);
         }
 
+        public async Task<TableNameTerm[]> DropTablesAsync(SqlTransaction sqlTransaction, params string[] tableNames)
+        {
+            if (!tableNames.HasAny())
+                return Array.Empty<TableNameTerm>();
+
+            var tableNameTermsList = tableNames.Distinct().Select(TableNameTerm.From).ToList();
+            var dropTableSqlScriptBuilder = MaterializedDataScriptBuilder.NewScript();
+
+            foreach (var tableNameTerm in tableNameTermsList)
+                dropTableSqlScriptBuilder.DropTable(tableNameTerm);
+
+            var dropTablesSql = dropTableSqlScriptBuilder.BuildSqlScript();
+            using (var sqlCmd = new SqlCommand(dropTablesSql, sqlTransaction.Connection, sqlTransaction))
+            {
+                sqlCmd.CommandTimeout = BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds;
+                await sqlCmd.ExecuteNonQueryAsync();
+            }
+
+            return tableNameTermsList.ToArray();
+        }
     }
 }

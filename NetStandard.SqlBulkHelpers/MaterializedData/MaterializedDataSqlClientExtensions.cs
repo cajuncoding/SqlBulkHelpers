@@ -1,6 +1,7 @@
 ﻿using Microsoft.Data.SqlClient;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using SqlBulkHelpers.MaterializedData;
 
@@ -20,6 +21,27 @@ namespace SqlBulkHelpers.MaterializedData
 
             var results = await new MaterializeDataHelper<ISkipMappingLookup>(sqlTransaction, bulkHelpersConfig)
                 .CloneTableStructureAsync(sqlTransaction, sourceTableName, targetTableName, recreateIfExists)
+                .ConfigureAwait(false);
+
+            return results;
+        }
+
+        public static Task<TableNameTerm[]> DropTableAsync(
+            this SqlTransaction sqlTransaction,
+            string tableName,
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        ) => DropTablesAsync(sqlTransaction, new [] { tableName }, bulkHelpersConfig);
+
+        public static async Task<TableNameTerm[]> DropTablesAsync(
+            this SqlTransaction sqlTransaction,
+            IEnumerable<string> tableNames,
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        )
+        {
+            sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
+
+            var results = await new MaterializeDataHelper<ISkipMappingLookup>(sqlTransaction, bulkHelpersConfig)
+                .DropTablesAsync(sqlTransaction, tableNames.ToArray())
                 .ConfigureAwait(false);
 
             return results;
