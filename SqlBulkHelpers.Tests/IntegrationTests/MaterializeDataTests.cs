@@ -61,8 +61,8 @@ namespace SqlBulkHelpers.IntegrationTests
 
                 //ASSERT Results are Valid...
                 Assert.IsNotNull(successfulCloneInfo);
-                Assert.IsNull(failedCloneInfo);
                 Assert.IsNotNull(failedToCloneException);
+                Assert.IsNull(failedCloneInfo);
             }
         }
     }

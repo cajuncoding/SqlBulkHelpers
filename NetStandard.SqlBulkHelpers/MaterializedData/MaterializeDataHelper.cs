@@ -86,6 +86,9 @@ namespace SqlBulkHelpers.MaterializedData
             return new CloneTableInfo(sourceTable, targetTable);
         }
 
+        public Task<TableNameTerm[]> DropTableAsync(SqlTransaction sqlTransaction, string tableNameOverride = null)
+            => DropTablesAsync(sqlTransaction, new string[] { GetMappedTableNameTerm(tableNameOverride).FullyQualifiedTableName });
+
         public async Task<TableNameTerm[]> DropTablesAsync(SqlTransaction sqlTransaction, params string[] tableNames)
         {
             if (!tableNames.HasAny())

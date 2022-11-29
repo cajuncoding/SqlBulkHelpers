@@ -181,20 +181,20 @@ namespace SqlBulkHelpers
         /// <param name="entityData"></param>
         /// <param name="mergeAction"></param>
         /// <param name="sqlTransaction"></param>
-        /// <param name="tableNameParam"></param>
+        /// <param name="tableNameOverride"></param>
         /// <param name="matchQualifierExpressionParam"></param>
         /// <returns></returns>
         protected virtual ProcessHelper CreateProcessHelper(
             List<T> entityData, 
             SqlBulkHelpersMergeAction mergeAction, 
             SqlTransaction sqlTransaction,
-            string tableNameParam = null,
+            string tableNameOverride = null,
             SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null
         )
         {
             //***STEP #1: Get the Table & Model Processing Definitions (cached after initial Load)!!!
             var processingDefinition = this.BulkHelpersProcessingDefinition;
-            var tableDefinition = this.GetTableSchemaDefinitionInternal(sqlTransaction, tableNameParam);
+            var tableDefinition = this.GetTableSchemaDefinitionInternal(sqlTransaction, tableNameOverride);
             
             //***STEP #2: Build all of the Sql Scripts needed to Process the entities based on the specified Table definition.
             var sqlScripts = this.BuildSqlMergeScriptsInternal(

@@ -69,17 +69,23 @@ namespace SqlBulkHelpers
 
         #endregion
 
+        protected virtual TableNameTerm GetMappedTableNameTerm(string tableNameOverride = null)
+        {
+            string tableName = tableNameOverride;
+            if (string.IsNullOrWhiteSpace(tableName) && this.BulkHelpersProcessingDefinition.IsMappingLookupEnabled)
+                tableName = this.BulkHelpersProcessingDefinition.MappedDbTableName;
+
+            return tableName.ParseAsTableNameTerm();
+        }
+
         //BBernard
         //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
         //      we eliminate risk of Sql Injection.
         //NOTE: All other parameters are Strongly typed (vs raw Strings) thus eliminating risk of Sql Injection
-        protected virtual SqlBulkHelpersTableDefinition GetTableSchemaDefinitionInternal(SqlTransaction sqlTransaction, string tableNameParam = null)
+        protected virtual SqlBulkHelpersTableDefinition GetTableSchemaDefinitionInternal(SqlTransaction sqlTransaction, string tableNameOverride = null)
         {
             //***STEP #1: Get the correct table name to lookup whether it is specified or if we fall back to the mapped data from the Model.
-            string tableName = tableNameParam;
-            if (string.IsNullOrWhiteSpace(tableName) && this.BulkHelpersProcessingDefinition.IsMappingLookupEnabled)
-                tableName = this.BulkHelpersProcessingDefinition.MappedDbTableName;
-
+            var tableName = GetMappedTableNameTerm(tableNameOverride);
 
             //***STEP #2: Load the Table Schema Definitions from the name provided or fall-back to use mapped data
             //BBernard
@@ -87,7 +93,7 @@ namespace SqlBulkHelpers
             //      we eliminate risk of Sql Injection.
             var tableDefinition = this.SqlDbSchemaLoader.GetTableSchemaDefinition(tableName, sqlTransaction);
             if (tableDefinition == null) 
-                throw new ArgumentOutOfRangeException(nameof(tableNameParam), $"The specified {nameof(tableNameParam)} argument value of [{tableNameParam}] is invalid; no table definition could be resolved.");
+                throw new ArgumentOutOfRangeException(nameof(tableNameOverride), $"The specified {nameof(tableNameOverride)} argument value of [{tableNameOverride}] is invalid; no table definition could be resolved.");
             
             return tableDefinition;
         }
