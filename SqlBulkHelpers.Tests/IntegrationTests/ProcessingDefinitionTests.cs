@@ -19,7 +19,7 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
             var processingDef = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<TestElementWithMappedNames>();
             
             Assert.IsNotNull(processingDef);
-            Assert.AreEqual(TableNameTerm.From("TestElement").FullyQualifiedTableName, processingDef.MappedDbTableName);
+            Assert.AreEqual(TableNameTerm.From(TestHelpers.TestTableName).FullyQualifiedTableName, processingDef.MappedDbTableName);
             Assert.IsFalse(processingDef.UniqueMatchMergeValidationEnabled);
             Assert.IsTrue(processingDef.IsRowNumberColumnNameEnabled);
             Assert.IsTrue(processingDef.IsMappingLookupEnabled);

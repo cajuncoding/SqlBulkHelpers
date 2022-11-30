@@ -8,7 +8,7 @@ namespace SqlBulkHelpers.Tests
     {
         public static string GetSqlConnectionString()
         {
-            var sqlConnectionString = ConfigurationManager.AppSettings[SqlBulkHelpersConnectionProvider.SqlConnectionStringConfigKey];
+            var sqlConnectionString = TestConfiguration.SqlConnectionString;
             return sqlConnectionString;
         }
 

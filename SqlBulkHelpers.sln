@@ -5,13 +5,13 @@ VisualStudioVersion = 17.4.32804.182
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlBulkHelpers.SampleApp.NetFramework", "SqlBulkHelpers.SampleApp.NetFramework\SqlBulkHelpers.SampleApp.NetFramework.csproj", "{1317662E-BDB5-4E83-BE8F-56DCB955141A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlBulkHelpers.Tests", "SqlBulkHelpers.Tests\SqlBulkHelpers.Tests.csproj", "{C3E2E92C-2F0C-44C9-B2E5-3CF522534E34}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotNetFramework.SqlBulkHelpers-Deprecated", "DotNetFramework.SqlBulkHelpers\DotNetFramework.SqlBulkHelpers-Deprecated.csproj", "{3ABF8F4C-6371-419E-B104-2DB62B2F643D}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NetStandard.SqlBulkHelpers", "NetStandard.SqlBulkHelpers\NetStandard.SqlBulkHelpers.csproj", "{0CABB737-46C2-460F-98FE-55D4871ED841}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SqlBulkHelpers.SampleApp.Net6", "SqlBulkHelpers.SampleApp.Net6\SqlBulkHelpers.SampleApp.Net6.csproj", "{15F32C79-E50E-448B-A797-C759F73033EE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlBulkHelpers.Tests", "SqlBulkHelpers.Tests\SqlBulkHelpers.Tests.csproj", "{D5CFE2BA-4FB1-4ACA-BD14-FD6FB75EFCC8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -23,10 +23,6 @@ Global
 		{1317662E-BDB5-4E83-BE8F-56DCB955141A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1317662E-BDB5-4E83-BE8F-56DCB955141A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1317662E-BDB5-4E83-BE8F-56DCB955141A}.Release|Any CPU.Build.0 = Release|Any CPU
-		{C3E2E92C-2F0C-44C9-B2E5-3CF522534E34}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{C3E2E92C-2F0C-44C9-B2E5-3CF522534E34}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{C3E2E92C-2F0C-44C9-B2E5-3CF522534E34}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{C3E2E92C-2F0C-44C9-B2E5-3CF522534E34}.Release|Any CPU.Build.0 = Release|Any CPU
 		{3ABF8F4C-6371-419E-B104-2DB62B2F643D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{3ABF8F4C-6371-419E-B104-2DB62B2F643D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3ABF8F4C-6371-419E-B104-2DB62B2F643D}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -39,6 +35,10 @@ Global
 		{15F32C79-E50E-448B-A797-C759F73033EE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{15F32C79-E50E-448B-A797-C759F73033EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{15F32C79-E50E-448B-A797-C759F73033EE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D5CFE2BA-4FB1-4ACA-BD14-FD6FB75EFCC8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D5CFE2BA-4FB1-4ACA-BD14-FD6FB75EFCC8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D5CFE2BA-4FB1-4ACA-BD14-FD6FB75EFCC8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D5CFE2BA-4FB1-4ACA-BD14-FD6FB75EFCC8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

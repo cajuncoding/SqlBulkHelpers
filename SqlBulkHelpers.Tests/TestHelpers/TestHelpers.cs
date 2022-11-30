@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
 using RepoDb.Attributes;
 using SqlBulkHelpers.Interfaces;
 
@@ -11,7 +9,6 @@ namespace SqlBulkHelpers.Tests
     {
         public const string TestTableName = "SqlBulkHelpersTestElements";
         public const string TestTableNameFullyQualified = "[dbo].[SqlBulkHelpersTestElements]";
-        public const string MaterializeDataLoadingSchema = "materialized_data";
 
         public const int SqlTimeoutSeconds = 150;
 
@@ -63,7 +60,7 @@ namespace SqlBulkHelpers.Tests
         }
     }
 
-    [SqlBulkTable("TestElement", uniqueMatchMergeValidationEnabled: false)]
+    [SqlBulkTable(TestHelpers.TestTableName, uniqueMatchMergeValidationEnabled: false)]
     public class TestElementWithMappedNames
     {
         [SqlBulkMatchQualifier]

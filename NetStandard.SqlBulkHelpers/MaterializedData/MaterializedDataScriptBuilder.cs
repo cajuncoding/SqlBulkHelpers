@@ -14,6 +14,8 @@ namespace SqlBulkHelpers.MaterializedData
 
     public class MaterializedDataScriptBuilder : ISqlScriptBuilder
     {
+        public bool IsSqlScriptFinished { get; protected set; } = false;
+
         protected StringBuilder ScriptBuilder { get; } = new StringBuilder();
 
         protected MaterializedDataScriptBuilder()
@@ -243,17 +245,25 @@ namespace SqlBulkHelpers.MaterializedData
             return this;
         }
 
+        public MaterializedDataScriptBuilder FinishSqlScript()
+        {
+            if(!IsSqlScriptFinished)
+                ScriptBuilder.Append($@"
+                    --Return IsSuccessful = true once completed...
+                    SELECT IsSuccessful = CAST(1 as BIT); 
+                ");
+            
+            return this;
+        }
+
         public string BuildSqlScript()
         {
-
-            ScriptBuilder.Append($@"
-                --Return IsSuccessful = true once completed...
-                SELECT IsSuccessful = CAST(1 as BIT); 
-            ");
-
+            FinishSqlScript();
             return ScriptBuilder.ToString();
         }
 
-        public override string ToString() => BuildSqlScript();
+        //NOTE: WE can't call BuildSqlScript() because that will result in the Finish being called every time we it's converted to a String
+        //          which incorrectly mutates the underlying string builder.
+        public override string ToString() => ScriptBuilder.ToString();
     }
 }
