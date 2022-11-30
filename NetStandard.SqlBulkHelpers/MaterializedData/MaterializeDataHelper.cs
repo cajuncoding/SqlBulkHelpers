@@ -30,6 +30,47 @@ namespace SqlBulkHelpers.MaterializedData
 
         #endregion
 
+        public async Task<MaterializeDataContext> MaterializeData(SqlTransaction sqlTransaction, string loadSchemaName, string tempHoldingSchemaName, params string[] tableNames)
+        {
+            var cloneMaterializationTables = await CloneTableStructuresForMaterializationAsync(
+                sqlTransaction, 
+                tableNames, 
+                loadSchemaName, 
+                tempHoldingSchemaName
+                ).ConfigureAwait(false);
+
+            return new MaterializeDataContext(cloneMaterializationTables, async (MaterializationTableInfo[] materializationTables) =>
+            {
+                var finishMaterializationSqlScriptBuilder = MaterializedDataScriptBuilder.NewSqlScript();
+
+                //NOTE: We update ALL tables to each Stage together so that any/all constraints, relationships, etc.
+                //      are valid based on new data that was likely populated in the full set of tables now materialized with new data!
+                //1) First we switch all existing Live tables to Temp/Holding -- this Frees the Live table up to be updated!
+                foreach (var materializationTableInfo in materializationTables)
+                {
+                    finishMaterializationSqlScriptBuilder.SwitchTables(materializationTableInfo.OriginalTable, materializationTableInfo.TempHoldingTable);
+                }
+
+                //2) Second we switch all existing Loading/Staging tables to Live -- this updates the Live Data!
+                foreach (var materializationTableInfo in materializationTables)
+                {
+                    finishMaterializationSqlScriptBuilder.SwitchTables(materializationTableInfo.LoadingTable, materializationTableInfo.OriginalTable);
+                }
+
+                //3) Third we clean up all Temp/Holding data to free space, and remove the Loading Tables too -- this leaves only the (new) Live Table in place!
+                foreach (var materializationTableInfo in materializationTables)
+                {
+                    finishMaterializationSqlScriptBuilder.DropTable(materializationTableInfo.LoadingTable);
+                    finishMaterializationSqlScriptBuilder.DropTable(materializationTableInfo.TempHoldingTable);
+                }
+
+                await sqlTransaction.ExecuteMaterializedDataSqlScriptAsync(
+                    finishMaterializationSqlScriptBuilder, 
+                    BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds
+                );
+            });
+        }
+
         public async Task<CloneTableInfo> CloneTableStructureAsync(
             SqlTransaction sqlTransaction,
             string sourceTableName = null,
@@ -90,25 +131,48 @@ namespace SqlBulkHelpers.MaterializedData
             return cloneInfoList.ToArray();
         }
 
-        public Task<CloneTableInfo[]> CloneTableStructuresForMaterializationAsync(SqlTransaction sqlTransaction, string loadSchemaName, string holdSchemaName, params string[] tableNames)
-            => CloneTableStructuresForMaterializationAsync(sqlTransaction, tableNames, loadSchemaName, holdSchemaName);
+        public Task<MaterializationTableInfo[]> CloneTableStructuresForMaterializationAsync(
+            SqlTransaction sqlTransaction, 
+            string loadSchemaName, 
+            string tempHoldSchemaName, 
+            params string[] tableNames
+        ) => CloneTableStructuresForMaterializationAsync(sqlTransaction, tableNames, loadSchemaName, tempHoldSchemaName);
 
-        public async Task<CloneTableInfo[]> CloneTableStructuresForMaterializationAsync(SqlTransaction sqlTransaction, IEnumerable<string> tableNames, string loadingSchemaName = null, string tempHoldingSchemaName = null)
+        public async Task<MaterializationTableInfo[]> CloneTableStructuresForMaterializationAsync(
+            SqlTransaction sqlTransaction, 
+            IEnumerable<string> tableNames, 
+            string loadingSchemaName = null, 
+            string tempHoldingSchemaName = null
+        )
         {
-            var materializationCloneInfoList = new List<CloneTableInfo>();
-            var tableNamesList = tableNames.ToList();
+            var materializationTableInfoList = new List<MaterializationTableInfo>();
+            var cloneInfoList = new List<CloneTableInfo>();
 
-            //1) First compute all table cloning instructions to generate the Loading Tables and the Hold Tables for every table to be cloned...
-            //  Add Clones for Loading tables...
+            var tableNamesList = tableNames.ToList();
             var loadingTablesSchema = loadingSchemaName.TrimTableNameTerm() ?? BulkHelpersConfig.MaterializedDataDefaultLoadingSchema;
-            materializationCloneInfoList.AddRange(tableNamesList.Select(n => CloneTableInfo.ForNewSchema(n, loadingTablesSchema)));
-            //  Add Clones for Temp/Holding tables (used for switching Live OUT for later cleanup)...
             var tempHoldingTablesSchema = tempHoldingSchemaName.TrimTableNameTerm() ?? BulkHelpersConfig.MaterializedDataDefaultTempHoldingSchema;
-            materializationCloneInfoList.AddRange(tableNamesList.Select(n => CloneTableInfo.ForNewSchema(n, tempHoldingTablesSchema)));
+
+            //1) First compute all table cloning instructions, and Materialization table info./details to generate the Loading Tables and the Hold Tables for every table to be cloned...
+            foreach (var originalTable in tableNamesList.Select(n => n.ParseAsTableNameTerm()))
+            {
+                //  Add Clones for Loading tables...
+                var loadingCloneInfo = CloneTableInfo.ForNewSchema(originalTable, loadingTablesSchema);
+                cloneInfoList.Add(loadingCloneInfo);
+
+                //  Add Clones for Temp/Holding tables (used for switching Live OUT for later cleanup)...
+                var tempHoldingCloneInfo = CloneTableInfo.ForNewSchema(originalTable, tempHoldingTablesSchema);
+                cloneInfoList.Add(tempHoldingCloneInfo);
+                
+                //Finally aggregate the original, loading, and temp/holding tables into the MaterializationTableInfo
+                var materializationTableInfo = new MaterializationTableInfo(originalTable, loadingCloneInfo.TargetTable, tempHoldingCloneInfo.TargetTable);
+                materializationTableInfoList.Add(materializationTableInfo);
+            }
+
+            //2) Now we can clone all tables efficiently creating all Loading and Temp/Holding tables!
+            await CloneTableStructuresAsync(sqlTransaction, cloneInfoList).ConfigureAwait(false);
             
-            //2) Now we can clone all tables efficiently!
-            var cloneResults = await CloneTableStructuresAsync(sqlTransaction, materializationCloneInfoList).ConfigureAwait(false);
-            return cloneResults;
+            //Finally we return the complete Materialization Table Info details...
+            return materializationTableInfoList.ToArray();
         }
 
         public Task<TableNameTerm[]> DropTableAsync(SqlTransaction sqlTransaction, string tableNameOverride = null)

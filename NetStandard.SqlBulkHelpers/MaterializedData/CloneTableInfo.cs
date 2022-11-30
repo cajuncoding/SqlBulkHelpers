@@ -29,10 +29,7 @@ namespace SqlBulkHelpers.MaterializedData
             return new CloneTableInfo(sourceTable, targetTable);
         }
 
-        public static CloneTableInfo ForNewSchema(string sourceTableName, string targetSchemaName)
-        {
-            var sourceTable = TableNameTerm.From<ISkipMappingLookup>(sourceTableName);
-            return new CloneTableInfo(sourceTable, sourceTable.SwitchSchema(targetSchemaName));
-        }
+        public static CloneTableInfo ForNewSchema(TableNameTerm sourceTable, string targetSchemaName)
+            => new CloneTableInfo(sourceTable, sourceTable.SwitchSchema(targetSchemaName));
     }
 }
