@@ -209,6 +209,12 @@ namespace SqlBulkHelpers
         public string ReferentialUpdateRuleClause { get; }
         public string ReferentialDeleteRuleClause { get; }
         public IList<KeyColumnDefinition> ReferenceColumns { get; }
+
+        public void AssertIsForeignKeyConstraint()
+        {
+            if (ConstraintType != KeyConstraintType.ForeignKey)
+                throw new ArgumentException($"The Key Constraint provided is not a {nameof(KeyConstraintType.ForeignKey)} constraint type.");
+        }
     }
 
     public enum KeyConstraintType

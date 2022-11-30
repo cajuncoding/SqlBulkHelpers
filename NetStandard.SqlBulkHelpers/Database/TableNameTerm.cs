@@ -10,8 +10,9 @@ namespace SqlBulkHelpers
 
         public TableNameTerm(string schemaName, string tableName)
         {
-            SchemaName = schemaName.AssertArgumentIsNotNullOrWhiteSpace(nameof(schemaName));
-            TableName = tableName.AssertArgumentIsNotNullOrWhiteSpace(nameof(tableName));
+            SchemaName = schemaName.AssertArgumentIsNotNullOrWhiteSpace(nameof(schemaName)).TrimTableNameTerm();
+            TableName = tableName.AssertArgumentIsNotNullOrWhiteSpace(nameof(tableName)).TrimTableNameTerm();
+            //NOTE: We don't use QualifySqlTerm() here to prevent unnecessary additional trimming (that is done above).
             FullyQualifiedTableName = $"[{SchemaName}].[{TableName}]";
         }
 
@@ -20,6 +21,7 @@ namespace SqlBulkHelpers
         public string FullyQualifiedTableName { get; }
 
         public override string ToString() => FullyQualifiedTableName;
+        public TableNameTerm SwitchSchema(string newSchema) => new TableNameTerm(newSchema, TableName);
         public static implicit operator string(TableNameTerm t) => t.ToString();
 
         public static TableNameTerm From(string schemaName, string tableName)
@@ -42,6 +44,5 @@ namespace SqlBulkHelpers
             }
             return tableNameTerm;
         }
-
     }
 }

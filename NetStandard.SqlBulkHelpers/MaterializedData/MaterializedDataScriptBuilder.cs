@@ -14,19 +14,13 @@ namespace SqlBulkHelpers.MaterializedData
 
     public class MaterializedDataScriptBuilder : ISqlScriptBuilder
     {
-        protected bool IsRootTryCatchStarted { get; set; } = false;
         protected StringBuilder ScriptBuilder { get; } = new StringBuilder();
 
-        protected MaterializedDataScriptBuilder(bool rootTryCatchEnabled = false)
+        protected MaterializedDataScriptBuilder()
         {
-            if (rootTryCatchEnabled)
-            {
-                ScriptBuilder.Append("BEGIN TRY");
-                IsRootTryCatchStarted = true;
-            }
         }
 
-        public static MaterializedDataScriptBuilder NewScript() => new MaterializedDataScriptBuilder();
+        public static MaterializedDataScriptBuilder NewSqlScript() => new MaterializedDataScriptBuilder();
 
         public MaterializedDataScriptBuilder Go()
         {
@@ -47,10 +41,22 @@ namespace SqlBulkHelpers.MaterializedData
 
         public MaterializedDataScriptBuilder DropTable(TableNameTerm tableName)
         {
+            tableName.AssertArgumentIsNotNull(nameof(tableName));
             ScriptBuilder.Append($@"
 	            --Run only if the Table actually exists (Idempotent)
                 IF OBJECT_ID('{tableName.FullyQualifiedTableName}') IS NOT NULL
                     EXEC('DROP TABLE {tableName.FullyQualifiedTableName}');
+                ");
+            return this;
+        }
+
+        public MaterializedDataScriptBuilder TruncateTable(TableNameTerm tableName)
+        {
+            tableName.AssertArgumentIsNotNull(nameof(tableName));
+            ScriptBuilder.Append($@"
+	            --Run only if the Table actually exists (Idempotent)
+                IF OBJECT_ID('{tableName.FullyQualifiedTableName}') IS NOT NULL
+                    EXEC('TRUNCATE TABLE {tableName.FullyQualifiedTableName}');
                 ");
             return this;
         }
@@ -68,6 +74,18 @@ namespace SqlBulkHelpers.MaterializedData
                 .AddColumnCheckConstraints(targetTable, sourceTableDefinition.ColumnCheckConstraints.ToArray())
                 .AddTableIndexes(targetTable, sourceTableDefinition.TableIndexes.ToArray());
 
+            return this;
+        }
+
+        public MaterializedDataScriptBuilder SwitchTables(TableNameTerm sourceTable, TableNameTerm targetTable)
+        {
+            sourceTable.AssertArgumentIsNotNull(nameof(targetTable));
+            targetTable.AssertArgumentIsNotNull(nameof(targetTable));
+
+            ScriptBuilder.Append($@"
+	            --Switch/Swap the Tables (with ALL Data) instantaneously
+                ALTER TABLE {sourceTable.FullyQualifiedTableName} SWITCH TO {targetTable.FullyQualifiedTableName};
+            ");
             return this;
         }
 
@@ -126,8 +144,7 @@ namespace SqlBulkHelpers.MaterializedData
         {
             foreach (var fkeyConstraint in fkeyConstraints)
             {
-                if (fkeyConstraint.ConstraintType != KeyConstraintType.ForeignKey)
-                    throw new ArgumentException($"The Key Constraint provided is not a {nameof(KeyConstraintType.ForeignKey)} constraint type.");
+                fkeyConstraint.AssertIsForeignKeyConstraint();
 
                 var fkeyName = fkeyConstraint.MapConstraintNameToTarget(tableName);
                 var keyColumns = fkeyConstraint.KeyColumns.OrderBy(c => c.OrdinalPosition).Select(c => c.ColumnName.QualifySqlTerm());
@@ -141,7 +158,21 @@ namespace SqlBulkHelpers.MaterializedData
                         ON DELETE {fkeyConstraint.ReferentialDeleteRuleClause};
                 ");
             }
+            return this;
+        }
 
+        public MaterializedDataScriptBuilder DropForeignKeyConstraints(TableNameTerm tableName, params ForeignKeyConstraintDefinition[] fkeyConstraints)
+        {
+            foreach (var fkeyConstraint in fkeyConstraints)
+            {
+                fkeyConstraint.AssertIsForeignKeyConstraint();
+
+                var fkeyName = fkeyConstraint.MapConstraintNameToTarget(tableName);
+
+                ScriptBuilder.Append($@"
+                    ALTER TABLE {tableName.FullyQualifiedTableName} DROP CONSTRAINT {fkeyName};
+                ");
+            }
             return this;
         }
 
@@ -219,27 +250,6 @@ namespace SqlBulkHelpers.MaterializedData
                 --Return IsSuccessful = true once completed...
                 SELECT IsSuccessful = CAST(1 as BIT); 
             ");
-
-            if (IsRootTryCatchStarted)
-            {
-                ScriptBuilder
-                    .Append(Environment.NewLine)
-                    .Append("END TRY").Append(Environment.NewLine)
-                    .Append("BEGIN CATCH").Append(Environment.NewLine);
-
-                ScriptBuilder.Append($@"
-                    --Return failed status and Error details...
-                    SELECT 
-                        IsSuccessful = CAST(0 as BIT),
-                        ErrorMessage = ERROR_MESSAGE(),
-                        ErrorLine = ERROR_LINE(),
-                        ErrorNumber = ERROR_NUMBER();
-                ");
-
-                ScriptBuilder
-                    .Append(Environment.NewLine)
-                    .Append("END CATCH");
-            }
 
             return ScriptBuilder.ToString();
         }

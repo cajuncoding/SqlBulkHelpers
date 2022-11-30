@@ -12,6 +12,7 @@ namespace SqlBulkHelpers
 
         int MaterializeDataStructureProcessingTimeoutSeconds { get; }
         string MaterializedDataDefaultLoadingSchema { get; }
+        string MaterializedDataDefaultTempHoldingSchema { get; }
     }
 
     public class SqlBulkHelpersConfig : ISqlBulkHelpersConfig
@@ -46,5 +47,6 @@ namespace SqlBulkHelpers
         
         public int MaterializeDataStructureProcessingTimeoutSeconds { get; set; } = 30;
         public string MaterializedDataDefaultLoadingSchema { get; set; } = "dbo_materializing";
+        public string MaterializedDataDefaultTempHoldingSchema { get; set; } = "dbo_materializing_temp";
     }
 }

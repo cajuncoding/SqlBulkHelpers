@@ -9,6 +9,33 @@ namespace SqlBulkHelpers.MaterializedData
 {
     public static class MaterializedDataSqlClientExtensions
     {
+        public static Task ExecuteMaterializedDataSqlScriptAsync(this SqlTransaction sqlTransaction, MaterializedDataScriptBuilder sqlScriptBuilder, int? commandTimeout = null)
+            => ExecuteMaterializedDataSqlScriptAsync(sqlTransaction, sqlScriptBuilder.BuildSqlScript(), commandTimeout);
+
+        public static async Task ExecuteMaterializedDataSqlScriptAsync(this SqlTransaction sqlTransaction, string materializedDataSqlScript, int? commandTimeout = null)
+        {
+            sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
+            materializedDataSqlScript.AssertArgumentIsNotNullOrWhiteSpace(nameof(materializedDataSqlScript));
+
+            using (var sqlCmd = new SqlCommand(materializedDataSqlScript, sqlTransaction.Connection, sqlTransaction))
+            {
+                if(commandTimeout.HasValue)
+                    sqlCmd.CommandTimeout = commandTimeout.Value;
+
+                using (var sqlReader = await sqlCmd.ExecuteReaderAsync().ConfigureAwait(false))
+                {
+                    bool isSuccessful = false;
+                    if ((await sqlReader.ReadAsync().ConfigureAwait(false)) && sqlReader.FieldCount >= 1 && sqlReader.GetFieldType(0) == typeof(bool))
+                        isSuccessful = await sqlReader.GetFieldValueAsync<bool>(0).ConfigureAwait(false);
+
+                    //This pretty-much will never happen as SQL Server will likely raise it's own exceptions/errors;
+                    //  but at least if it does we cancel the process and raise an exception...
+                    if (!isSuccessful)
+                        throw new InvalidOperationException("An unknown error occurred while executing the SQL Script.");
+                }
+            }
+        }
+
         public static async Task<CloneTableInfo> CloneTableAsync(
             this SqlTransaction sqlTransaction,
             string sourceTableName,

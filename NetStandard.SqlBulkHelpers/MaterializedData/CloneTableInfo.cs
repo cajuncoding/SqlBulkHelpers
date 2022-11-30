@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Security.Cryptography;
+using Microsoft.Identity.Client;
 
 namespace SqlBulkHelpers.MaterializedData
 {
@@ -11,6 +13,26 @@ namespace SqlBulkHelpers.MaterializedData
         {
             SourceTable = sourceTable.AssertArgumentIsNotNull(nameof(sourceTable));
             TargetTable = targetTable.AssertArgumentIsNotNull(nameof(targetTable));
+        }
+
+        public static CloneTableInfo From<TSource, TTarget>(string sourceTableName, string targetTableName)
+        {
+            var sourceTable = TableNameTerm.From<TSource>(sourceTableName);
+            var targetTable = TableNameTerm.From<TTarget>(targetTableName);
+            return new CloneTableInfo(sourceTable, targetTable);
+        }
+
+        public static CloneTableInfo From(string sourceTableName, string targetTableName)
+        {
+            var sourceTable = TableNameTerm.From<ISkipMappingLookup>(sourceTableName);
+            var targetTable = TableNameTerm.From<ISkipMappingLookup>(targetTableName);
+            return new CloneTableInfo(sourceTable, targetTable);
+        }
+
+        public static CloneTableInfo ForNewSchema(string sourceTableName, string targetSchemaName)
+        {
+            var sourceTable = TableNameTerm.From<ISkipMappingLookup>(sourceTableName);
+            return new CloneTableInfo(sourceTable, sourceTable.SwitchSchema(targetSchemaName));
         }
     }
 }
