@@ -46,14 +46,14 @@ namespace SqlBulkHelpers.MaterializedData
             this SqlTransaction sqlTransaction,
             string sourceTableName,
             string targetTableName,
-            bool recreateIfExists = true,
+            bool recreateIfExists = false,
             ISqlBulkHelpersConfig bulkHelpersConfig = null
         )
         {
             sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
 
             var results = await new MaterializeDataHelper<ISkipMappingLookup>(sqlTransaction, bulkHelpersConfig)
-                .CloneTableStructureAsync(sqlTransaction, sourceTableName, targetTableName, recreateIfExists)
+                .CloneTableAsync(sqlTransaction, sourceTableName, targetTableName, recreateIfExists)
                 .ConfigureAwait(false);
 
             return results;
@@ -63,14 +63,14 @@ namespace SqlBulkHelpers.MaterializedData
             this SqlTransaction sqlTransaction,
             string sourceTableNameOverride = null,
             string targetTableNameOverride = null,
-            bool recreateIfExists = true,
+            bool recreateIfExists = false,
             ISqlBulkHelpersConfig bulkHelpersConfig = null
         ) where T : class
         {
             sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
 
             var results = await new MaterializeDataHelper<T>(sqlTransaction, bulkHelpersConfig)
-                .CloneTableStructureAsync(sqlTransaction, sourceTableNameOverride, targetTableNameOverride, recreateIfExists)
+                .CloneTableAsync(sqlTransaction, sourceTableNameOverride, targetTableNameOverride, recreateIfExists)
                 .ConfigureAwait(false);
 
             return results;
@@ -103,14 +103,13 @@ namespace SqlBulkHelpers.MaterializedData
 
         public static async Task<TableNameTerm[]> DropTableAsync<T>(
             this SqlTransaction sqlTransaction,
-            string tableNameOverride = null,
             ISqlBulkHelpersConfig bulkHelpersConfig = null
         ) where T : class
         {
             sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
 
             var results = await new MaterializeDataHelper<T>(sqlTransaction, bulkHelpersConfig)
-                .DropTableAsync(sqlTransaction, tableNameOverride)
+                .DropTableAsync(sqlTransaction)
                 .ConfigureAwait(false);
 
             return results;
@@ -120,14 +119,29 @@ namespace SqlBulkHelpers.MaterializedData
 
         #region Truncate Table Extensions
 
+        public static async Task<TableNameTerm[]> TruncateTableAsync<T>(
+            this SqlTransaction sqlTransaction,
+            bool forceOverrideOfConstraints = false,
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        ) where T : class
+        {
+            sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
+
+            var results = await new MaterializeDataHelper<T>(sqlTransaction, bulkHelpersConfig)
+                .TruncateTableAsync(sqlTransaction, forceOverrideOfConstraints: forceOverrideOfConstraints)
+                .ConfigureAwait(false);
+
+            return results;
+        }
+
         public static Task<TableNameTerm[]> TruncateTableAsync(
             this SqlTransaction sqlTransaction,
             string tableName,
             bool forceOverrideOfConstraints = false,
             ISqlBulkHelpersConfig bulkHelpersConfig = null
-        ) => TruncateTableAsync(sqlTransaction, new[] { tableName }, forceOverrideOfConstraints, bulkHelpersConfig);
+        ) => TruncateTablesAsync(sqlTransaction, new[] { tableName }, forceOverrideOfConstraints, bulkHelpersConfig);
 
-        public static async Task<TableNameTerm[]> TruncateTableAsync(
+        public static async Task<TableNameTerm[]> TruncateTablesAsync(
             this SqlTransaction sqlTransaction,
             IEnumerable<string> tableNames,
             bool forceOverrideOfConstraints = false,
@@ -138,22 +152,6 @@ namespace SqlBulkHelpers.MaterializedData
 
             var results = await new MaterializeDataHelper<ISkipMappingLookup>(sqlTransaction, bulkHelpersConfig)
                 .TruncateTablesAsync(sqlTransaction, forceOverrideOfConstraints, tableNames.ToArray())
-                .ConfigureAwait(false);
-
-            return results;
-        }
-
-        public static async Task<TableNameTerm[]> TruncateTableAsync<T>(
-            this SqlTransaction sqlTransaction,
-            string tableNameOverride = null,
-            bool forceOverrideOfConstraints = false,
-            ISqlBulkHelpersConfig bulkHelpersConfig = null
-        ) where T : class
-        {
-            sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
-
-            var results = await new MaterializeDataHelper<T>(sqlTransaction, bulkHelpersConfig)
-                .TruncateTableAsync(sqlTransaction, tableNameOverride, forceOverrideOfConstraints)
                 .ConfigureAwait(false);
 
             return results;

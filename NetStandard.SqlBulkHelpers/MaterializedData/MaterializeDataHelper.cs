@@ -30,14 +30,16 @@ namespace SqlBulkHelpers.MaterializedData
 
         #endregion
 
+        #region Materialize Data Methods (& Cloning for Materialization Process)
+
         public async Task<MaterializeDataContext> MaterializeData(SqlTransaction sqlTransaction, string loadSchemaName, string tempHoldingSchemaName, params string[] tableNames)
         {
             var cloneMaterializationTables = await CloneTableStructuresForMaterializationAsync(
-                sqlTransaction, 
-                tableNames, 
-                loadSchemaName, 
+                sqlTransaction,
+                tableNames,
+                loadSchemaName,
                 tempHoldingSchemaName
-                ).ConfigureAwait(false);
+            ).ConfigureAwait(false);
 
             return new MaterializeDataContext(cloneMaterializationTables, async (MaterializationTableInfo[] materializationTables) =>
             {
@@ -65,70 +67,10 @@ namespace SqlBulkHelpers.MaterializedData
                 }
 
                 await sqlTransaction.ExecuteMaterializedDataSqlScriptAsync(
-                    finishMaterializationSqlScriptBuilder, 
+                    finishMaterializationSqlScriptBuilder,
                     BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds
-                );
+                ).ConfigureAwait(false);
             });
-        }
-
-        public async Task<CloneTableInfo> CloneTableStructureAsync(
-            SqlTransaction sqlTransaction,
-            string sourceTableName = null,
-            string targetTableName = null,
-            bool recreateIfExists = true
-        ) => (
-            await CloneTableStructuresAsync(
-                sqlTransaction, 
-                tablesToClone: new [] { CloneTableInfo.From<T,T>(sourceTableName, targetTableName) }, 
-                recreateIfExists
-            ).ConfigureAwait(false)
-        ).FirstOrDefault();
-
-        public async Task<CloneTableInfo[]> CloneTableStructuresAsync(
-            SqlTransaction sqlTransaction,
-            IEnumerable<CloneTableInfo> tablesToClone,
-            bool recreateIfExists = true
-        )
-        {
-            sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
-            var cloneInfoList = tablesToClone.ToList();
-
-            if (cloneInfoList.IsNullOrEmpty())
-                throw new ArgumentException("At least one source & target table pair must be specified.");
-
-            var cloneTableStructureSqlScriptBuilder = MaterializedDataScriptBuilder.NewSqlScript();
-
-            foreach (var cloneInfo in cloneInfoList)
-            {
-                var sourceTable = cloneInfo.SourceTable;
-                var targetTable = cloneInfo.TargetTable;
-
-                //NOTE: If the Target Table was not specified and the Schemas are still he same we have to Target a different schema
-                //  so we use the globally configured default Loading Schema...
-                if (targetTable.SchemaName == sourceTable.SchemaName)
-                    targetTable = targetTable.SwitchSchema(BulkHelpersConfig.MaterializedDataDefaultLoadingSchema);
-
-                var sourceTableSchemaDefinition = SqlBulkHelpersSchemaLoaderCache
-                    .GetSchemaLoader(sqlTransaction.Connection.ConnectionString)
-                    ?.GetTableSchemaDefinition(sourceTable.FullyQualifiedTableName, sqlTransaction);
-
-                if (sourceTableSchemaDefinition == null)
-                    throw new ArgumentException($"Could not resolve the source table schema for {sourceTable.FullyQualifiedTableName} on the provided connection.");
-
-                cloneTableStructureSqlScriptBuilder.CloneTableWithAllElements(
-                    sourceTableSchemaDefinition, 
-                    targetTable, 
-                    recreateIfExists ? IfExists.Recreate : IfExists.StopProcessingWithException
-                );
-            }
-
-            //Execute the Script!
-            await sqlTransaction
-                .ExecuteMaterializedDataSqlScriptAsync(cloneTableStructureSqlScriptBuilder, BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds)
-                .ConfigureAwait(false);
-
-            //If everything was successful then we can simply return the input values as they were all cloned...
-            return cloneInfoList.ToArray();
         }
 
         public Task<MaterializationTableInfo[]> CloneTableStructuresForMaterializationAsync(
@@ -169,11 +111,83 @@ namespace SqlBulkHelpers.MaterializedData
             }
 
             //2) Now we can clone all tables efficiently creating all Loading and Temp/Holding tables!
-            await CloneTableStructuresAsync(sqlTransaction, cloneInfoList).ConfigureAwait(false);
+            await CloneTableAsync(sqlTransaction, cloneInfoList).ConfigureAwait(false);
             
             //Finally we return the complete Materialization Table Info details...
             return materializationTableInfoList.ToArray();
         }
+
+        #endregion
+        
+        #region Clone Table Methods
+
+        public async Task<CloneTableInfo> CloneTableAsync(
+            SqlTransaction sqlTransaction,
+            string sourceTableName = null,
+            string targetTableName = null,
+            bool recreateIfExists = false,
+            bool copyDataFromSource = false
+        ) => (
+            await CloneTableAsync(
+                sqlTransaction,
+                tablesToClone: new[] { CloneTableInfo.From<T, T>(sourceTableName, targetTableName) },
+                recreateIfExists
+            ).ConfigureAwait(false)
+        ).FirstOrDefault();
+
+        public async Task<CloneTableInfo[]> CloneTableAsync(
+            SqlTransaction sqlTransaction,
+            IEnumerable<CloneTableInfo> tablesToClone,
+            bool recreateIfExists = false,
+            bool copyDataFromSource = false
+        )
+        {
+            sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
+            var cloneInfoList = tablesToClone.ToList();
+
+            if (cloneInfoList.IsNullOrEmpty())
+                throw new ArgumentException("At least one source & target table pair must be specified.");
+
+            var cloneTableStructureSqlScriptBuilder = MaterializedDataScriptBuilder.NewSqlScript();
+            var cloneInfoResults = new List<CloneTableInfo>();
+            foreach (var cloneInfo in cloneInfoList)
+            {
+                var sourceTable = cloneInfo.SourceTable;
+                var targetTable = cloneInfo.TargetTable;
+
+                //If both Source & Target are the same (e.g. Target was not explicitly specified) then we adjust
+                //  the Target to ensure we create a copy and append a unique Copy Id...
+                if (targetTable.FullyQualifiedTableName.Equals(sourceTable.FullyQualifiedTableName, StringComparison.OrdinalIgnoreCase))
+                    targetTable = TableNameTerm.From(sourceTable.SchemaName, $"{sourceTable.TableName}_Copy_{IdGenerator.NewId(10)}");
+
+                var sourceTableSchemaDefinition = SqlBulkHelpersSchemaLoaderCache
+                    .GetSchemaLoader(sqlTransaction.Connection.ConnectionString)
+                    ?.GetTableSchemaDefinition(sourceTable.FullyQualifiedTableName, sqlTransaction);
+
+                if (sourceTableSchemaDefinition == null)
+                    throw new ArgumentException($"Could not resolve the source table schema for {sourceTable.FullyQualifiedTableName} on the provided connection.");
+
+                cloneTableStructureSqlScriptBuilder.CloneTableWithAllElements(
+                    sourceTableSchemaDefinition,
+                    targetTable,
+                    recreateIfExists ? IfExists.Recreate : IfExists.StopProcessingWithException
+                );
+
+                cloneInfoResults.Add(new CloneTableInfo(sourceTable, targetTable));
+            }
+
+            //Execute the Script!
+            await sqlTransaction
+                .ExecuteMaterializedDataSqlScriptAsync(cloneTableStructureSqlScriptBuilder, BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds)
+                .ConfigureAwait(false);
+
+            //If everything was successful then we can simply return the input values as they were all cloned...
+            return cloneInfoResults.ToArray();
+        }
+
+        #endregion
+        
+        #region Drop Table Methods
 
         public Task<TableNameTerm[]> DropTableAsync(SqlTransaction sqlTransaction, string tableNameOverride = null)
             => DropTablesAsync(sqlTransaction, GetMappedTableNameTerm(tableNameOverride).FullyQualifiedTableName);
@@ -196,6 +210,10 @@ namespace SqlBulkHelpers.MaterializedData
 
             return tableNameTermsList.ToArray();
         }
+
+        #endregion
+       
+        #region Truncate Table Methods
 
         public Task<TableNameTerm[]> TruncateTableAsync(SqlTransaction sqlTransaction, string tableNameOverride = null, bool forceOverrideOfConstraints = false)
             => TruncateTablesAsync(sqlTransaction, forceOverrideOfConstraints, GetMappedTableNameTerm(tableNameOverride).FullyQualifiedTableName);
@@ -234,6 +252,8 @@ namespace SqlBulkHelpers.MaterializedData
 
             return tableNameTermsList.ToArray();
         }
-        
+
+        #endregion
+
     }
 }
