@@ -4,70 +4,49 @@ using System.Collections.Generic;
 using Microsoft.Data.SqlClient;
 using System.Diagnostics;
 using System.Linq;
+using SqlBulkHelpers.SqlBulkHelpers;
+using SqlBulkHelpers.Tests;
 
 namespace SqlBulkHelpersSample.ConsoleApp
 {
     public class SqlBulkHelpersSampleSynchronous
     {
-        public static void RunBenchmarks(string sqlConnectionString)
+        public static void RunSample(string sqlConnectionString)
         {
+            //Initialize Sql Bulk Helpers Configuration Defaults...
+            SqlBulkHelpersConfig.ConfigureDefaults(config =>
+            {
+                config.SqlBulkPerBatchTimeoutSeconds = SqlBulkHelpersSampleApp.SqlTimeoutSeconds;
+            });
+
+            //Initialize with a Connection String (using our Config Key or your own, or any other initialization
+            //  of the Connection String (e.g. perfect for DI initialization, etc.):
+            //NOTE: The ISqlBulkHelpersConnectionProvider interface provides a great abstraction that most projects don't
+            //          take the time to do, so it is provided here for convenience (e.g. extremely helpful with DI).
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
 
-            using (var conn = sqlConnectionProvider.NewConnection())
-            using (SqlTransaction transaction = conn.BeginTransaction())
+            //Initialize large list of Data to Insert or Update in a Table
+            var testData = SqlBulkHelpersSample.CreateTestData(1000);
+            var timer = Stopwatch.StartNew();
+
+            //Bulk Inserting is now as easy as:
+            //  1) Initialize the DB Connection & Transaction (IDisposable)
+            //  2) Execute the insert/update (e.g. new Extension Method API greatly simplifies this and allows InsertOrUpdate in one execution!)
+            //  3) Map the results to Child Data and then repeat to create related Child data!
+            using (var sqlConn = sqlConnectionProvider.NewConnection())
+            using (var sqlTrans = sqlConn.BeginTransaction())//NET Framework did not fully support Async Transaction handling...
             {
-                var tableName = SqlBulkHelpersSampleApp.TestTableName;
+                //Test using manual Table name provided...
+                var results = sqlTrans.BulkInsertOrUpdate(testData, SqlBulkHelpersSampleApp.TestTableName).ToList();
 
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(transaction);
+                //Test using Table Name derived from Model Annotation [SqlBulkTable(...)]
+                var childTestData = SqlBulkHelpersSample.CreateChildTestData(results);
+                var childResults = sqlTrans.BulkInsertOrUpdate(childTestData);
 
-                var timer = new Stopwatch();
-
-                //WARM UP THE CODE and initialize all CACHES!
-                timer.Start();
-                List<TestElement> testData = SqlBulkHelpersSample.CreateTestData(1);
-
-                sqlBulkIdentityHelper.BulkInsertOrUpdate(testData, tableName, transaction);
-                sqlBulkIdentityHelper.BulkInsertOrUpdate(testData, tableName, transaction);
+                sqlTrans.Commit(); //NET Framework did not fully support Async Transaction handling...
 
                 timer.Stop();
-                Console.WriteLine($"Warm Up ran in [{timer.ElapsedMilliseconds} ms]...");
-
-                //NOW RUN BENCHMARK LOOPS
-                int itemCounter = 0, batchCounter = 1, dataSize = 1000;
-                timer.Reset();
-                for (; batchCounter < 20; batchCounter++)
-                {
-                    testData = SqlBulkHelpersSample.CreateTestData(dataSize);
-
-                    timer.Start();
-                    var results = sqlBulkIdentityHelper.BulkInsert(testData, tableName, transaction)?.ToList();
-                    timer.Stop();
-
-                    if(results.Count() != dataSize)
-                    {
-                        Console.WriteLine($"The results count of [{results.Count()}] does not match the expected count of [{dataSize}]!!!");
-                    }
-
-                    if (results.Any(t => t.Id <= 0))
-                    {
-                        Console.WriteLine($"Some items were returned with an invalid Identity Value (e.g. may still be initialized to default value [{default(int)})");
-                    }
-
-                    itemCounter += testData.Count;
-                }
-
-                transaction.Commit();
-                Console.WriteLine($"[{batchCounter}] Bulk Uploads of [{dataSize}] items each, for total of [{itemCounter}], executed in [{timer.ElapsedMilliseconds} ms] at ~[{timer.ElapsedMilliseconds / batchCounter} ms] each!");
-
-
-                var tableCount = 0;
-                using (var sqlCmd = conn.CreateCommand())
-                {
-                    sqlCmd.CommandText = $"SELECT COUNT(*) FROM [{tableName}]";
-                    tableCount = Convert.ToInt32(sqlCmd.ExecuteScalar());
-                }
-                Console.WriteLine($"[{tableCount}] Total Items in the Table Now!");
-                Console.ReadKey();
+                Console.WriteLine($"Successfully Inserted or Updated [{testData.Count}] items and [{childTestData.Count}] related child items in [{timer.ElapsedMilliseconds}] millis!");
             }
         }
     }

@@ -2,6 +2,7 @@
 using SqlBulkHelpers.Tests;
 using SqlBulkHelpers.MaterializedData;
 using Microsoft.Data.SqlClient;
+using SqlBulkHelpers.SqlBulkHelpers;
 
 namespace SqlBulkHelpers.IntegrationTests
 {
@@ -18,14 +19,35 @@ namespace SqlBulkHelpers.IntegrationTests
             {
                 var cloneInfo = await sqlTransaction.CloneTableAsync<TestElementWithMappedNames>().ConfigureAwait(false);
 
-                //await sqlTransaction.RollbackAsync().ConfigureAwait(false);
-                await sqlTransaction.CommitAsync().ConfigureAwait(false);
+                var sourceTableSchema = sqlTransaction.GetTableSchemaDefinition(cloneInfo.SourceTable.FullyQualifiedTableName);
+                var clonedTableSchema = sqlTransaction.GetTableSchemaDefinition(cloneInfo.TargetTable.FullyQualifiedTableName);
+
+                await sqlTransaction.RollbackAsync().ConfigureAwait(false);
+                //await sqlTransaction.CommitAsync().ConfigureAwait(false);
 
                 //ASSERT Results are Valid...
                 Assert.IsNotNull(cloneInfo);
                 Assert.AreEqual(TestHelpers.TestTableName, cloneInfo.SourceTable.TableName);
                 Assert.AreNotEqual(cloneInfo.SourceTable.FullyQualifiedTableName, cloneInfo.TargetTable.FullyQualifiedTableName);
                 Assert.IsTrue(cloneInfo.TargetTable.TableName.Contains("_Copy_", StringComparison.OrdinalIgnoreCase));
+
+                //Validate the schema of the cloned table...
+                Assert.IsNotNull(sourceTableSchema);
+                Assert.IsNotNull(clonedTableSchema);
+                Assert.AreEqual(cloneInfo.TargetTable.FullyQualifiedTableName, clonedTableSchema.TableNameTerm.FullyQualifiedTableName);
+                Assert.AreEqual(sourceTableSchema.TableIndexes.Count, clonedTableSchema.TableIndexes.Count);
+                Assert.AreEqual(sourceTableSchema.ForeignKeyConstraints.Count, clonedTableSchema.ForeignKeyConstraints.Count);
+                Assert.AreEqual(sourceTableSchema.ColumnDefaultConstraints.Count, clonedTableSchema.ColumnDefaultConstraints.Count);
+                Assert.AreEqual(sourceTableSchema.ColumnCheckConstraints.Count, clonedTableSchema.ColumnCheckConstraints.Count);
+                Assert.AreEqual(sourceTableSchema.IdentityColumn.ColumnName, clonedTableSchema.IdentityColumn.ColumnName);
+                Assert.AreEqual(
+                    sourceTableSchema.PrimaryKeyConstraint.KeyColumns.OrderBy(k => k.OrdinalPosition).Select(k => k.ColumnName).ToCSV(),
+                    clonedTableSchema.PrimaryKeyConstraint.KeyColumns.OrderBy(k => k.OrdinalPosition).Select(k => k.ColumnName).ToCSV()
+                );
+                Assert.AreEqual(
+                    sourceTableSchema.TableColumns.OrderBy(k => k.OrdinalPosition).Select(k => k.ColumnName).ToCSV(),
+                    clonedTableSchema.TableColumns.OrderBy(k => k.OrdinalPosition).Select(k => k.ColumnName).ToCSV()
+                );
             }
         }
 

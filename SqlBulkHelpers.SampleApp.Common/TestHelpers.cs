@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Linq;
 using RepoDb.Attributes;
 using SqlBulkHelpers.Interfaces;
 
@@ -9,6 +11,7 @@ namespace SqlBulkHelpers.Tests
     {
         public const string TestTableName = "SqlBulkHelpersTestElements";
         public const string TestTableNameFullyQualified = "[dbo].[SqlBulkHelpersTestElements]";
+        public const string TestChildTableNameFullyQualified = "[dbo].[SqlBulkHelpersTestElements_Child_NoIdentity]";
 
         public const int SqlTimeoutSeconds = 150;
 
@@ -17,21 +20,52 @@ namespace SqlBulkHelpers.Tests
             config.SqlBulkPerBatchTimeoutSeconds = SqlTimeoutSeconds;
         });
 
-        public static List<TestElement> CreateTestData(int dataSize)
+        public static List<TestElement> CreateTestData(int dataSize, string prefix = "TEST_CSHARP_DotNet6")
         {
-
             var list = new List<TestElement>();
+            var childList = new List<ChildTestElement>();
             for (var x = 1; x <= dataSize; x++)
             {
-                list.Add(new TestElement()
+                var testElement = new TestElement()
                 {
                     Id = default,
-                    Key = $"TEST_CSHARP_ORDINAL[{x}]_GUID[{Guid.NewGuid().ToString().ToUpper()}]",
+                    Key = $"{prefix}[{x}]_GUID[{Guid.NewGuid().ToString().ToUpper()}]",
                     Value = $"VALUE_{x}"
-                });
+                };
+
+                list.Add(testElement);
+
+                for (var c = 1; c <= 3; c++)
+                {
+                    childList.Add(new ChildTestElement()
+                    {
+                        ParentId = testElement.Id,
+                        ChildKey = $"CHILD #{c} Of: {testElement.Key}",
+                        ChildValue = testElement.Value
+                    });
+                }
             }
 
             return list;
+        }
+
+        public static List<ChildTestElement> CreateChildTestData(List<TestElement> testData)
+        {
+            var childList = new List<ChildTestElement>();
+            foreach (var testElement in testData)
+            {
+                for (var c = 1; c <= 3; c++)
+                {
+                    childList.Add(new ChildTestElement()
+                    {
+                        ParentId = testElement.Id,
+                        ChildKey = $"CHILD #{c} Of: {testElement.Key}",
+                        ChildValue = testElement.Value
+                    });
+                }
+            }
+
+            return childList;
         }
 
         public static List<TestElementWithIdentitySetter> CreateTestDataWithIdentitySetter(int dataSize)
@@ -53,11 +87,16 @@ namespace SqlBulkHelpers.Tests
         public int Id { get; set; }
         public string Key { get; set; }
         public string Value { get; set; }
+        public override string ToString() => $"Id=[{Id}], Key=[{Key}]";
+    }
 
-        public override string ToString()
-        {
-            return $"Id=[{Id}], Key=[{Key}]";
-        }
+    [SqlBulkTable(TestHelpers.TestChildTableNameFullyQualified)]
+    public class ChildTestElement
+    {
+        public string ChildKey { get; set; }
+        public int ParentId { get; set; }
+        public string ChildValue { get; set; }
+        public override string ToString() => $"ParentId=[{ParentId}], ChildKey=[{ChildKey}]";
     }
 
     [SqlBulkTable(TestHelpers.TestTableName, uniqueMatchMergeValidationEnabled: false)]

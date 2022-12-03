@@ -2,6 +2,8 @@
 using SqlBulkHelpers.Tests;
 using SqlBulkHelpers.MaterializedData;
 using Microsoft.Data.SqlClient;
+using RepoDb;
+using RepoDb.Extensions;
 
 namespace SqlBulkHelpers.IntegrationTests
 {
@@ -16,13 +18,20 @@ namespace SqlBulkHelpers.IntegrationTests
             await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
             await using (var sqlTransaction = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
             {
+                var initialTableCount = await sqlConn.CountAllAsync(tableName: TestHelpers.TestTableNameFullyQualified, transaction: sqlTransaction).ConfigureAwait(false);
                 var tableResults = await sqlTransaction.TruncateTableAsync(TestHelpers.TestTableNameFullyQualified);
-
-                await sqlTransaction.RollbackAsync().ConfigureAwait(false);
 
                 //ASSERT Results are Valid...
                 Assert.IsNotNull(tableResults);
                 Assert.AreEqual(1, tableResults.Length);
+
+                foreach (var result in tableResults)
+                {
+                    var truncatedTableCount = await sqlConn.CountAllAsync(tableName: result.FullyQualifiedTableName, transaction: sqlTransaction).ConfigureAwait(false);
+                    Assert.AreEqual(0, truncatedTableCount);
+                }
+
+                await sqlTransaction.RollbackAsync().ConfigureAwait(false);
             }
         }
 

@@ -11,7 +11,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NetStandard.SqlBulkHelpers"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SqlBulkHelpers.SampleApp.Net6", "SqlBulkHelpers.SampleApp.Net6\SqlBulkHelpers.SampleApp.Net6.csproj", "{15F32C79-E50E-448B-A797-C759F73033EE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlBulkHelpers.Tests", "SqlBulkHelpers.Tests\SqlBulkHelpers.Tests.csproj", "{D5CFE2BA-4FB1-4ACA-BD14-FD6FB75EFCC8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SqlBulkHelpers.Tests", "SqlBulkHelpers.Tests\SqlBulkHelpers.Tests.csproj", "{D5CFE2BA-4FB1-4ACA-BD14-FD6FB75EFCC8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SqlBulkHelpers.SampleApp.Common", "SqlBulkHelpers.SampleApp.Common\SqlBulkHelpers.SampleApp.Common.csproj", "{2427ABF5-EFE4-47F9-9EEE-954A0ED466BD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,6 +41,10 @@ Global
 		{D5CFE2BA-4FB1-4ACA-BD14-FD6FB75EFCC8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D5CFE2BA-4FB1-4ACA-BD14-FD6FB75EFCC8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D5CFE2BA-4FB1-4ACA-BD14-FD6FB75EFCC8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2427ABF5-EFE4-47F9-9EEE-954A0ED466BD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2427ABF5-EFE4-47F9-9EEE-954A0ED466BD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2427ABF5-EFE4-47F9-9EEE-954A0ED466BD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2427ABF5-EFE4-47F9-9EEE-954A0ED466BD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

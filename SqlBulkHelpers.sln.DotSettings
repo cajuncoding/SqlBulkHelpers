@@ -5,4 +5,5 @@
 	<s:Boolean x:Key="/Default/UserDictionary/Words/=Defs/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/UserDictionary/Words/=fkey/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/UserDictionary/Words/=performant/@EntryIndexedValue">True</s:Boolean>
+	<s:Boolean x:Key="/Default/UserDictionary/Words/=pkey/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/UserDictionary/Words/=ROWNUMBER/@EntryIndexedValue">True</s:Boolean></wpf:ResourceDictionary>

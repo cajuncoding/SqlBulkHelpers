@@ -193,9 +193,9 @@ namespace SqlBulkHelpers
         )
         {
             //***STEP #1: Get the Table & Model Processing Definitions (cached after initial Load)!!!
-            var processingDefinition = this.BulkHelpersProcessingDefinition;
             var tableDefinition = this.GetTableSchemaDefinitionInternal(sqlTransaction, tableNameOverride);
-            
+            var processingDefinition = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>(tableDefinition.IdentityColumn);
+
             //***STEP #2: Build all of the Sql Scripts needed to Process the entities based on the specified Table definition.
             var sqlScripts = this.BuildSqlMergeScriptsInternal(
                 tableDefinition, 

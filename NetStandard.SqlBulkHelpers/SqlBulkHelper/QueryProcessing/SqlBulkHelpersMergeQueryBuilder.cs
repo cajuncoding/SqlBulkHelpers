@@ -18,30 +18,44 @@ namespace SqlBulkHelpers
             var tempOutputIdentityTableName = $"#SqlBulkHelpers_OUTPUT_IDENTITY_TABLE_{Guid.NewGuid()}";
             var hasIdentityColumn = tableDefinition.IdentityColumn != null;
             var identityColumnName = tableDefinition.IdentityColumn?.ColumnName ?? string.Empty;
-            bool uniqueMatchMergeValidationEnabled = matchQualifierExpression?.ThrowExceptionIfNonUniqueMatchesOccur ?? true;
 
             //Validate the MatchQualifiers that may be specified, and limit to ONLY valid fields of the Table Definition...
             //NOTE: We use the parameter argument for Match Qualifier if specified, otherwise we fall-back to to use the Identity Column.
-            var mergeQualifierExpression = matchQualifierExpression ?? (hasIdentityColumn ? new SqlMergeMatchQualifierExpression(identityColumnName): default);
-
-            var sanitizedQualifierFields = mergeQualifierExpression?.MatchQualifierFields.Where(
-                q => tableDefinition.FindColumnCaseInsensitive(q.SanitizedName) != null
-            );
-
-            //Re-initialize a valid Qualifier Expression parameter with ONLY the valid fields...
-            var sanitizedQualifierExpression = new SqlMergeMatchQualifierExpression(sanitizedQualifierFields)
+            SqlMergeMatchQualifierExpression sanitizedQualifierExpression = null;
+            if (matchQualifierExpression != null)
             {
-                //Need to correctly copy over the original setting for Non Unique Match validation!
-                ThrowExceptionIfNonUniqueMatchesOccur = uniqueMatchMergeValidationEnabled
-            };
+                var sanitizedQualifierFields = matchQualifierExpression.MatchQualifierFields
+                    .Where(q => tableDefinition.FindColumnCaseInsensitive(q.SanitizedName) != null)
+                    .ToList();
+
+                //If we have valid Fields, then we must re-initialize a valid Qualifier Expression parameter with ONLY the valid fields...
+                sanitizedQualifierExpression = new SqlMergeMatchQualifierExpression(sanitizedQualifierFields)
+                {
+                    //Need to correctly copy over the original setting for Non Unique Match validation!
+                    ThrowExceptionIfNonUniqueMatchesOccur = matchQualifierExpression.ThrowExceptionIfNonUniqueMatchesOccur
+                };
+            }
+            else if (tableDefinition.PrimaryKeyConstraint != null)
+            {
+                //By Default we use the Primary Key Fields as the Qualifier Fields! And, if an Identity Column exists it is not necessarily the Unique PKey.
+                var pkeySortedColumnNames = tableDefinition.PrimaryKeyConstraint.KeyColumns
+                    .OrderBy(k => k.OrdinalPosition)
+                    .Select(k => k.ColumnName);
+
+                sanitizedQualifierExpression = new SqlMergeMatchQualifierExpression(pkeySortedColumnNames)
+                {
+                    //PKey Matches should always be Unique!
+                    ThrowExceptionIfNonUniqueMatchesOccur = true
+                };
+            }
 
             //Validate that we have a valid state:
             //1. An Identity Column which can be used as the default Match Qualifier!
             //2. A set of Match Qualifier Fields is specified and used as an override, or required if no Identity Column exists to be used as default.
-            if (sanitizedQualifierExpression.MatchQualifierFields.IsNullOrEmpty())
+            if (sanitizedQualifierExpression == null || sanitizedQualifierExpression.MatchQualifierFields.IsNullOrEmpty())
                 throw new ArgumentException(
                 $"No valid match qualifiers could be resolved for the target table {tableDefinition.TableFullyQualifiedName}, and the table does"
-                        + " not have an Identity Column to be used as the default match qualifier. One or the other must be"
+                        + " not have a Primary Key defined to be used as the default match qualifier. One or the other must be"
                         + " provided/exist to safely match the rows during the bulk merging process."
                 );
 
@@ -86,7 +100,7 @@ namespace SqlBulkHelpers
                 ";
 
                 //If specified (is true by Default) then we still use the Merge Output to validate unique updates/insert actions!
-                if (mergeQualifierExpression.ThrowExceptionIfNonUniqueMatchesOccur)
+                if (sanitizedQualifierExpression.ThrowExceptionIfNonUniqueMatchesOccur)
                 {
                     mergeTempTablesSql = $@"
                         {mergeTempTablesSql}
@@ -120,7 +134,10 @@ namespace SqlBulkHelpers
                 ";
             }
 
-            string mergeOutputSql = string.Empty;
+            //If no Output is being generated then we close out the Merge SQL (Merge statements MUST end with a Semicolon)!
+            //NOTE: This enable a valid merge even for tables that have no Identity value, which is then processed with improved
+            //      performance since no Output is actually needed.
+            string mergeOutputSql = ";";
             if (hasIdentityColumn)
             {
                 //NOTE: We only Output results IF we have Identity Column data to return...
@@ -138,7 +155,7 @@ namespace SqlBulkHelpers
             }
 
             string mergeCleanupSql;
-            if (hasIdentityColumn || mergeQualifierExpression.ThrowExceptionIfNonUniqueMatchesOccur)
+            if (hasIdentityColumn || sanitizedQualifierExpression.ThrowExceptionIfNonUniqueMatchesOccur)
             {
                 mergeCleanupSql = $@"
                     DROP TABLE [{tempStagingTableName}];
@@ -182,7 +199,7 @@ namespace SqlBulkHelpers
                 tempOutputIdentityTableName,
                 mergeTempTablesSql,
                 mergeProcessScriptSql,
-                mergeQualifierExpression
+                sanitizedQualifierExpression
             );
         }
 

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Microsoft.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
+using SqlBulkHelpers.SqlBulkHelpers;
 
 namespace SqlBulkHelpers.IntegrationTests
 {
@@ -71,17 +72,21 @@ namespace SqlBulkHelpers.IntegrationTests
             }
         }
 
-        protected async Task DoInsertOrUpdateTestAsync(ISqlBulkHelper<TestElement> sqlBulkIdentityHelper, SqlTransaction transaction)
+        protected async Task DoInsertOrUpdateTestAsync(ISqlBulkHelper<TestElement> sqlBulkIdentityHelper, SqlTransaction sqlTrans)
         {
             List<TestElement> testData = TestHelpers.CreateTestData(10);
 
-            var results = await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(
+            var results = (await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(
                 testData,
                 TestHelpers.TestTableName,
-                transaction
-            );
+                sqlTrans
+            )).ToList();
 
-            transaction?.Commit();
+            //Test Inserting of Child Data with Table Name derived from Model Annotation, and FKey constraints to the Parents...
+            var childTestData = TestHelpers.CreateChildTestData(results);
+            var childResults = await sqlTrans.BulkInsertOrUpdateAsync(childTestData);
+
+            sqlTrans.Commit();
 
             //ASSERT Results are Valid...
             Assert.IsNotNull(results);

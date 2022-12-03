@@ -76,6 +76,10 @@
       <Project>{0cabb737-46c2-460f-98fe-55d4871ed841}</Project>
       <Name>NetStandard.SqlBulkHelpers</Name>
     </ProjectReference>
+    <ProjectReference Include="..\SqlBulkHelpers.SampleApp.Common\SqlBulkHelpers.SampleApp.Common.csproj">
+      <Project>{2427ABF5-EFE4-47F9-9EEE-954A0ED466BD}</Project>
+      <Name>SqlBulkHelpers.SampleApp.Common</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.SqlClient">

@@ -15,8 +15,7 @@ namespace SqlBulkHelpersSample.ConsoleApp
 
                 var sqlConnectionString = ConfigurationManager.AppSettings[SqlBulkHelpersConnectionProvider.SqlConnectionStringConfigKey];
 
-                await SqlBulkHelpersSampleAsync.RunBenchmarksAsync(sqlConnectionString);
-                //await SqlBulkHelpersSampleAsync.RunSampleAsync(sqlConnectionString);
+                await SqlBulkHelpersSampleAsync.RunSampleAsync(sqlConnectionString).ConfigureAwait(false);
 
                 Console.WriteLine("Process Finished Successfully (e.g. without Error)!");
                 Console.ReadKey();

@@ -3,7 +3,9 @@ using System;
 using System.Collections.Generic;
 using Microsoft.Data.SqlClient;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
+using SqlBulkHelpers.SqlBulkHelpers;
 
 namespace SqlBulkHelpersSample.ConsoleApp
 {
@@ -24,84 +26,27 @@ namespace SqlBulkHelpersSample.ConsoleApp
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
 
             //Initialize large list of Data to Insert or Update in a Table
-            List<TestElement> testData = SqlBulkHelpersSample.CreateTestData(1000);
+            var testData = SqlBulkHelpersSample.CreateTestData(1000);
             var timer = Stopwatch.StartNew();
 
             //Bulk Inserting is now as easy as:
             //  1) Initialize the DB Connection & Transaction (IDisposable)
-            //  2) Instantiate the SqlBulkIdentityHelper class with ORM Model Type & Schema Loader instance...
-            //  3) Execute the insert/update (e.g. Convenience method allows InsertOrUpdate in one execution!)
-            await using SqlConnection conn = await sqlConnectionProvider.NewConnectionAsync();
-            await using SqlTransaction transaction = conn.BeginTransaction();
+            //  2) Execute the insert/update (e.g. new Extension Method API greatly simplifies this and allows InsertOrUpdate in one execution!)
+            //  3) Map the results to Child Data and then repeat to create related Child data!
+            await using SqlConnection sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false);
+            await using SqlTransaction sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false);
 
-            ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(transaction);
+            //Test using manual Table name provided...
+            var results = (await sqlTrans.BulkInsertOrUpdateAsync(testData, tableName: SqlBulkHelpersSampleApp.TestTableName).ConfigureAwait(false)).ToList();
 
-            await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(
-                testData,
-                SqlBulkHelpersSampleApp.TestTableName,
-                transaction
-            );
+            //Test using Table Name derived from Model Annotation [SqlBulkTable(...)]
+            var childTestData = SqlBulkHelpersSample.CreateChildTestData(results);
+            var childResults = await sqlTrans.BulkInsertOrUpdateAsync(childTestData).ConfigureAwait(false);
 
-            await transaction.CommitAsync();
-
-            timer.Stop();
-            Console.WriteLine($"Successfully Inserted or Updated [{testData.Count}] Items in [{timer.ElapsedMilliseconds}] millis!");
-        }
-
-        public static async Task RunBenchmarksAsync(string sqlConnectionString)
-        {
-                        //Initialize Sql Bulk Helpers Configuration Defaults...
-            SqlBulkHelpersConfig.ConfigureDefaults(config =>
-            {
-                config.SqlBulkPerBatchTimeoutSeconds = SqlBulkHelpersSampleApp.SqlTimeoutSeconds;
-            });
-
-            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
-
-            await using var conn = await sqlConnectionProvider.NewConnectionAsync();
-            await using SqlTransaction transaction = conn.BeginTransaction();
-            
-            var tableName = SqlBulkHelpersSampleApp.TestTableName;
-
-            ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(transaction);
-
-            var timer = new Stopwatch();
-
-            //WARM UP THE CODE and initialize all CACHES!
-            timer.Start();
-            var testData = SqlBulkHelpersSample.CreateTestData(1);
-
-            await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(testData, tableName, transaction);
-            await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(testData, tableName, transaction);
+            await sqlTrans.CommitAsync();
 
             timer.Stop();
-            Console.WriteLine($"Warm Up ran in [{timer.ElapsedMilliseconds} ms]...");
-
-
-            //NOW RUN BENCHMARK LOOPS
-            int itemCounter = 0, batchCounter = 1, dataSize = 1000;
-            timer.Reset();
-            for (; batchCounter <= 20; batchCounter++)
-            {
-                testData = SqlBulkHelpersSample.CreateTestData(dataSize);
-
-                timer.Start();
-                await sqlBulkIdentityHelper.BulkInsertAsync(testData, tableName, transaction);
-                timer.Stop();
-
-                itemCounter += testData.Count;
-            }
-
-            transaction.Commit();
-            Console.WriteLine($"[{batchCounter}] Bulk Uploads of [{dataSize}] items each, for total of [{itemCounter}], executed in [{timer.ElapsedMilliseconds} ms] at ~[{timer.ElapsedMilliseconds / batchCounter} ms] each!");
-
-            var tableCount = 0;
-            using (var sqlCmd = conn.CreateCommand())
-            {
-                sqlCmd.CommandText = $"SELECT COUNT(*) FROM {tableName}";
-                tableCount = Convert.ToInt32(sqlCmd.ExecuteScalar());
-            }
-            Console.WriteLine($"[{tableCount}] Total Items in the Table Now!");
+            Console.WriteLine($"Successfully Inserted or Updated [{testData.Count}] items and [{childTestData.Count}] related child items in [{timer.ElapsedMilliseconds}] millis!");
         }
     }
 }

@@ -26,6 +26,7 @@
 			<Project>{0cabb737-46c2-460f-98fe-55d4871ed841}</Project>
 			<Name>NetStandard.SqlBulkHelpers</Name>
 		</ProjectReference>
+		<ProjectReference Include="..\SqlBulkHelpers.SampleApp.Common\SqlBulkHelpers.SampleApp.Common.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 		<None Update="appsettings.tests.json">

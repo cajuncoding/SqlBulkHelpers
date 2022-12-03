@@ -16,6 +16,7 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
         [TestMethod]
         public void TestProcessDefinitionLoading()
         {
+            //Test retrieving for a specific class type...
             var processingDef = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<TestElementWithMappedNames>();
             
             Assert.IsNotNull(processingDef);
