@@ -215,10 +215,10 @@ namespace SqlBulkHelpers.MaterializedData
        
         #region Truncate Table Methods
 
-        public Task<TableNameTerm[]> TruncateTableAsync(SqlTransaction sqlTransaction, string tableNameOverride = null, bool forceOverrideOfConstraints = false)
-            => TruncateTablesAsync(sqlTransaction, forceOverrideOfConstraints, GetMappedTableNameTerm(tableNameOverride).FullyQualifiedTableName);
+        public Task<TableNameTerm[]> ClearTableAsync(SqlTransaction sqlTransaction, string tableNameOverride = null, bool forceOverrideOfConstraints = false)
+            => ClearTablesAsync(sqlTransaction, forceOverrideOfConstraints, GetMappedTableNameTerm(tableNameOverride).FullyQualifiedTableName);
 
-        public async Task<TableNameTerm[]> TruncateTablesAsync(SqlTransaction sqlTransaction, bool forceOverrideOfConstraints, params string[] tableNames)
+        public async Task<TableNameTerm[]> ClearTablesAsync(SqlTransaction sqlTransaction, bool forceOverrideOfConstraints, params string[] tableNames)
         {
             if (!tableNames.HasAny())
                 return Array.Empty<TableNameTerm>();

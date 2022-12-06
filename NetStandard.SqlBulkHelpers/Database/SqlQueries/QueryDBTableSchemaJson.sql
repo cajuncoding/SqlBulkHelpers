@@ -8,7 +8,7 @@
         WHERE 
             t.TABLE_SCHEMA = @TableSchema
             AND t.TABLE_NAME = @TableName
-			and t.TABLE_CATALOG = DB_NAME()
+			AND t.TABLE_CATALOG = DB_NAME()
 	)
 	SELECT
 		t.TableSchema, 
@@ -125,6 +125,7 @@
 				AND rcol.TABLE_SCHEMA = t.TableSchema
                 AND rcol.TABLE_NAME = t.TableName
 				AND c.CONSTRAINT_TYPE = 'FOREIGN KEY'
+			FOR JSON PATH
 		),
         [ColumnDefaultConstraints] = (
 			SELECT

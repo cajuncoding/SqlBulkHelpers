@@ -67,7 +67,7 @@ namespace SqlBulkHelpers
                     {
                         //So far all calls to SqlDataReader have been asynchronous, but since the data reader is in 
                         //non -sequential mode and ReadAsync was used, the column data should be read synchronously.
-                        var mergeResult = ReadCurrentMergeResultInternal(sqlReader);
+                        var mergeResult = ReadCurrentMergeResultInternal(sqlReader, processHelper.HasIdentityColumn);
                         mergeResultsList.Add(mergeResult);
                     }
                 }
@@ -140,7 +140,7 @@ namespace SqlBulkHelpers
                 {
                     while (sqlReader.Read())
                     {
-                        var mergeResult = ReadCurrentMergeResultInternal(sqlReader);
+                        var mergeResult = ReadCurrentMergeResultInternal(sqlReader, processHelper.HasIdentityColumn);
                         mergeResultsList.Add(mergeResult);
                     }
                 }
@@ -161,16 +161,23 @@ namespace SqlBulkHelpers
             }
         }
 
-        protected virtual MergeResult ReadCurrentMergeResultInternal(SqlDataReader sqlReader)
+        protected virtual MergeResult ReadCurrentMergeResultInternal(SqlDataReader sqlReader, bool hasIdentityColumn)
         {
             //So-far all of the calls to SqlDataReader have been asynchronous, but since the data reader is in 
             //non-sequential mode and ReadAsync was used, the column data should be read synchronously.
-            var mergeResult = new MergeResult()
+            var mergeResult = new MergeResult() { RowNumber = sqlReader.GetInt32(0) };
+
+            if (hasIdentityColumn)
             {
-                RowNumber = sqlReader.GetInt32(0),
-                IdentityId = sqlReader.GetInt32(1),
-                //MergeAction = SqlBulkHelpersMerge.ParseMergeActionString(sqlReader.GetString(2))
-            };
+                mergeResult.IdentityId = sqlReader.GetInt32(1);
+                //mergeResult.MergeAction = SqlBulkHelpersMerge.ParseMergeActionString(sqlReader.GetString(2))
+            }
+            else
+            {
+                mergeResult.IdentityId = -1;
+                //mergeResult.MergeAction = SqlBulkHelpersMerge.ParseMergeActionString(sqlReader.GetString(1))
+            }
+
             return mergeResult;
         }
 
@@ -215,6 +222,7 @@ namespace SqlBulkHelpers
             return new ProcessHelper()
             {
                 TableDefinition = tableDefinition,
+                HasIdentityColumn = tableDefinition.IdentityColumn != null,
                 ProcessingDefinition = processingDefinition,
                 EntityData = entityData,
                 SqlMergeScripts = sqlScripts,
@@ -232,6 +240,7 @@ namespace SqlBulkHelpers
         protected class ProcessHelper : IDisposable
         {
             public SqlBulkHelpersTableDefinition TableDefinition { get; set; }
+            public bool HasIdentityColumn { get; set; }
             public SqlBulkHelpersProcessingDefinition ProcessingDefinition { get; set; }
             public List<T> EntityData { get; set; }
             public SqlMergeScriptResults SqlMergeScripts { get; set; }

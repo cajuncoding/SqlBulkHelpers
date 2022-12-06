@@ -119,7 +119,7 @@ namespace SqlBulkHelpers.MaterializedData
 
         #region Truncate Table Extensions
 
-        public static async Task<TableNameTerm[]> TruncateTableAsync<T>(
+        public static async Task<TableNameTerm[]> ClearTableAsync<T>(
             this SqlTransaction sqlTransaction,
             bool forceOverrideOfConstraints = false,
             ISqlBulkHelpersConfig bulkHelpersConfig = null
@@ -128,20 +128,20 @@ namespace SqlBulkHelpers.MaterializedData
             sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
 
             var results = await new MaterializeDataHelper<T>(sqlTransaction, bulkHelpersConfig)
-                .TruncateTableAsync(sqlTransaction, forceOverrideOfConstraints: forceOverrideOfConstraints)
+                .ClearTableAsync(sqlTransaction, forceOverrideOfConstraints: forceOverrideOfConstraints)
                 .ConfigureAwait(false);
 
             return results;
         }
 
-        public static Task<TableNameTerm[]> TruncateTableAsync(
+        public static Task<TableNameTerm[]> ClearTableAsync(
             this SqlTransaction sqlTransaction,
             string tableName,
             bool forceOverrideOfConstraints = false,
             ISqlBulkHelpersConfig bulkHelpersConfig = null
-        ) => TruncateTablesAsync(sqlTransaction, new[] { tableName }, forceOverrideOfConstraints, bulkHelpersConfig);
+        ) => ClearTablesAsync(sqlTransaction, new[] { tableName }, forceOverrideOfConstraints, bulkHelpersConfig);
 
-        public static async Task<TableNameTerm[]> TruncateTablesAsync(
+        public static async Task<TableNameTerm[]> ClearTablesAsync(
             this SqlTransaction sqlTransaction,
             IEnumerable<string> tableNames,
             bool forceOverrideOfConstraints = false,
@@ -151,7 +151,7 @@ namespace SqlBulkHelpers.MaterializedData
             sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
 
             var results = await new MaterializeDataHelper<ISkipMappingLookup>(sqlTransaction, bulkHelpersConfig)
-                .TruncateTablesAsync(sqlTransaction, forceOverrideOfConstraints, tableNames.ToArray())
+                .ClearTablesAsync(sqlTransaction, forceOverrideOfConstraints, tableNames.ToArray())
                 .ConfigureAwait(false);
 
             return results;

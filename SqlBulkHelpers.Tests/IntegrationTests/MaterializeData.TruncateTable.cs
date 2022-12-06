@@ -30,7 +30,7 @@ namespace SqlBulkHelpers.IntegrationTests
                 Assert.IsTrue(initialTableCount > 0);
 
                 //var initialTableCount = await sqlConn.CountAllAsync(tableNameTerm, transaction: sqlTrans).ConfigureAwait(false);
-                var tableResults = await sqlTrans.TruncateTableAsync(tableNameTerm);
+                var tableResults = await sqlTrans.ClearTableAsync(tableNameTerm);
 
                 //ASSERT Results are Valid...
                 Assert.IsNotNull(tableResults);
@@ -62,7 +62,7 @@ namespace SqlBulkHelpers.IntegrationTests
                 try
                 {
                     //Second attempt the clone again but this time expecting it to now already exist and fail out!
-                    await sqlTrans.TruncateTableAsync(targetTableNameTerm);
+                    await sqlTrans.ClearTableAsync(targetTableNameTerm);
                 }
                 catch (Exception exc)
                 {
@@ -91,7 +91,7 @@ namespace SqlBulkHelpers.IntegrationTests
                 Assert.IsTrue(initialTableCount > 0);
 
                 //NOW we can now test Truncation with support for overriding the constraints...
-                var tableResults = await sqlTrans.TruncateTableAsync(targetTableNameTerm, forceOverrideOfConstraints: true);
+                var tableResults = await sqlTrans.ClearTableAsync(targetTableNameTerm, forceOverrideOfConstraints: true);
 
                 Assert.IsNotNull(tableResults);
                 Assert.AreEqual(1, tableResults.Length);
@@ -103,7 +103,8 @@ namespace SqlBulkHelpers.IntegrationTests
                     Assert.AreEqual(0, truncatedTableCount);
                 }
 
-                await sqlTrans.RollbackAsync().ConfigureAwait(false);
+                //await sqlTrans.RollbackAsync().ConfigureAwait(false);
+                await sqlTrans.CommitAsync().ConfigureAwait(false);
             }
 
         }

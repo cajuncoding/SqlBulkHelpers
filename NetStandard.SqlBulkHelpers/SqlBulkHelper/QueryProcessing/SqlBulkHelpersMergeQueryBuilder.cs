@@ -69,7 +69,7 @@ namespace SqlBulkHelpers
             //Initialize/Create the Staging Table!
             //NOTE: THe ROWNUMBER_COLUMN_NAME (3'rd Column) IS CRITICAL because SqlBulkCopy and Sql Server OUTPUT claus do not
             //          preserve Order; e.g. it may change based on execution plan (indexes/no indexes, etc.).
-            string mergeTempTablesSql;
+            string mergeTempTablesSql, mergeOutputSql;
             if (hasIdentityColumn)
             {
                 mergeTempTablesSql = $@"
@@ -80,13 +80,24 @@ namespace SqlBulkHelpers
                     INTO [{tempStagingTableName}] 
                     FROM {tableDefinition.TableFullyQualifiedName};
 
-                    ALTER TABLE [{tempStagingTableName}] ADD PRIMARY KEY ([{identityColumnName}]);
-
                     SELECT TOP(0)
-                        CAST('' AS nvarchar(10)) as [MERGE_ACTION],
-                        CAST(-1 AS int) as [IDENTITY_ID], 
-                        CAST(-1 AS int) [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] 
+                        CAST(-1 AS int) [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}],
+                        CAST(-1 AS int) as [IDENTITY_ID],
+                        CAST('' AS nvarchar(10)) as [MERGE_ACTION]
                     INTO [{tempOutputIdentityTableName}];
+                ";
+
+                //All results with Identity Values need to be written to the Output so that we can return them efficiently!
+                mergeOutputSql = $@"
+                    OUTPUT source.[{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}], INSERTED.[{identityColumnName}], $action
+                        INTO [{tempOutputIdentityTableName}] ([{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}], [IDENTITY_ID], [MERGE_ACTION]);
+
+                    SELECT 
+                        [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}], 
+                        [IDENTITY_ID], 
+                        [MERGE_ACTION]
+                    FROM [{tempOutputIdentityTableName}]
+                    ORDER BY [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] ASC, [IDENTITY_ID] ASC;
                 ";
             }
             else 
@@ -97,20 +108,25 @@ namespace SqlBulkHelpers
                         -1 as [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] 
                     INTO [{tempStagingTableName}] 
                     FROM {tableDefinition.TableFullyQualifiedName};
+                    
+                    SELECT TOP(0)
+                        CAST(-1 AS int) [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}],
+                        CAST('' AS nvarchar(10)) as [MERGE_ACTION]
+                    INTO [{tempOutputIdentityTableName}];
                 ";
 
-                //If specified (is true by Default) then we still use the Merge Output to validate unique updates/insert actions!
-                if (sanitizedQualifierExpression.ThrowExceptionIfNonUniqueMatchesOccur)
-                {
-                    mergeTempTablesSql = $@"
-                        {mergeTempTablesSql}
-                        
-                        SELECT TOP(0)
-                            CAST('' AS nvarchar(10)) as [MERGE_ACTION],
-                            CAST(-1 AS int) [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] 
-                        INTO [{tempOutputIdentityTableName}];
-                    ";
-                }
+                //All actions need to be written to the Output so that we can return all Identity values for new inserts, and/or post-process
+                //  only results that have been actually changed...
+                mergeOutputSql = $@"
+                    OUTPUT source.[{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}], $action
+                        INTO [{tempOutputIdentityTableName}] ([{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}], [MERGE_ACTION]);
+
+                    SELECT 
+                        [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}], 
+                        [MERGE_ACTION]
+                    FROM [{tempOutputIdentityTableName}]
+                    ORDER BY [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] ASC;
+                ";
             }
 
             //NOTE: This is ALL now completed very efficiently on the Sql Server Database side with
@@ -133,21 +149,6 @@ namespace SqlBulkHelpers
                         UPDATE SET {columnNamesListWithoutIdentity.Select(c => $"target.[{c}] = source.[{c}]").ToCSV()}
                 ";
             }
-
-            //All actions need to be written to the Output so that we can return all Identity values for new inserts, and/or post-process
-            //  only results that have been actually changed...
-            var identityIdFieldClause = hasIdentityColumn ? $"INSERTED.[{identityColumnName}]" : "-1";
-            string mergeOutputSql = $@"
-                OUTPUT $action, {identityIdFieldClause}, source.[{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}]
-                    INTO [{tempOutputIdentityTableName}] ([MERGE_ACTION], [IDENTITY_ID], [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}]);
-
-                SELECT 
-                    [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}], 
-                    [IDENTITY_ID], 
-                    [MERGE_ACTION]
-                FROM [{tempOutputIdentityTableName}]
-                ORDER BY [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] ASC, [IDENTITY_ID] ASC;
-            ";
 
             string mergeCleanupSql;
             if (hasIdentityColumn || sanitizedQualifierExpression.ThrowExceptionIfNonUniqueMatchesOccur)
