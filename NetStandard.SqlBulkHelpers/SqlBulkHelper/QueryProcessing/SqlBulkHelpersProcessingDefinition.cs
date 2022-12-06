@@ -34,7 +34,7 @@ namespace SqlBulkHelpers
     public class SqlBulkHelpersProcessingDefinition
     {
         private static readonly LazyStaticInMemoryCache<string, SqlBulkHelpersProcessingDefinition> _processingDefinitionsLazyCache = new LazyStaticInMemoryCache<string, SqlBulkHelpersProcessingDefinition>();
-        private static readonly Type _skipMappingLookupType = typeof(ISkipMappingLookup);
+        public static readonly Type SkipMappingLookupType = typeof(ISkipMappingLookup);
 
         public static SqlBulkHelpersProcessingDefinition GetProcessingDefinition<T>(TableColumnDefinition identityColumnDefinition = null)
         {
@@ -55,7 +55,7 @@ namespace SqlBulkHelpers
         
         protected SqlBulkHelpersProcessingDefinition(List<PropInfoDefinition> propertyDefinitions, Type entityType, bool isRowNumberColumnNameEnabled = true)
         {
-            IsMappingLookupEnabled = !_skipMappingLookupType.IsAssignableFrom(entityType);
+            IsMappingLookupEnabled = !SkipMappingLookupType.IsAssignableFrom(entityType);
             PropertyDefinitions = propertyDefinitions.AssertArgumentIsNotNull(nameof(propertyDefinitions)).ToArray();
             IsRowNumberColumnNameEnabled = isRowNumberColumnNameEnabled;
             MappedDbTableName = GetMappedDbTableName(entityType);

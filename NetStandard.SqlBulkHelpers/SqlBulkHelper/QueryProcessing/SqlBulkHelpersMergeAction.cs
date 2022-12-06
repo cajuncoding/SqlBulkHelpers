@@ -7,7 +7,7 @@ namespace SqlBulkHelpers
     {
         Insert = 1,
         Update = 2,
-        Delete = 4,
+        //Delete = 4,
         InsertOrUpdate = Insert | Update
     }
 
@@ -20,7 +20,7 @@ namespace SqlBulkHelpers
                 case "insertorupdate": return SqlBulkHelpersMergeAction.InsertOrUpdate;
                 case "insert": return SqlBulkHelpersMergeAction.Insert;
                 case "update": return SqlBulkHelpersMergeAction.Update;
-                case "delete": return SqlBulkHelpersMergeAction.Delete;
+                //case "delete": return SqlBulkHelpersMergeAction.Delete;
                 //Attempt an InsertOrUpdate by Default
                 default: return SqlBulkHelpersMergeAction.InsertOrUpdate;
             }

@@ -158,7 +158,7 @@ namespace SqlBulkHelpers.MaterializedData
                 //If both Source & Target are the same (e.g. Target was not explicitly specified) then we adjust
                 //  the Target to ensure we create a copy and append a unique Copy Id...
                 if (targetTable.FullyQualifiedTableName.Equals(sourceTable.FullyQualifiedTableName, StringComparison.OrdinalIgnoreCase))
-                    targetTable = TableNameTerm.From(sourceTable.SchemaName, $"{sourceTable.TableName}_Copy_{IdGenerator.NewId(10)}");
+                    throw new InvalidOperationException($"The source table name {sourceTable.FullyQualifiedTableName} and target table name {targetTable.FullyQualifiedTableName} must be unique.");
 
                 var sourceTableSchemaDefinition = SqlBulkHelpersSchemaLoaderCache
                     .GetSchemaLoader(sqlTransaction.Connection.ConnectionString)
@@ -233,11 +233,21 @@ namespace SqlBulkHelpers.MaterializedData
                     var tableDef = GetTableSchemaDefinitionInternal(sqlTransaction, tableNameTerm);
                     var fkeyConstraintsArray = tableDef.ForeignKeyConstraints.ToArray();
 
-                    //Use Materialized Data Helpers to efficiently SWAP out with EMPTY table -- effectively clearing the original Table!
+                    //Cloning without a target table name result in unique target name being generated based on the source...
+                    var emptyCloneTableInfo = new CloneTableInfo(tableNameTerm);
+                    var holdCloneTableInfo = new CloneTableInfo(tableNameTerm);
+
+                    //Use Materialized Data Helpers to efficiently SWAP out with EMPTY table -- effectively clearing the original Table
+                    //  without the need to remove FKey constraints from related tables that reference this one...
                     truncateTableSqlScriptBuilder
-                        .DropForeignKeyConstraints(tableNameTerm, fkeyConstraintsArray)
-                        .TruncateTable(tableNameTerm)
-                        .AddForeignKeyConstraints(tableNameTerm, fkeyConstraintsArray);
+                        .CloneTableWithAllElements(tableDef, emptyCloneTableInfo.TargetTable, IfExists.Recreate)
+                        .CloneTableWithAllElements(tableDef, holdCloneTableInfo.TargetTable)
+                        .DisableReferencingForeignKeyChecks(tableDef.ReferencingForeignKeyConstraints.ToArray())
+                        .SwitchTables(tableNameTerm, holdCloneTableInfo.TargetTable)
+                        .SwitchTables(emptyCloneTableInfo.TargetTable, tableNameTerm)
+                        .DropTable(holdCloneTableInfo.TargetTable)
+                        .DropTable(emptyCloneTableInfo.TargetTable)
+                        .EnableReferencingForeignKeyChecks(tableDef.ReferencingForeignKeyConstraints.ToArray());
                 }
                 else
                 {

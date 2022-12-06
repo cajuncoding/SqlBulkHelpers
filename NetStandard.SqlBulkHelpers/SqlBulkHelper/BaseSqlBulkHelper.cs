@@ -9,6 +9,8 @@ namespace SqlBulkHelpers
     //BBernard - Base Class for future flexibility...
     public abstract class BaseSqlBulkHelper<T> : BaseHelper<T> where T : class
     {
+        protected static readonly Type ISqlBulkHelperIdentitySetterType = typeof(ISqlBulkHelperIdentitySetter);
+
         #region Constructors
 
         /// <inheritdoc/>
@@ -97,13 +99,13 @@ namespace SqlBulkHelpers
             Type entityType = typeof(T);
             TypeAccessor fastTypeAccessor = TypeAccessor.Create(entityType);
 
-            if (hasIdentityColumn && !typeof(ISqlBulkHelperIdentitySetter).IsAssignableFrom(entityType))
+            if (hasIdentityColumn && !ISqlBulkHelperIdentitySetterType.IsAssignableFrom(entityType))
             {
                 var processingDefinition = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>(identityColumnDefinition);
                 identityPropertyName = processingDefinition.IdentityPropDefinition?.PropertyName;
 
-                //If there is no Identity Column (e.g. no Identity Column Definition and/or no PropInfo can be found)
-                //  then we can skip processing of Identity values....
+                //If there is no Identity Property (e.g. no Identity PropInfo can be found)
+                //  then we can skip any further processing of Identity values....
                 if (identityPropertyName == null)
                     hasIdentityColumn = false;
             }
@@ -112,6 +114,8 @@ namespace SqlBulkHelpers
             //NOTE: With the support for Custom Match Qualifiers we really need to handle Inserts & Updates,
             //      so there's no reason to filter the merge results anymore; this is more performant.
             var uniqueMatchesHashSet = new HashSet<int>();
+
+            var entityResultsList = new List<T>();
 
             //foreach (var mergeResult in mergeResultsList.Where(r => r.MergeAction.HasFlag(SqlBulkHelpersMergeAction.Insert)))
             foreach (var mergeResult in mergeResultsList)
@@ -124,7 +128,7 @@ namespace SqlBulkHelpers
                         throw new ArgumentOutOfRangeException(
                             nameof(mergeResultsList), 
                             "The bulk action has resulted in multiple matches for the the specified Match Qualifiers"
-                            + $" [{sqlMatchQualifierExpression}] and the original Entities List cannot be safely updated."
+                            + $" [{sqlMatchQualifierExpression}] so the original Entities List cannot be safely updated."
                             + " Verify that the Match Qualifier fields result in unique matches or, if intentional, then"
                             + " this validation check may be disabled on the SqlMergeMatchQualifierExpression parameter."
                         );
@@ -136,11 +140,10 @@ namespace SqlBulkHelpers
                 }
 
                 //ONLY Process Identity value updates if appropriate... otherwise skip the logic altogether.
+                //NOTE: List is 0 (zero) based, but our RowNumber is 1 (one) based.
+                var entity = entityList[mergeResult.RowNumber - 1];
                 if (hasIdentityColumn)
                 {
-                    //NOTE: List is 0 (zero) based, but our RowNumber is 1 (one) based.
-                    var entity = entityList[mergeResult.RowNumber - 1];
-
                     //BBernard
                     //If the entity supports our interface we can set the value with native performance via the Interface!
                     if (entity is ISqlBulkHelperIdentitySetter identitySetterEntity)
@@ -153,11 +156,13 @@ namespace SqlBulkHelpers
                         fastTypeAccessor[entity, identityPropertyName] = mergeResult.IdentityId;
                     }
                 }
+
+                entityResultsList.Add(entity);
             }
 
             //Return the Updated Entities List (for fluent chain-ability) and easier to read code
             //NOTE: even though we have actually mutated the original list by reference this is very intuitive and helps with code readability.
-            return entityList;
+            return entityResultsList;
         }
 
     }

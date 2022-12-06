@@ -33,7 +33,6 @@ namespace SqlBulkHelpers
             //For Performance we ensure the entities are only ever enumerated One Time!
             var entityList = entities.ToList();
 
-
             using (ProcessHelper processHelper = this.CreateProcessHelper(
                 entityList, mergeAction, sqlTransaction, tableNameParam, matchQualifierExpressionParam)
             ) {
@@ -49,7 +48,7 @@ namespace SqlBulkHelpers
                 //***STEP #5: Write Data to the Staging/Buffer Table as fast as possible!
                 //            NOTE: THIS Step is Unique for Async processing...
                 //NOTE: The DataReader must be properly Disposed!
-                sqlBulkCopy.DestinationTableName = $"[{sqlScripts.TempStagingTableName}]";
+                sqlBulkCopy.DestinationTableName = sqlScripts.TempStagingTableName.QualifySqlTerm();
                 using (var entityDataReader = processHelper.CreateEntityDataReader())
                 {
                     await sqlBulkCopy.WriteToServerAsync(entityDataReader).ConfigureAwait(false);
@@ -125,7 +124,7 @@ namespace SqlBulkHelpers
                 sqlCmd.ExecuteNonQuery();
 
                 //***STEP #5: Write Data to the Staging/Buffer Table as fast as possible!
-                sqlBulkCopy.DestinationTableName = $"[{sqlScripts.TempStagingTableName}]";
+                sqlBulkCopy.DestinationTableName = sqlScripts.TempStagingTableName.QualifySqlTerm();
                 using (var entityDataReader = processHelper.CreateEntityDataReader())
                 {
                     sqlBulkCopy.WriteToServer(entityDataReader);

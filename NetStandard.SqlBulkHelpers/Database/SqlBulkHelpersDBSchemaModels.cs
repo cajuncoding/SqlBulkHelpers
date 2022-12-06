@@ -16,6 +16,7 @@ namespace SqlBulkHelpers
             List<TableColumnDefinition> tableColumns,
             PrimaryKeyConstraintDefinition primaryKeyConstraint,
             List<ForeignKeyConstraintDefinition> foreignKeyConstraints,
+            List<ReferencingForeignKeyConstraintDefinition> referencingForeignKeyConstraints,
             List<ColumnDefaultConstraintDefinition> columnDefaultConstraints,
             List<ColumnCheckConstraintDefinition> columnCheckConstraints,
             List<TableIndexDefinition> tableIndexes)
@@ -30,6 +31,7 @@ namespace SqlBulkHelpers
             TableColumns = (tableColumns ?? new List<TableColumnDefinition>()).AsReadOnly();
             PrimaryKeyConstraint = primaryKeyConstraint;
             ForeignKeyConstraints = (foreignKeyConstraints ?? new List<ForeignKeyConstraintDefinition>()).AsReadOnly();
+            ReferencingForeignKeyConstraints = (referencingForeignKeyConstraints ?? new List<ReferencingForeignKeyConstraintDefinition>()).AsReadOnly(); 
             ColumnDefaultConstraints = (columnDefaultConstraints ?? new List<ColumnDefaultConstraintDefinition>()).AsReadOnly();
             ColumnCheckConstraints = (columnCheckConstraints ?? new List<ColumnCheckConstraintDefinition>()).AsReadOnly();
             TableIndexes = (tableIndexes ?? new List<TableIndexDefinition>()).AsReadOnly();
@@ -48,6 +50,7 @@ namespace SqlBulkHelpers
         public IList<TableColumnDefinition> TableColumns { get; }
         public PrimaryKeyConstraintDefinition PrimaryKeyConstraint { get; }
         public IList<ForeignKeyConstraintDefinition> ForeignKeyConstraints { get; }
+        public IList<ReferencingForeignKeyConstraintDefinition> ReferencingForeignKeyConstraints { get; }
         public IList<ColumnDefaultConstraintDefinition> ColumnDefaultConstraints { get; }
         public IList<ColumnCheckConstraintDefinition> ColumnCheckConstraints { get; }
         public IList<TableIndexDefinition> TableIndexes { get; }
@@ -133,6 +136,7 @@ namespace SqlBulkHelpers
             SourceTableName = sourceTableName;
             ConstraintName = constraintName;
             ConstraintType = constraintType;
+            SourceTableNameTerm = TableNameTerm.From(sourceTableSchema, sourceTableName);
         }
         public string SourceTableSchema { get; }
         public string SourceTableName { get; }
@@ -140,6 +144,8 @@ namespace SqlBulkHelpers
         public KeyConstraintType ConstraintType { get; }
 
         public override string ToString() => ConstraintName;
+
+        public TableNameTerm SourceTableNameTerm { get; }
 
         public string MapConstraintNameToTarget(TableNameTerm targetTable)
             => this.ConstraintName.ReplaceCaseInsensitive(this.SourceTableName, targetTable.TableName).QualifySqlTerm();
@@ -210,6 +216,25 @@ namespace SqlBulkHelpers
         public string ReferentialDeleteRuleClause { get; }
         public IList<KeyColumnDefinition> ReferenceColumns { get; }
 
+        public void AssertIsForeignKeyConstraint()
+        {
+            if (ConstraintType != KeyConstraintType.ForeignKey)
+                throw new ArgumentException($"The Key Constraint provided is not a {nameof(KeyConstraintType.ForeignKey)} constraint type.");
+        }
+    }
+
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public class ReferencingForeignKeyConstraintDefinition : CommonConstraintDefinition
+    {
+        public ReferencingForeignKeyConstraintDefinition(
+            string sourceTableSchema,
+            string sourceTableName,
+            string constraintName,
+            KeyConstraintType constraintType
+        ) : base(sourceTableSchema, sourceTableName, constraintName, constraintType)
+        {
+        }
+        
         public void AssertIsForeignKeyConstraint()
         {
             if (ConstraintType != KeyConstraintType.ForeignKey)

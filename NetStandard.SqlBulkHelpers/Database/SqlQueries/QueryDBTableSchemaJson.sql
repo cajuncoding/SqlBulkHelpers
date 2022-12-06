@@ -2,12 +2,13 @@
 		SELECT TOP (1)
 			TableSchema = t.[TABLE_SCHEMA], 
 			TableName = t.[TABLE_NAME],
-			--TableCatalog = t.[TABLE_CATALOG],
+			TableCatalog = t.[TABLE_CATALOG],
 			ObjectId = OBJECT_ID('['+t.TABLE_SCHEMA+'].['+t.TABLE_NAME+']')
 		FROM INFORMATION_SCHEMA.TABLES t
         WHERE 
             t.TABLE_SCHEMA = @TableSchema
             AND t.TABLE_NAME = @TableName
+			and t.TABLE_CATALOG = DB_NAME()
 	)
 	SELECT
 		t.TableSchema, 
@@ -27,7 +28,8 @@
 				DateTimePrecision = DATETIME_PRECISION
 			FROM INFORMATION_SCHEMA.COLUMNS c
 			WHERE 
-				c.TABLE_SCHEMA = t.TableSchema 
+				c.TABLE_CATALOG = t.TableCatalog
+				AND c.TABLE_SCHEMA = t.TableSchema 
 				AND c.TABLE_NAME = t.TableName
 			ORDER BY c.ORDINAL_POSITION
 			FOR JSON PATH
@@ -53,7 +55,8 @@
 	            )
             FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS c
 			WHERE
-                c.TABLE_SCHEMA = t.TableSchema
+				c.TABLE_CATALOG = t.TableCatalog
+				AND c.TABLE_SCHEMA = t.TableSchema 
 				AND c.TABLE_NAME = t.TableName 
 				AND c.CONSTRAINT_TYPE = 'PRIMARY KEY'
             FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
@@ -100,11 +103,29 @@
 	            --FKeys MUST reference to the Unique Constraints or PKey Unique Constraints...
 	            INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE rcol ON (rcol.CONSTRAINT_SCHEMA = rc.UNIQUE_CONSTRAINT_SCHEMA AND rcol.CONSTRAINT_NAME = rc.UNIQUE_CONSTRAINT_NAME)                            
 			WHERE
-				c.TABLE_SCHEMA = t.TableSchema
+				c.TABLE_CATALOG = t.TableCatalog
+				AND c.TABLE_SCHEMA = t.TableSchema 
                 AND c.TABLE_NAME = t.TableName
 				AND c.CONSTRAINT_TYPE = 'FOREIGN KEY'
             FOR JSON PATH
         ),
+		[ReferencingForeignKeyConstraints] = (
+			SELECT DISTINCT
+                SourceTableSchema = c.TABLE_SCHEMA,
+                SourceTableName = c.TABLE_NAME,
+	            ConstraintName = c.CONSTRAINT_NAME,
+	            ConstraintType = 'ForeignKey'
+            FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS c
+	            INNER JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc ON (rc.CONSTRAINT_SCHEMA = c.CONSTRAINT_SCHEMA AND rc.CONSTRAINT_NAME = c.CONSTRAINT_NAME)
+	            ----FKeys MUST reference to the Unique Constraints or PKey Unique Constraints...
+	            INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE rcol ON (rcol.CONSTRAINT_SCHEMA = rc.UNIQUE_CONSTRAINT_SCHEMA AND rcol.CONSTRAINT_NAME = rc.UNIQUE_CONSTRAINT_NAME)                            
+			WHERE
+				--Find all FKeys that reference the current Table...
+				rcol.TABLE_CATALOG = t.TableCatalog
+				AND rcol.TABLE_SCHEMA = t.TableSchema
+                AND rcol.TABLE_NAME = t.TableName
+				AND c.CONSTRAINT_TYPE = 'FOREIGN KEY'
+		),
         [ColumnDefaultConstraints] = (
 			SELECT
 				SourceTableSchema = t.TableSchema,
@@ -132,7 +153,8 @@
 				)
             FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS c
 			WHERE 
-				c.TABLE_SCHEMA = t.TableSchema 
+				c.TABLE_CATALOG = t.TableCatalog
+				AND c.TABLE_SCHEMA = t.TableSchema 
 				AND c.TABLE_NAME = t.TableName
 				AND c.CONSTRAINT_TYPE = 'CHECK'
             FOR JSON PATH

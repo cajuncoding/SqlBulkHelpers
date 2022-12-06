@@ -45,7 +45,7 @@ namespace SqlBulkHelpers.MaterializedData
         public static async Task<CloneTableInfo> CloneTableAsync(
             this SqlTransaction sqlTransaction,
             string sourceTableName,
-            string targetTableName,
+            string targetTableName = null,
             bool recreateIfExists = false,
             ISqlBulkHelpersConfig bulkHelpersConfig = null
         )

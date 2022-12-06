@@ -17,7 +17,7 @@ namespace SqlBulkHelpers
 
         public override string ToString()
         {
-            return $"[{this.Name}]";
+            return this.Name.QualifySqlTerm();
         }
     }
 

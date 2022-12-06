@@ -29,8 +29,8 @@ namespace SqlBulkHelpers.Tests
                 var testElement = new TestElement()
                 {
                     Id = default,
-                    Key = $"{prefix}[{x}]_GUID[{Guid.NewGuid().ToString().ToUpper()}]",
-                    Value = $"VALUE_{x}"
+                    Key = $"{prefix}[{x:0000}]_GUID[{Guid.NewGuid().ToString().ToUpper()}]",
+                    Value = $"VALUE_{x:0000}"
                 };
 
                 list.Add(testElement);
@@ -59,7 +59,7 @@ namespace SqlBulkHelpers.Tests
                     childList.Add(new ChildTestElement()
                     {
                         ParentId = testElement.Id,
-                        ChildKey = $"CHILD #{c} Of: {testElement.Key}",
+                        ChildKey = $"CHILD #{c:0000} Of: {testElement.Key}",
                         ChildValue = testElement.Value
                     });
                 }

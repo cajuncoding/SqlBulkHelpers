@@ -178,6 +178,32 @@ namespace SqlBulkHelpers.MaterializedData
             return this;
         }
 
+        public MaterializedDataScriptBuilder DisableReferencingForeignKeyChecks(params ReferencingForeignKeyConstraintDefinition[] referencingFKeyConstraints)
+        {
+            foreach (var referencingFKey in referencingFKeyConstraints)
+            {
+                referencingFKey.AssertIsForeignKeyConstraint();
+
+                ScriptBuilder.Append($@"
+                    ALTER TABLE {referencingFKey.SourceTableNameTerm.FullyQualifiedTableName} NOCHECK CONSTRAINT {referencingFKey.ConstraintName.QualifySqlTerm()};
+                ");
+            }
+            return this;
+        }
+
+        public MaterializedDataScriptBuilder EnableReferencingForeignKeyChecks(params ReferencingForeignKeyConstraintDefinition[] referencingFKeyConstraints)
+        {
+            foreach (var referencingFKey in referencingFKeyConstraints)
+            {
+                referencingFKey.AssertIsForeignKeyConstraint();
+
+                ScriptBuilder.Append($@"
+                    ALTER TABLE {referencingFKey.SourceTableNameTerm.FullyQualifiedTableName} CHECK CONSTRAINT {referencingFKey.ConstraintName.QualifySqlTerm()};
+                ");
+            }
+            return this;
+        }
+
         public MaterializedDataScriptBuilder AddTableIndexes(TableNameTerm tableName, params TableIndexDefinition[] tableIndexes)
         {
             foreach (var index in tableIndexes)

@@ -60,7 +60,7 @@ namespace SqlBulkHelpers
                 );
 
             var columnNamesListWithoutIdentity = tableDefinition.GetColumnNames(false);
-            var columnNamesWithoutIdentityCSV = columnNamesListWithoutIdentity.Select(c => $"[{c}]").ToCSV();
+            var columnNamesWithoutIdentityCSV = columnNamesListWithoutIdentity.Select(c => c.QualifySqlTerm()).ToCSV();
 
             //Dynamically build the Merge Match Qualifier Fields Expression
             //NOTE: This is an optional parameter when an Identity Column exists as it is initialized to the IdentityColumn as a Default (Validated above!)
@@ -130,29 +130,24 @@ namespace SqlBulkHelpers
             {
                 mergeUpdateSql = $@"
                     WHEN MATCHED THEN
-                        UPDATE SET {columnNamesListWithoutIdentity.Select(c => $"target.[{c}] = source.[{c}]").ToCSV()} 
+                        UPDATE SET {columnNamesListWithoutIdentity.Select(c => $"target.[{c}] = source.[{c}]").ToCSV()}
                 ";
             }
 
-            //If no Output is being generated then we close out the Merge SQL (Merge statements MUST end with a Semicolon)!
-            //NOTE: This enable a valid merge even for tables that have no Identity value, which is then processed with improved
-            //      performance since no Output is actually needed.
-            string mergeOutputSql = ";";
-            if (hasIdentityColumn)
-            {
-                //NOTE: We only Output results IF we have Identity Column data to return...
-                mergeOutputSql = $@"
-                    OUTPUT $action, INSERTED.[{identityColumnName}], source.[{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}]
-                        INTO [{tempOutputIdentityTableName}] ([MERGE_ACTION], [IDENTITY_ID], [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}]);
+            //All actions need to be written to the Output so that we can return all Identity values for new inserts, and/or post-process
+            //  only results that have been actually changed...
+            var identityIdFieldClause = hasIdentityColumn ? $"INSERTED.[{identityColumnName}]" : "-1";
+            string mergeOutputSql = $@"
+                OUTPUT $action, {identityIdFieldClause}, source.[{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}]
+                    INTO [{tempOutputIdentityTableName}] ([MERGE_ACTION], [IDENTITY_ID], [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}]);
 
-                    SELECT 
-                        [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}], 
-                        [IDENTITY_ID], 
-                        [MERGE_ACTION]
-                    FROM [{tempOutputIdentityTableName}]
-                    ORDER BY [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] ASC, [IDENTITY_ID] ASC;
-                ";
-            }
+                SELECT 
+                    [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}], 
+                    [IDENTITY_ID], 
+                    [MERGE_ACTION]
+                FROM [{tempOutputIdentityTableName}]
+                ORDER BY [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] ASC, [IDENTITY_ID] ASC;
+            ";
 
             string mergeCleanupSql;
             if (hasIdentityColumn || sanitizedQualifierExpression.ThrowExceptionIfNonUniqueMatchesOccur)
