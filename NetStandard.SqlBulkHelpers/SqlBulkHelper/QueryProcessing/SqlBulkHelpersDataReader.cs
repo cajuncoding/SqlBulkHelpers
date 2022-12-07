@@ -26,7 +26,7 @@ namespace SqlBulkHelpers
 
             _processingFields = processingDefinition.PropertyDefinitions.Where(
                 p => tableDefinition.FindColumnCaseInsensitive(p.MappedDbColumnName) != null
-            ).ToArray();
+            ).AsArray();
 
             _rowNumberPseudoColumnOrdinal = _processingFields.Length;
 

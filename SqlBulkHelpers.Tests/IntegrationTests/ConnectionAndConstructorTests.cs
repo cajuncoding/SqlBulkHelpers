@@ -17,12 +17,12 @@ namespace SqlBulkHelpers.IntegrationTests
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
             var sqlBulkDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnectionProvider);
 
-            using (var conn = await sqlConnectionProvider.NewConnectionAsync())
-            using (SqlTransaction transaction = conn.BeginTransaction())
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            await using (var sqlTrans = (SqlTransaction) await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
             {
                 ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(sqlBulkDbSchemaLoader);
 
-                await DoInsertOrUpdateTestAsync(sqlBulkIdentityHelper, transaction);
+                await DoInsertOrUpdateTestAsync(sqlBulkIdentityHelper, sqlTrans);
             }
         }
 
@@ -31,16 +31,16 @@ namespace SqlBulkHelpers.IntegrationTests
         {
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
 
-            using (var conn = await sqlConnectionProvider.NewConnectionAsync())
-            using (SqlTransaction transaction = conn.BeginTransaction())
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
             {
                 //TEST the code flow where the DB Schema Loader is initialized from existing
-                //Connection + Transaction and immediately initialized
-                var sqlBulkDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(conn.ConnectionString);
+                //Connection + sqlTrans and immediately initialized
+                var sqlBulkDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConn.ConnectionString);
 
                 ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(sqlBulkDbSchemaLoader);
 
-                await DoInsertOrUpdateTestAsync(sqlBulkIdentityHelper, transaction);
+                await DoInsertOrUpdateTestAsync(sqlBulkIdentityHelper, sqlTrans).ConfigureAwait(false);
             }
         }
 
@@ -49,12 +49,12 @@ namespace SqlBulkHelpers.IntegrationTests
         {
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
 
-            using (var conn = await sqlConnectionProvider.NewConnectionAsync())
-            using (SqlTransaction transaction = conn.BeginTransaction())
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
             {
                 ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(sqlConnectionProvider);
 
-                await DoInsertOrUpdateTestAsync(sqlBulkIdentityHelper, transaction);
+                await DoInsertOrUpdateTestAsync(sqlBulkIdentityHelper, sqlTrans).ConfigureAwait(false);
             }
         }
 
@@ -63,12 +63,12 @@ namespace SqlBulkHelpers.IntegrationTests
         {
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
 
-            using (var conn = await sqlConnectionProvider.NewConnectionAsync())
-            using (SqlTransaction transaction = conn.BeginTransaction())
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
             {
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(transaction);
+                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(sqlTrans);
 
-                await DoInsertOrUpdateTestAsync(sqlBulkIdentityHelper, transaction);
+                await DoInsertOrUpdateTestAsync(sqlBulkIdentityHelper, sqlTrans).ConfigureAwait(false);
             }
         }
 
@@ -76,17 +76,16 @@ namespace SqlBulkHelpers.IntegrationTests
         {
             List<TestElement> testData = TestHelpers.CreateTestData(10);
 
-            var results = (await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(
+            var results = (await sqlTrans.BulkInsertOrUpdateAsync(
                 testData,
-                TestHelpers.TestTableName,
-                sqlTrans
-            )).ToList();
+                TestHelpers.TestTableName
+            ).ConfigureAwait(false)).ToList();
 
             //Test Inserting of Child Data with Table Name derived from Model Annotation, and FKey constraints to the Parents...
             var childTestData = TestHelpers.CreateChildTestData(results);
-            var childResults = await sqlTrans.BulkInsertOrUpdateAsync(childTestData);
+            var childResults = await sqlTrans.BulkInsertOrUpdateAsync(childTestData).ConfigureAwait(false);
 
-            sqlTrans.Commit();
+            await sqlTrans.CommitAsync().ConfigureAwait(false);
 
             //ASSERT Results are Valid...
             Assert.IsNotNull(results);

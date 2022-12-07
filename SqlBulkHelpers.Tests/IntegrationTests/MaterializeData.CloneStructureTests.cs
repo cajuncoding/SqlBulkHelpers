@@ -15,14 +15,14 @@ namespace SqlBulkHelpers.IntegrationTests
             var sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
 
             await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
-            await using (var sqlTransaction = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+            await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
             {
-                var cloneInfo = await sqlTransaction.CloneTableAsync<TestElementWithMappedNames>().ConfigureAwait(false);
+                var cloneInfo = await sqlTrans.CloneTableAsync<TestElementWithMappedNames>().ConfigureAwait(false);
 
-                var sourceTableSchema = sqlTransaction.GetTableSchemaDefinition(cloneInfo.SourceTable.FullyQualifiedTableName);
-                var clonedTableSchema = sqlTransaction.GetTableSchemaDefinition(cloneInfo.TargetTable.FullyQualifiedTableName);
+                var sourceTableSchema = sqlTrans.GetTableSchemaDefinition(cloneInfo.SourceTable.FullyQualifiedTableName);
+                var clonedTableSchema = sqlTrans.GetTableSchemaDefinition(cloneInfo.TargetTable.FullyQualifiedTableName);
 
-                await sqlTransaction.RollbackAsync().ConfigureAwait(false);
+                await sqlTrans.RollbackAsync().ConfigureAwait(false);
                 //await sqlTransaction.CommitAsync().ConfigureAwait(false);
 
                 //ASSERT Results are Valid...
@@ -63,14 +63,14 @@ namespace SqlBulkHelpers.IntegrationTests
                 .SwitchSchema(CUSTOM_TARGET_SCHEMA);
 
             await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
-            await using (var sqlTransaction = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+            await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
             {
-                var cloneInfo = await sqlTransaction.CloneTableAsync(
+                var cloneInfo = await sqlTrans.CloneTableAsync(
                     sourceTableName: TestHelpers.TestTableNameFullyQualified, 
                     targetTableName: targetTableNameTerm
                 ).ConfigureAwait(false);
 
-                await sqlTransaction.RollbackAsync().ConfigureAwait(false);
+                await sqlTrans.RollbackAsync().ConfigureAwait(false);
 
                 //ASSERT Results are Valid...
                 Assert.IsNotNull(cloneInfo);
@@ -87,13 +87,15 @@ namespace SqlBulkHelpers.IntegrationTests
         {
             var sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
 
+            var clonedTableName = $"{TestHelpers.TestTableName}_CLONING_TEST";
+
             await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
-            await using (var sqlTransaction = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+            await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
             {
                 //First Clone and force re-creation to make this Test Idempotent!
-                var successfulCloneInfo = await sqlTransaction.CloneTableAsync(
-                    TestHelpers.TestTableNameFullyQualified, 
-                    TestHelpers.TestTableName, 
+                var successfulCloneInfo = await sqlTrans.CloneTableAsync(
+                    TestHelpers.TestTableNameFullyQualified,
+                    clonedTableName, 
                     recreateIfExists: true
                 ).ConfigureAwait(false);
                 
@@ -102,9 +104,9 @@ namespace SqlBulkHelpers.IntegrationTests
                 try
                 {
                     //Second attempt the clone again but this time expecting it to now already exist and fail out!
-                    failedCloneInfo = await sqlTransaction.CloneTableAsync(
-                        TestHelpers.TestTableNameFullyQualified, 
-                        TestHelpers.TestTableName, 
+                    failedCloneInfo = await sqlTrans.CloneTableAsync(
+                        TestHelpers.TestTableNameFullyQualified,
+                        clonedTableName, 
                         recreateIfExists: false
                     ).ConfigureAwait(false);
                 }
@@ -115,7 +117,7 @@ namespace SqlBulkHelpers.IntegrationTests
 
                 //Now Clean up the Cloned Table...
                 //await sqlTransaction.DropTableAsync(successfulCloneInfo.TargetTable);
-                await sqlTransaction.RollbackAsync().ConfigureAwait(false);
+                await sqlTrans.RollbackAsync().ConfigureAwait(false);
 
                 //ASSERT Results are Valid...
                 Assert.IsNotNull(successfulCloneInfo);

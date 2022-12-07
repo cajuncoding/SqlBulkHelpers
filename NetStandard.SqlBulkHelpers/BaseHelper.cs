@@ -11,6 +11,8 @@ namespace SqlBulkHelpers
 
         protected SqlBulkHelpersProcessingDefinition BulkHelpersProcessingDefinition { get; set; }
 
+        protected static readonly Type GenericType = typeof(T);
+
         #region Constructors
 
         /// <summary>
@@ -70,30 +72,28 @@ namespace SqlBulkHelpers
         #endregion
 
         protected virtual TableNameTerm GetMappedTableNameTerm(string tableNameOverride = null)
-        {
-            string tableName = tableNameOverride;
-            if (string.IsNullOrWhiteSpace(tableName) && this.BulkHelpersProcessingDefinition.IsMappingLookupEnabled)
-                tableName = this.BulkHelpersProcessingDefinition.MappedDbTableName;
-
-            return tableName.ParseAsTableNameTerm();
-        }
+            => GenericType.GetSqlBulkHelpersMappedTableNameTerm(tableNameOverride);
 
         //BBernard
         //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
         //      we eliminate risk of Sql Injection.
         //NOTE: All other parameters are Strongly typed (vs raw Strings) thus eliminating risk of Sql Injection
         protected virtual SqlBulkHelpersTableDefinition GetTableSchemaDefinitionInternal(SqlTransaction sqlTransaction, string tableNameOverride = null)
-        {
-            //***STEP #1: Get the correct table name to lookup whether it is specified or if we fall back to the mapped data from the Model.
-            var tableName = GetMappedTableNameTerm(tableNameOverride);
+            => GetTableSchemaDefinitionInternal(sqlTransaction, GetMappedTableNameTerm(tableNameOverride));
 
-            //***STEP #2: Load the Table Schema Definitions from the name provided or fall-back to use mapped data
+        //BBernard
+        //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
+        //      we eliminate risk of Sql Injection.
+        //NOTE: All other parameters are Strongly typed (vs raw Strings) thus eliminating risk of Sql Injection
+        protected virtual SqlBulkHelpersTableDefinition GetTableSchemaDefinitionInternal(SqlTransaction sqlTransaction, TableNameTerm tableNameTerm)
+        {
             //BBernard
+            //Load the Table Schema Definitions from the table name term provided or fall-back to use mapped data
             //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
             //      we eliminate risk of Sql Injection.
-            var tableDefinition = this.SqlDbSchemaLoader.GetTableSchemaDefinition(tableName, sqlTransaction);
+            var tableDefinition = this.SqlDbSchemaLoader.GetTableSchemaDefinition(tableNameTerm, sqlTransaction);
             if (tableDefinition == null) 
-                throw new ArgumentOutOfRangeException(nameof(tableNameOverride), $"The specified {nameof(tableNameOverride)} argument value of [{tableNameOverride}] is invalid; no table definition could be resolved.");
+                throw new ArgumentOutOfRangeException(nameof(tableNameTerm), $"The specified {nameof(tableNameTerm)} argument value of [{tableNameTerm}] is invalid; no table definition could be resolved.");
             
             return tableDefinition;
         }

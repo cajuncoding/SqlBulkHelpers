@@ -11,15 +11,14 @@ namespace SqlBulkHelpers.IntegrationTests
         [TestMethod]
         public async Task TestBulkInsertResultSortOrderAsync()
         {
-            var testData = TestHelpers.CreateTestData(10);
-
             var sqlConnectionString = SqlConnectionHelper.GetSqlConnectionString();
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
 
-            using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync())
-            using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
             {
                 //Test with Table name being provided...
+                var testData = TestHelpers.CreateTestData(10);
                 var results = (await sqlTrans.BulkInsertAsync(testData, tableName: TestHelpers.TestTableName).ConfigureAwait(false)).ToList();
 
                 //Test Child Data with Table name being derived from Model Annotation...
@@ -69,14 +68,13 @@ namespace SqlBulkHelpers.IntegrationTests
         [TestMethod]
         public async Task TestBulkInsertResultSortOrderWithIdentitySetterSupportAsync()
         {
-            var testData = TestHelpers.CreateTestDataWithIdentitySetter(10);
-
             var sqlConnectionString = SqlConnectionHelper.GetSqlConnectionString();
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
 
-            using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync())
-            using (SqlTransaction sqlTrans = sqlConn.BeginTransaction())
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            await using (SqlTransaction sqlTrans = sqlConn.BeginTransaction())
             {
+                var testData = TestHelpers.CreateTestDataWithIdentitySetter(10);
                 var results = (await sqlTrans.BulkInsertAsync(testData, TestHelpers.TestTableName)).ToList();
 
                 //Test Child Data with Table name being derived from Model Annotation...
@@ -131,8 +129,8 @@ namespace SqlBulkHelpers.IntegrationTests
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
 
             //Insert Baseline data as 'existing data'
-            using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync())
-            using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
             {
                 //Test with Table name being provided...
                 var results = (await sqlTrans.BulkInsertAsync(initialTestData, tableName: TestHelpers.TestTableName).ConfigureAwait(false)).ToList();
@@ -140,8 +138,8 @@ namespace SqlBulkHelpers.IntegrationTests
             }
 
             //Now Test Insert with partially existing and partially new data results in ONLY Inserted data being returned/updated....
-            using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync())
-            using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
             {
                 //Now create a mixed set of existing and new data
 

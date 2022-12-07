@@ -20,6 +20,8 @@ namespace SqlBulkHelpers
         public string FullyQualifiedTableName { get; }
 
         public override string ToString() => FullyQualifiedTableName;
+        public bool Equals(TableNameTerm other) => FullyQualifiedTableName.Equals(other.FullyQualifiedTableName);
+        public bool EqualsIgnoreCase(TableNameTerm other) => FullyQualifiedTableName.Equals(other.FullyQualifiedTableName, StringComparison.OrdinalIgnoreCase);
         public TableNameTerm SwitchSchema(string newSchema) => new TableNameTerm(newSchema, TableName);
         
         //Handle Automatic String conversions for simplified APIs...
@@ -40,8 +42,6 @@ namespace SqlBulkHelpers
             }
             else
             {
-
-
                 var processingDef = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>();
                 tableNameTerm = processingDef.MappedDbTableName.ParseAsTableNameTerm();
             }

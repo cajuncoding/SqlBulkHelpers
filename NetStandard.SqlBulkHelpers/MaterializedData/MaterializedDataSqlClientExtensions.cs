@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using SqlBulkHelpers.MaterializedData;
 
 namespace SqlBulkHelpers.MaterializedData
 {
@@ -11,10 +10,10 @@ namespace SqlBulkHelpers.MaterializedData
     {
         #region Script Execution Extensions
 
-        public static Task ExecuteMaterializedDataSqlScriptAsync(this SqlTransaction sqlTransaction, MaterializedDataScriptBuilder sqlScriptBuilder, int? commandTimeout = null)
+        internal static Task ExecuteMaterializedDataSqlScriptAsync(this SqlTransaction sqlTransaction, MaterializedDataScriptBuilder sqlScriptBuilder, int? commandTimeout = null)
             => ExecuteMaterializedDataSqlScriptAsync(sqlTransaction, sqlScriptBuilder.BuildSqlScript(), commandTimeout);
-
-        public static async Task ExecuteMaterializedDataSqlScriptAsync(this SqlTransaction sqlTransaction, string materializedDataSqlScript, int? commandTimeout = null)
+        
+        internal static async Task ExecuteMaterializedDataSqlScriptAsync(this SqlTransaction sqlTransaction, string materializedDataSqlScript, int? commandTimeout = null)
         {
             sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
             materializedDataSqlScript.AssertArgumentIsNotNullOrWhiteSpace(nameof(materializedDataSqlScript));
@@ -42,35 +41,60 @@ namespace SqlBulkHelpers.MaterializedData
 
         #region Clone Table Extensions
 
+        public static async Task<CloneTableInfo> CloneTableAsync<T>(
+            this SqlTransaction sqlTransaction,
+            bool recreateIfExists = false,
+            bool copyDataFromSource = false,
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        ) where T : class => (await CloneTablesAsync(
+            sqlTransaction, 
+            new[] { CloneTableInfo.From<T, T>() }, 
+            recreateIfExists, 
+            copyDataFromSource, 
+            bulkHelpersConfig
+        ).ConfigureAwait(false)).FirstOrDefault();
+
         public static async Task<CloneTableInfo> CloneTableAsync(
             this SqlTransaction sqlTransaction,
             string sourceTableName,
             string targetTableName = null,
             bool recreateIfExists = false,
+            bool copyDataFromSource = false,
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        ) => (await CloneTablesAsync(
+            sqlTransaction,
+            new[] { CloneTableInfo.From(sourceTableName, targetTableName) },
+            recreateIfExists,
+            copyDataFromSource,
+            bulkHelpersConfig
+        ).ConfigureAwait(false)).FirstOrDefault();
+
+        public static Task<CloneTableInfo[]> CloneTablesAsync(
+            this SqlTransaction sqlTransaction,
+            IEnumerable<(string SourceTableName, string TargetTableName)> tablesToClone,
+            bool recreateIfExists = false,
+            bool copyDataFromSource = false,
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        ) => CloneTablesAsync(
+            sqlTransaction,
+            tablesToClone.Select(t => CloneTableInfo.From(t.SourceTableName, t.TargetTableName)),
+            recreateIfExists,
+            copyDataFromSource,
+            bulkHelpersConfig
+        );
+
+        public static async Task<CloneTableInfo[]> CloneTablesAsync(
+            this SqlTransaction sqlTransaction,
+            IEnumerable<CloneTableInfo> tablesToClone,
+            bool recreateIfExists = false,
+            bool copyDataFromSource = false,
             ISqlBulkHelpersConfig bulkHelpersConfig = null
         )
         {
             sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
 
             var results = await new MaterializeDataHelper<ISkipMappingLookup>(sqlTransaction, bulkHelpersConfig)
-                .CloneTableAsync(sqlTransaction, sourceTableName, targetTableName, recreateIfExists)
-                .ConfigureAwait(false);
-
-            return results;
-        }
-
-        public static async Task<CloneTableInfo> CloneTableAsync<T>(
-            this SqlTransaction sqlTransaction,
-            string sourceTableNameOverride = null,
-            string targetTableNameOverride = null,
-            bool recreateIfExists = false,
-            ISqlBulkHelpersConfig bulkHelpersConfig = null
-        ) where T : class
-        {
-            sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
-
-            var results = await new MaterializeDataHelper<T>(sqlTransaction, bulkHelpersConfig)
-                .CloneTableAsync(sqlTransaction, sourceTableNameOverride, targetTableNameOverride, recreateIfExists)
+                .CloneTablesAsync(sqlTransaction, tablesToClone.AsArray(), recreateIfExists, copyDataFromSource)
                 .ConfigureAwait(false);
 
             return results;
@@ -80,11 +104,22 @@ namespace SqlBulkHelpers.MaterializedData
 
         #region Drop Table Extensions
 
-        public static Task<TableNameTerm[]> DropTableAsync(
+        public static async Task<TableNameTerm> DropTableAsync<T>(
+            this SqlTransaction sqlTransaction,
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        ) where T : class => (await DropTablesAsync(sqlTransaction, new [] { typeof(T) }, bulkHelpersConfig).ConfigureAwait(false)).FirstOrDefault();
+
+        public static async Task<TableNameTerm> DropTableAsync(
             this SqlTransaction sqlTransaction,
             string tableName,
             ISqlBulkHelpersConfig bulkHelpersConfig = null
-        ) => DropTablesAsync(sqlTransaction, new[] { tableName }, bulkHelpersConfig);
+        ) => (await DropTablesAsync(sqlTransaction, new[] { tableName }, bulkHelpersConfig).ConfigureAwait(false)).FirstOrDefault();
+
+        public static Task<TableNameTerm[]> DropTablesAsync(
+            this SqlTransaction sqlTransaction,
+            IEnumerable<Type> mappedModelTypes,
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        ) => DropTablesAsync(sqlTransaction, ConvertToMappedTableNames(mappedModelTypes), bulkHelpersConfig);
 
         public static async Task<TableNameTerm[]> DropTablesAsync(
             this SqlTransaction sqlTransaction,
@@ -95,21 +130,7 @@ namespace SqlBulkHelpers.MaterializedData
             sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
 
             var results = await new MaterializeDataHelper<ISkipMappingLookup>(sqlTransaction, bulkHelpersConfig)
-                .DropTablesAsync(sqlTransaction, tableNames.ToArray())
-                .ConfigureAwait(false);
-
-            return results;
-        }
-
-        public static async Task<TableNameTerm[]> DropTableAsync<T>(
-            this SqlTransaction sqlTransaction,
-            ISqlBulkHelpersConfig bulkHelpersConfig = null
-        ) where T : class
-        {
-            sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
-
-            var results = await new MaterializeDataHelper<T>(sqlTransaction, bulkHelpersConfig)
-                .DropTableAsync(sqlTransaction)
+                .DropTablesAsync(sqlTransaction, tableNames.AsArray())
                 .ConfigureAwait(false);
 
             return results;
@@ -119,27 +140,26 @@ namespace SqlBulkHelpers.MaterializedData
 
         #region Truncate Table Extensions
 
-        public static async Task<TableNameTerm[]> ClearTableAsync<T>(
+        public static async Task<TableNameTerm> ClearTableAsync<T>(
             this SqlTransaction sqlTransaction,
             bool forceOverrideOfConstraints = false,
             ISqlBulkHelpersConfig bulkHelpersConfig = null
-        ) where T : class
-        {
-            sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
+        ) where T : class => (await ClearTablesAsync(sqlTransaction, new[] { typeof(T) }, forceOverrideOfConstraints, bulkHelpersConfig).ConfigureAwait(false)).FirstOrDefault();
 
-            var results = await new MaterializeDataHelper<T>(sqlTransaction, bulkHelpersConfig)
-                .ClearTableAsync(sqlTransaction, forceOverrideOfConstraints: forceOverrideOfConstraints)
-                .ConfigureAwait(false);
 
-            return results;
-        }
-
-        public static Task<TableNameTerm[]> ClearTableAsync(
+        public static async Task<TableNameTerm> ClearTableAsync(
             this SqlTransaction sqlTransaction,
             string tableName,
             bool forceOverrideOfConstraints = false,
             ISqlBulkHelpersConfig bulkHelpersConfig = null
-        ) => ClearTablesAsync(sqlTransaction, new[] { tableName }, forceOverrideOfConstraints, bulkHelpersConfig);
+        ) => (await ClearTablesAsync(sqlTransaction, new[] { tableName }, forceOverrideOfConstraints, bulkHelpersConfig).ConfigureAwait(false)).FirstOrDefault();
+
+        public static Task<TableNameTerm[]> ClearTablesAsync(
+            this SqlTransaction sqlTransaction,
+            IEnumerable<Type> mappedModelTypes,
+            bool forceOverrideOfConstraints = false,
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        ) => ClearTablesAsync(sqlTransaction, ConvertToMappedTableNames(mappedModelTypes), forceOverrideOfConstraints, bulkHelpersConfig);
 
         public static async Task<TableNameTerm[]> ClearTablesAsync(
             this SqlTransaction sqlTransaction,
@@ -151,10 +171,66 @@ namespace SqlBulkHelpers.MaterializedData
             sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
 
             var results = await new MaterializeDataHelper<ISkipMappingLookup>(sqlTransaction, bulkHelpersConfig)
-                .ClearTablesAsync(sqlTransaction, forceOverrideOfConstraints, tableNames.ToArray())
+                .ClearTablesAsync(sqlTransaction, forceOverrideOfConstraints, tableNames.AsArray())
                 .ConfigureAwait(false);
 
             return results;
+        }
+
+        #endregion
+
+        #region Materialize Data Extensions
+        public static Task<MaterializeDataContext> MaterializeDataIntoAsync<T>(
+            this SqlTransaction sqlTransaction,
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        ) where T : class => MaterializeDataIntoAsync(sqlTransaction, new[] { typeof(T) }, bulkHelpersConfig);
+
+        public static Task<MaterializeDataContext> MaterializeDataIntoAsync(
+            this SqlTransaction sqlTransaction,
+            string tableName,
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        ) => MaterializeDataIntoAsync(sqlTransaction, new[] { tableName }, bulkHelpersConfig);
+
+        public static Task<MaterializeDataContext> MaterializeDataIntoAsync(
+            this SqlTransaction sqlTransaction,
+            params Type[] mappedModelTypeParams
+        ) => MaterializeDataIntoAsync(sqlTransaction, ConvertToMappedTableNames(mappedModelTypeParams), null);
+
+        public static Task<MaterializeDataContext> MaterializeDataIntoAsync(
+            this SqlTransaction sqlTransaction,
+            IEnumerable<Type> mappedModelTypes,
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        ) => MaterializeDataIntoAsync(sqlTransaction, ConvertToMappedTableNames(mappedModelTypes), bulkHelpersConfig);
+
+        public static Task<MaterializeDataContext> MaterializeDataIntoAsync(
+            this SqlTransaction sqlTransaction,
+            params string[] tableNameParams
+        ) => MaterializeDataIntoAsync(sqlTransaction, tableNameParams, null);
+
+        public static async Task<MaterializeDataContext> MaterializeDataIntoAsync(
+            this SqlTransaction sqlTransaction,
+            IEnumerable<string> tableNames,
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        )
+        {
+            sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
+
+            var materializeDataContext = await new MaterializeDataHelper<ISkipMappingLookup>(sqlTransaction, bulkHelpersConfig)
+                .MaterializeDataIntoAsync(sqlTransaction, tableNames.AsArray())
+                .ConfigureAwait(false);
+
+            return materializeDataContext;
+        }
+
+        #endregion
+
+        #region Internal Helpers
+
+        public static IEnumerable<string> ConvertToMappedTableNames(IEnumerable<Type> mappedModelTypes)
+        {
+            return mappedModelTypes
+                .Where(type => type != null)
+                .Select(type => type.GetSqlBulkHelpersMappedTableNameTerm().FullyQualifiedTableName);
         }
 
         #endregion

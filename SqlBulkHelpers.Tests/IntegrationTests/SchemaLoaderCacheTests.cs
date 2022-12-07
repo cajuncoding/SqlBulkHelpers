@@ -14,6 +14,7 @@ namespace SqlBulkHelpers.IntegrationTests
         [TestMethod]
         public void TestSchemaLoaderCacheWithLazyLoadingFromMultipleConnectionProviders()
         {
+            SqlBulkHelpersSchemaLoaderCache.ClearCache();
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
 
             List<ISqlBulkHelpersDBSchemaLoader> schemaLoadersList = new List<ISqlBulkHelpersDBSchemaLoader>
@@ -44,6 +45,7 @@ namespace SqlBulkHelpers.IntegrationTests
         [TestMethod]
         public async Task TestSchemaLoaderCacheWithExistingConnectionAsync()
         {
+            SqlBulkHelpersSchemaLoaderCache.ClearCache();
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
 
             List<ISqlBulkHelpersDBSchemaLoader> schemaLoadersList = new List<ISqlBulkHelpersDBSchemaLoader>();

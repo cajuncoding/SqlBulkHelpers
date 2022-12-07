@@ -30,7 +30,7 @@ namespace SqlBulkHelpers.IntegrationTests
                 await sqlTrans.CommitAsync().ConfigureAwait(false);
 
                 //Now Run the Insert/Update with Multi-matching Qualifier Expression...
-                using (var sqlTransMultiMatch = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+                await using (var sqlTransMultiMatch = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
                 {
                     //Now we insert/update an additional 10 but the first 5 will have duplicates in the Value field...
                     var testData = TestHelpers.CreateTestData(10);
@@ -96,8 +96,8 @@ namespace SqlBulkHelpers.IntegrationTests
             var sqlConnectionString = SqlConnectionHelper.GetSqlConnectionString();
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
 
-            using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
-            using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+            await using var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false);
+            await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
             {
                 var results = await sqlTrans.BulkInsertOrUpdateAsync(
                     testData,
@@ -126,8 +126,8 @@ namespace SqlBulkHelpers.IntegrationTests
                 {
                     Assert.IsNotNull(result);
                     Assert.IsTrue(result.Id > 0);
-                    Assert.AreEqual(result.Key, testData[i].Key);
-                    Assert.AreEqual(result.Value, testData[i].Value);
+                    Assert.AreEqual((object)result.Key, testData[i].Key);
+                    Assert.AreEqual((object)result.Value, testData[i].Value);
                     i++;
                 }
             }

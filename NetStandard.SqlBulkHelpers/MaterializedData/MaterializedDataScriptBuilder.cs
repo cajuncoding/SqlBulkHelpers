@@ -71,10 +71,10 @@ namespace SqlBulkHelpers.MaterializedData
             this
                 .CloneTableWithColumnsOnly(sourceTableDefinition.TableNameTerm, targetTable, ifExists)
                 .AddPrimaryKeyConstraint(targetTable, sourceTableDefinition.PrimaryKeyConstraint)
-                .AddForeignKeyConstraints(targetTable, sourceTableDefinition.ForeignKeyConstraints.ToArray())
-                .AddColumnDefaultConstraints(targetTable, sourceTableDefinition.ColumnDefaultConstraints.ToArray())
-                .AddColumnCheckConstraints(targetTable, sourceTableDefinition.ColumnCheckConstraints.ToArray())
-                .AddTableIndexes(targetTable, sourceTableDefinition.TableIndexes.ToArray());
+                .AddForeignKeyConstraints(targetTable, sourceTableDefinition.ForeignKeyConstraints.AsArray())
+                .AddColumnDefaultConstraints(targetTable, sourceTableDefinition.ColumnDefaultConstraints.AsArray())
+                .AddColumnCheckConstraints(targetTable, sourceTableDefinition.ColumnCheckConstraints.AsArray())
+                .AddTableIndexes(targetTable, sourceTableDefinition.TableIndexes.AsArray());
 
             return this;
         }
@@ -178,6 +178,36 @@ namespace SqlBulkHelpers.MaterializedData
             return this;
         }
 
+        public MaterializedDataScriptBuilder DisableAllTableConstraintChecks(TableNameTerm tableName)
+        {
+            ScriptBuilder.Append($@"
+                ALTER TABLE {tableName.FullyQualifiedTableName} NOCHECK CONSTRAINT ALL;
+            ");
+            return this;
+        }
+
+        public MaterializedDataScriptBuilder EnableAllTableConstraintChecks(TableNameTerm tableName, bool executeDataValidation = true)
+        {
+            var doCheckClause = executeDataValidation ? "WITH CHECK" : string.Empty;
+            ScriptBuilder.Append($@"
+                ALTER TABLE {tableName.FullyQualifiedTableName} {doCheckClause} CHECK CONSTRAINT ALL;
+            ");
+            return this;
+        }
+
+        public MaterializedDataScriptBuilder EnableForeignKeyChecks(params ForeignKeyConstraintDefinition[] fkeyConstraints)
+        {
+            foreach (var fkeyConstraint in fkeyConstraints)
+            {
+                fkeyConstraint.AssertIsForeignKeyConstraint();
+
+                ScriptBuilder.Append($@"
+                    ALTER TABLE {fkeyConstraint.SourceTableNameTerm.FullyQualifiedTableName} CHECK CONSTRAINT {fkeyConstraint.ConstraintName.QualifySqlTerm()};
+                ");
+            }
+            return this;
+        }
+
         public MaterializedDataScriptBuilder DisableReferencingForeignKeyChecks(params ReferencingForeignKeyConstraintDefinition[] referencingFKeyConstraints)
         {
             foreach (var referencingFKey in referencingFKeyConstraints)
@@ -191,14 +221,15 @@ namespace SqlBulkHelpers.MaterializedData
             return this;
         }
 
-        public MaterializedDataScriptBuilder EnableReferencingForeignKeyChecks(params ReferencingForeignKeyConstraintDefinition[] referencingFKeyConstraints)
+        public MaterializedDataScriptBuilder EnableReferencingForeignKeyChecks(bool executeDataValidation, params ReferencingForeignKeyConstraintDefinition[] referencingFKeyConstraints)
         {
+            var doCheckClause = executeDataValidation ? "WITH CHECK" : string.Empty;
             foreach (var referencingFKey in referencingFKeyConstraints)
             {
                 referencingFKey.AssertIsForeignKeyConstraint();
 
                 ScriptBuilder.Append($@"
-                    ALTER TABLE {referencingFKey.SourceTableNameTerm.FullyQualifiedTableName} CHECK CONSTRAINT {referencingFKey.ConstraintName.QualifySqlTerm()};
+                    ALTER TABLE {referencingFKey.SourceTableNameTerm.FullyQualifiedTableName} {doCheckClause} CHECK CONSTRAINT {referencingFKey.ConstraintName.QualifySqlTerm()};
                 ");
             }
             return this;

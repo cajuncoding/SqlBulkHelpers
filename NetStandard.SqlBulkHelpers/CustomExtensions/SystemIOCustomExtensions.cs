@@ -9,11 +9,10 @@ namespace SqlBulkHelpers.CustomExtensions
         public static byte[] ToByteArray(this Stream stream)
         {
             byte[] bytes = null;
-            if (stream is MemoryStream)
+            if (stream is MemoryStream existingMemoryStream)
             {
                 //Memory stream is easy to work with and natively supports converting to ByteArray.
-                var memoryStream = stream as MemoryStream;
-                bytes = memoryStream.ToArray();
+                bytes = existingMemoryStream.ToArray();
             }
             else
             {

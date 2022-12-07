@@ -9,10 +9,10 @@ using SqlBulkHelpers.SqlBulkHelpers;
 namespace SqlBulkHelpers.IntegrationTests
 {
     [TestClass]
-    public class MaterializeDataTruncateTableTests
+    public class MaterializeDataClearTableTests
     {
         [TestMethod]
-        public async Task TestTruncateTableAsync()
+        public async Task TestClearTableAsync()
         {
             var sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
 
@@ -23,32 +23,32 @@ namespace SqlBulkHelpers.IntegrationTests
                 var tableNameTerm = TestHelpers.TestChildTableNameFullyQualified.ParseAsTableNameTerm();
 
                 //Ensure at least some data exists...
-                await sqlTrans.BulkInsertAsync(TestHelpers.CreateTestData(10, "TEST_TRUNCATION_DotNet6"), tableNameTerm);
+                var parentTestData = TestHelpers.CreateTestData(10, "TEST_TRUNCATION_DotNet6");
+                var parentResults = await sqlTrans.BulkInsertAsync(parentTestData, TestHelpers.TestTableName).ConfigureAwait(false);
+                
+                var childTestData = TestHelpers.CreateChildTestData(parentResults.ToList());
+                await sqlTrans.BulkInsertAsync(childTestData, tableNameTerm);
 
                 //Get our count BEFORE and Validate we have some data...
                 var initialTableCount = await sqlConn.CountAllAsync(tableNameTerm, transaction: sqlTrans).ConfigureAwait(false);
                 Assert.IsTrue(initialTableCount > 0);
 
                 //var initialTableCount = await sqlConn.CountAllAsync(tableNameTerm, transaction: sqlTrans).ConfigureAwait(false);
-                var tableResults = await sqlTrans.ClearTableAsync(tableNameTerm);
+                var resultTable = await sqlTrans.ClearTableAsync(tableNameTerm);
 
                 //ASSERT Results are Valid...
-                Assert.IsNotNull(tableResults);
-                Assert.AreEqual(1, tableResults.Length);
+                Assert.IsNotNull(resultTable);
 
-                foreach (var resultTable in tableResults)
-                {
-                    //Get our count AFTER and assert they are valid...
-                    var truncatedTableCount = await sqlConn.CountAllAsync(tableName: resultTable, transaction: sqlTrans).ConfigureAwait(false);
-                    Assert.AreEqual(0, truncatedTableCount);
-                }
+                //Get our count AFTER and assert they are valid...
+                var truncatedTableCount = await sqlConn.CountAllAsync(tableName: resultTable, transaction: sqlTrans).ConfigureAwait(false);
+                Assert.AreEqual(0, truncatedTableCount);
 
                 await sqlTrans.RollbackAsync().ConfigureAwait(false);
             }
         }
 
         [TestMethod]
-        public async Task TestTruncateTableFailsConstraintsAsync()
+        public async Task TestClearTableFailsConstraintsAsync()
         {
             var sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
 
@@ -74,7 +74,7 @@ namespace SqlBulkHelpers.IntegrationTests
         }
 
         [TestMethod]
-        public async Task TestTruncateTableForceWithConstraintsAsync()
+        public async Task TestClearTableForceWithConstraintsAsync()
         {
             var sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
 
@@ -91,10 +91,57 @@ namespace SqlBulkHelpers.IntegrationTests
                 Assert.IsTrue(initialTableCount > 0);
 
                 //NOW we can now test Truncation with support for overriding the constraints...
-                var tableResults = await sqlTrans.ClearTableAsync(targetTableNameTerm, forceOverrideOfConstraints: true);
+                var resultTable = await sqlTrans.ClearTableAsync(targetTableNameTerm, forceOverrideOfConstraints: true);
+
+                //ASSERT Results are Valid...
+                Assert.IsNotNull(resultTable);
+
+                //Get our count AFTER and assert they are valid...
+                var truncatedTableCount = await sqlConn.CountAllAsync(tableName: resultTable, transaction: sqlTrans).ConfigureAwait(false);
+                Assert.AreEqual(0, truncatedTableCount);
+
+                //await sqlTrans.RollbackAsync().ConfigureAwait(false);
+                await sqlTrans.CommitAsync().ConfigureAwait(false);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestClearMultipleTablesAsync()
+        {
+            var sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
+
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+            {
+                var parentTableNameTerm = TestHelpers.TestTableNameFullyQualified.ParseAsTableNameTerm();
+                var childTableNameTerm = TestHelpers.TestChildTableNameFullyQualified.ParseAsTableNameTerm();
+
+                //Ensure at least some data exists...
+                //Insert Parent Data...
+                var parentResults = (await sqlTrans.BulkInsertAsync(
+                    TestHelpers.CreateTestData(10, "TEST_TRUNCATION_DotNet6"),
+                    parentTableNameTerm
+                )).ToList();
+                //Insert Child Related Data...
+                await sqlTrans.BulkInsertAsync(TestHelpers.CreateChildTestData(parentResults));
+
+                //Get our count BEFORE and Validate we have some data...
+                var initialParentCount = await sqlConn.CountAllAsync(parentTableNameTerm, transaction: sqlTrans).ConfigureAwait(false);
+                Assert.IsTrue(initialParentCount > 0);
+                var initialChildCount = await sqlConn.CountAllAsync(childTableNameTerm, transaction: sqlTrans).ConfigureAwait(false);
+                Assert.IsTrue(initialChildCount > 0);
+
+                //NOW we can now test Truncation with support for overriding the constraints...
+                var tableResults = await sqlTrans.ClearTablesAsync(
+            new string[] {
+                        childTableNameTerm, 
+                        parentTableNameTerm
+                    }, 
+                    forceOverrideOfConstraints: true
+                );
 
                 Assert.IsNotNull(tableResults);
-                Assert.AreEqual(1, tableResults.Length);
+                Assert.AreEqual(2, tableResults.Length);
 
                 foreach (var resultTable in tableResults)
                 {
@@ -106,7 +153,6 @@ namespace SqlBulkHelpers.IntegrationTests
                 //await sqlTrans.RollbackAsync().ConfigureAwait(false);
                 await sqlTrans.CommitAsync().ConfigureAwait(false);
             }
-
         }
     }
 }

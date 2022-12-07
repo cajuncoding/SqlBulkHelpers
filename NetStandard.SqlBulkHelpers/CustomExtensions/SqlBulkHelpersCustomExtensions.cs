@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Linq;
 
 namespace SqlBulkHelpers
@@ -17,6 +16,19 @@ namespace SqlBulkHelpers
         {
             if (string.IsNullOrWhiteSpace(arg)) throw new ArgumentNullException(argName);
             return arg;
+        }
+
+        public static TableNameTerm GetSqlBulkHelpersMappedTableNameTerm(this Type type, string tableNameOverride = null)
+        {
+            string tableName = tableNameOverride;
+            if (string.IsNullOrWhiteSpace(tableName))
+            {
+                var processingDef = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition(type);
+                if (processingDef.IsMappingLookupEnabled)
+                    tableName = processingDef.MappedDbTableName;
+            }
+
+            return tableName.ParseAsTableNameTerm();
         }
 
         public static TableNameTerm ParseAsTableNameTerm(this string tableName)
@@ -72,6 +84,9 @@ namespace SqlBulkHelpers
 
         public static bool IsNullOrEmpty<T>(this IEnumerable<T> items)
             => !items.HasAny();
+
+        public static T[] AsArray<T>(this IEnumerable<T> items)
+            => items is T[] itemArray ? itemArray : items.ToArray();
 
         public static bool ContainsIgnoreCase(this IEnumerable<string> items, string valueToFind)
             => items != null && items.Any(i => i.Equals(valueToFind, StringComparison.OrdinalIgnoreCase));

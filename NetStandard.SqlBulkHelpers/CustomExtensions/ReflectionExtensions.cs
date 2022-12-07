@@ -34,7 +34,7 @@ namespace SqlBulkHelpers.SqlBulkHelpers.CustomExtensions
                 throw new ArgumentNullException(nameof(attributeNamesToFind));
 
             var results = new List<Attribute>();
-            var attributesArray = attributes as Attribute[] ?? attributes.ToArray();
+            var attributesArray = attributes as Attribute[] ?? attributes.AsArray();
 
             foreach (var findName in attributeNamesToFind)
             {

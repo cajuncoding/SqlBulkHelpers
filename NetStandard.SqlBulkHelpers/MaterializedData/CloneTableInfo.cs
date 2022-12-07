@@ -6,22 +6,24 @@ namespace SqlBulkHelpers.MaterializedData
     {
         public TableNameTerm SourceTable { get; }
         public TableNameTerm TargetTable { get; }
+        public bool EnableConstraintsOnTarget { get; }
 
-        public CloneTableInfo(TableNameTerm sourceTable, TableNameTerm? targetTable = null)
+        public CloneTableInfo(TableNameTerm sourceTable, TableNameTerm? targetTable = null, bool enableConstraintsOnTarget = true)
         {
             sourceTable.AssertArgumentIsNotNull(nameof(sourceTable));
 
             //If both Source & Target are the same (e.g. Target was not explicitly specified) then we adjust
             //  the Target to ensure we create a copy and append a unique Copy Id...
-            var validTargetTable = targetTable == null || targetTable.Value.FullyQualifiedTableName.Equals(sourceTable.FullyQualifiedTableName, StringComparison.OrdinalIgnoreCase)
+            var validTargetTable = targetTable == null || targetTable.Value.EqualsIgnoreCase(sourceTable)
                 ? TableNameTerm.From(sourceTable.SchemaName, $"{sourceTable.TableName}_Copy_{IdGenerator.NewId(10)}")
                 : targetTable.Value;
 
             SourceTable = sourceTable;
             TargetTable = validTargetTable;
+            EnableConstraintsOnTarget = enableConstraintsOnTarget;
         }
 
-        public static CloneTableInfo From<TSource, TTarget>(string sourceTableName = null, string targetTableName = null)
+        public static CloneTableInfo From<TSource, TTarget>(string sourceTableName = null, string targetTableName = null, bool enableConstraintsOnTarget = true)
         {
             //If the generic type is ISkipMappingLookup then we have a valid sourceTableName specified...
             if (SqlBulkHelpersProcessingDefinition.SkipMappingLookupType.IsAssignableFrom(typeof(TSource)))
@@ -44,17 +46,13 @@ namespace SqlBulkHelpers.MaterializedData
             }
 
             var targetTable = TableNameTerm.From<TTarget>(targetTableName ?? sourceTableName);
-            return new CloneTableInfo(sourceTable, targetTable);
+            return new CloneTableInfo(sourceTable, targetTable, enableConstraintsOnTarget);
         }
 
-        public static CloneTableInfo From(string sourceTableName, string targetTableName)
-        {
-            var sourceTable = TableNameTerm.From<ISkipMappingLookup>(sourceTableName.AssertArgumentIsNotNullOrWhiteSpace(nameof(sourceTableName)));
-            var targetTable = TableNameTerm.From<ISkipMappingLookup>(targetTableName.AssertArgumentIsNotNullOrWhiteSpace(nameof(targetTableName)));
-            return new CloneTableInfo(sourceTable, targetTable);
-        }
+        public static CloneTableInfo From(string sourceTableName, string targetTableName = null, bool enableConstraintsOnTarget = true)
+            => From<ISkipMappingLookup, ISkipMappingLookup>(sourceTableName, targetTableName, enableConstraintsOnTarget);
 
-        public static CloneTableInfo ForNewSchema(TableNameTerm sourceTable, string targetSchemaName)
-            => new CloneTableInfo(sourceTable, sourceTable.SwitchSchema(targetSchemaName));
+        public static CloneTableInfo ForNewSchema(TableNameTerm sourceTable, string targetSchemaName, bool enableConstraintsOnTarget = true)
+            => new CloneTableInfo(sourceTable, sourceTable.SwitchSchema(targetSchemaName), enableConstraintsOnTarget);
     }
 }

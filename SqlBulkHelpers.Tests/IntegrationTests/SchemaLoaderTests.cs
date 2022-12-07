@@ -48,7 +48,7 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
             Assert.AreEqual(tableNameTerm.TableName, tableDefinition.TableName);
             Assert.AreEqual(tableNameTerm.FullyQualifiedTableName, tableDefinition.TableFullyQualifiedName);
 
-            Assert.IsTrue(tableDefinition.ForeignKeyConstraints.Count > 0);
+            Assert.AreEqual(0, tableDefinition.ForeignKeyConstraints.Count);
             Assert.IsTrue(tableDefinition.TableColumns.Count > 0);
 
             Assert.IsNotNull(tableDefinition.PrimaryKeyConstraint);

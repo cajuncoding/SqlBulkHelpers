@@ -37,8 +37,11 @@ namespace SqlBulkHelpers
         public static readonly Type SkipMappingLookupType = typeof(ISkipMappingLookup);
 
         public static SqlBulkHelpersProcessingDefinition GetProcessingDefinition<T>(TableColumnDefinition identityColumnDefinition = null)
+            => GetProcessingDefinition(typeof(T), identityColumnDefinition);
+
+        public static SqlBulkHelpersProcessingDefinition GetProcessingDefinition(Type type, TableColumnDefinition identityColumnDefinition = null)
         {
-            var type = typeof(T);
+            type.AssertArgumentIsNotNull(nameof(type));
 
             var processingDefinition = _processingDefinitionsLazyCache.GetOrAdd(
                 key: $"[Type={type.Name}][Identity={identityColumnDefinition?.ColumnName ?? "N/A"}]",  //Cache Key
@@ -56,7 +59,7 @@ namespace SqlBulkHelpers
         protected SqlBulkHelpersProcessingDefinition(List<PropInfoDefinition> propertyDefinitions, Type entityType, bool isRowNumberColumnNameEnabled = true)
         {
             IsMappingLookupEnabled = !SkipMappingLookupType.IsAssignableFrom(entityType);
-            PropertyDefinitions = propertyDefinitions.AssertArgumentIsNotNull(nameof(propertyDefinitions)).ToArray();
+            PropertyDefinitions = propertyDefinitions.AssertArgumentIsNotNull(nameof(propertyDefinitions)).AsArray();
             IsRowNumberColumnNameEnabled = isRowNumberColumnNameEnabled;
             MappedDbTableName = GetMappedDbTableName(entityType);
             IdentityPropDefinition = propertyDefinitions.FirstOrDefault(p => p.IsIdentityProperty);

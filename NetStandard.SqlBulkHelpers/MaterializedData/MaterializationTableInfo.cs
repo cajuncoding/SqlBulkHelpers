@@ -4,15 +4,18 @@ namespace SqlBulkHelpers.MaterializedData
 {
     public struct MaterializationTableInfo
     {
-        public TableNameTerm OriginalTable { get; }
+        public TableNameTerm LiveTable { get; }
+
+        public SqlBulkHelpersTableDefinition LiveTableDefinition { get; }
 
         public TableNameTerm LoadingTable { get; }
 
         public TableNameTerm TempHoldingTable { get; }
 
-        public MaterializationTableInfo(TableNameTerm originalTableTerm, TableNameTerm loadingTableTerm, TableNameTerm tempHoldingTableTerm)
+        public MaterializationTableInfo(SqlBulkHelpersTableDefinition originalTableDef, TableNameTerm loadingTableTerm, TableNameTerm tempHoldingTableTerm)
         {
-            OriginalTable = originalTableTerm.AssertArgumentIsNotNull(nameof(originalTableTerm));
+            LiveTableDefinition = originalTableDef;
+            LiveTable = originalTableDef.TableNameTerm;
             LoadingTable = loadingTableTerm.AssertArgumentIsNotNull(nameof(loadingTableTerm));
             TempHoldingTable = tempHoldingTableTerm.AssertArgumentIsNotNull(nameof(tempHoldingTableTerm));
         }
