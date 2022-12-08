@@ -10,14 +10,14 @@ namespace SqlBulkHelpers.MaterializedData
 
         public TableNameTerm LoadingTable { get; }
 
-        public TableNameTerm TempHoldingTable { get; }
+        public TableNameTerm DiscardingTable { get; }
 
-        public MaterializationTableInfo(SqlBulkHelpersTableDefinition originalTableDef, TableNameTerm loadingTableTerm, TableNameTerm tempHoldingTableTerm)
+        public MaterializationTableInfo(SqlBulkHelpersTableDefinition originalTableDef, TableNameTerm loadingTableTerm, TableNameTerm discardingTableNameTerm)
         {
             LiveTableDefinition = originalTableDef;
             LiveTable = originalTableDef.TableNameTerm;
             LoadingTable = loadingTableTerm.AssertArgumentIsNotNull(nameof(loadingTableTerm));
-            TempHoldingTable = tempHoldingTableTerm.AssertArgumentIsNotNull(nameof(tempHoldingTableTerm));
+            DiscardingTable = discardingTableNameTerm.AssertArgumentIsNotNull(nameof(discardingTableNameTerm));
         }
     }
 }

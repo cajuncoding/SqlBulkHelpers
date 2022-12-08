@@ -11,12 +11,14 @@ namespace SqlBulkHelpers
         {
             SchemaName = schemaName.AssertArgumentIsNotNullOrWhiteSpace(nameof(schemaName)).TrimTableNameTerm();
             TableName = tableName.AssertArgumentIsNotNullOrWhiteSpace(nameof(tableName)).TrimTableNameTerm();
+            TableNameVariable = TableName.Replace(" ", string.Empty);
             //NOTE: We don't use QualifySqlTerm() here to prevent unnecessary additional trimming (that is done above).
             FullyQualifiedTableName = $"[{SchemaName}].[{TableName}]";
         }
 
         public string SchemaName { get; }
         public string TableName { get; }
+        public string TableNameVariable { get; }
         public string FullyQualifiedTableName { get; }
 
         public override string ToString() => FullyQualifiedTableName;

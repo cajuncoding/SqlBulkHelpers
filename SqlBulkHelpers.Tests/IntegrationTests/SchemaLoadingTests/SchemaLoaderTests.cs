@@ -1,15 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SqlBulkHelpers.SqlBulkHelpers;
 
 namespace SqlBulkHelpers.Tests.IntegrationTests
 {
     [TestClass]
-    public class SchemaLoaderTests
+    public class SchemaLoaderTests : BaseTest
     {
-
         [TestMethod]
         public void TestTableDefinitionLoading()
         {

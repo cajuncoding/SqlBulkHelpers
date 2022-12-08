@@ -6,9 +6,8 @@ namespace SqlBulkHelpers.MaterializedData
     {
         public TableNameTerm SourceTable { get; }
         public TableNameTerm TargetTable { get; }
-        public bool EnableConstraintsOnTarget { get; }
 
-        public CloneTableInfo(TableNameTerm sourceTable, TableNameTerm? targetTable = null, bool enableConstraintsOnTarget = true)
+        public CloneTableInfo(TableNameTerm sourceTable, TableNameTerm? targetTable = null)
         {
             sourceTable.AssertArgumentIsNotNull(nameof(sourceTable));
 
@@ -20,10 +19,9 @@ namespace SqlBulkHelpers.MaterializedData
 
             SourceTable = sourceTable;
             TargetTable = validTargetTable;
-            EnableConstraintsOnTarget = enableConstraintsOnTarget;
         }
 
-        public static CloneTableInfo From<TSource, TTarget>(string sourceTableName = null, string targetTableName = null, bool enableConstraintsOnTarget = true)
+        public static CloneTableInfo From<TSource, TTarget>(string sourceTableName = null, string targetTableName = null)
         {
             //If the generic type is ISkipMappingLookup then we have a valid sourceTableName specified...
             if (SqlBulkHelpersProcessingDefinition.SkipMappingLookupType.IsAssignableFrom(typeof(TSource)))
@@ -46,13 +44,13 @@ namespace SqlBulkHelpers.MaterializedData
             }
 
             var targetTable = TableNameTerm.From<TTarget>(targetTableName ?? sourceTableName);
-            return new CloneTableInfo(sourceTable, targetTable, enableConstraintsOnTarget);
+            return new CloneTableInfo(sourceTable, targetTable);
         }
 
-        public static CloneTableInfo From(string sourceTableName, string targetTableName = null, bool enableConstraintsOnTarget = true)
-            => From<ISkipMappingLookup, ISkipMappingLookup>(sourceTableName, targetTableName, enableConstraintsOnTarget);
+        public static CloneTableInfo From(string sourceTableName, string targetTableName = null)
+            => From<ISkipMappingLookup, ISkipMappingLookup>(sourceTableName, targetTableName);
 
-        public static CloneTableInfo ForNewSchema(TableNameTerm sourceTable, string targetSchemaName, bool enableConstraintsOnTarget = true)
-            => new CloneTableInfo(sourceTable, sourceTable.SwitchSchema(targetSchemaName), enableConstraintsOnTarget);
+        public static CloneTableInfo ForNewSchema(TableNameTerm sourceTable, string targetSchemaName)
+            => new CloneTableInfo(sourceTable, sourceTable.SwitchSchema(targetSchemaName));
     }
 }

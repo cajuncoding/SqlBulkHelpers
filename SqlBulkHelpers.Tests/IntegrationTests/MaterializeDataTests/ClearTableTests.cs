@@ -3,13 +3,12 @@ using SqlBulkHelpers.Tests;
 using SqlBulkHelpers.MaterializedData;
 using Microsoft.Data.SqlClient;
 using RepoDb;
-using RepoDb.Extensions;
 using SqlBulkHelpers.SqlBulkHelpers;
 
 namespace SqlBulkHelpers.IntegrationTests
 {
     [TestClass]
-    public class MaterializeDataClearTableTests
+    public class MaterializeDataClearTableTests : BaseTest
     {
         [TestMethod]
         public async Task TestClearTableAsync()

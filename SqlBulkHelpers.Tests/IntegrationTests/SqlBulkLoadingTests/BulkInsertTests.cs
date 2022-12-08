@@ -1,4 +1,4 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using System;
 using SqlBulkHelpers.Tests;
 using Microsoft.Data.SqlClient;
 using SqlBulkHelpers.SqlBulkHelpers;
@@ -6,7 +6,7 @@ using SqlBulkHelpers.SqlBulkHelpers;
 namespace SqlBulkHelpers.IntegrationTests
 {
     [TestClass]
-    public class BulkInsertTests
+    public class SqlBulkHelpersBulkInsertTests : BaseTest
     {
         [TestMethod]
         public async Task TestBulkInsertResultSortOrderAsync()

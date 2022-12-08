@@ -1,15 +1,10 @@
 ﻿using System;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SqlBulkHelpers.Tests;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-
 
 namespace SqlBulkHelpers.IntegrationTests
 {
     [TestClass]
-    public class SchemaLoaderCacheTests
+    public class SchemaLoaderCacheTests : BaseTest
     {
         [TestMethod]
         public void TestSchemaLoaderCacheWithLazyLoadingFromMultipleConnectionProviders()

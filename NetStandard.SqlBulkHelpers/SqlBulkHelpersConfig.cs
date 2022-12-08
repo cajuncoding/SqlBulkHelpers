@@ -7,12 +7,13 @@ namespace SqlBulkHelpers
     {
         int SqlBulkBatchSize { get; } //General guidance is that 2000-5000 is efficient enough.
         int SqlBulkPerBatchTimeoutSeconds { get; }
-        bool SqlBulkTableLockEnabled { get; }
+        bool IsSqlBulkTableLockEnabled { get; }
         SqlBulkCopyOptions SqlBulkCopyOptions { get; }
 
         int MaterializeDataStructureProcessingTimeoutSeconds { get; }
-        string MaterializedDataDefaultLoadingSchema { get; }
-        string MaterializedDataDefaultTempHoldingSchema { get; }
+        string MaterializedDataLoadingSchema { get; }
+        string MaterializedDataDiscardingSchema { get; }
+        bool IsCloningIdentitySeedValueEnabled{ get; }
     }
 
     public class SqlBulkHelpersConfig : ISqlBulkHelpersConfig
@@ -37,7 +38,7 @@ namespace SqlBulkHelpers
 
         public int SqlBulkPerBatchTimeoutSeconds { get; set; }
 
-        public bool SqlBulkTableLockEnabled {
+        public bool IsSqlBulkTableLockEnabled {
             get => SqlBulkCopyOptions.HasFlag(SqlBulkCopyOptions.TableLock);
             set => SqlBulkCopyOptions |= SqlBulkCopyOptions.TableLock;
         }
@@ -46,7 +47,8 @@ namespace SqlBulkHelpers
         public SqlBulkCopyOptions SqlBulkCopyOptions { get; set; } = SqlBulkCopyOptions.Default | SqlBulkCopyOptions.TableLock;
         
         public int MaterializeDataStructureProcessingTimeoutSeconds { get; set; } = 30;
-        public string MaterializedDataDefaultLoadingSchema { get; set; } = "dbo_materializing";
-        public string MaterializedDataDefaultTempHoldingSchema { get; set; } = "dbo_materializing_temp";
+        public string MaterializedDataLoadingSchema { get; set; } = "dbo_materializing";
+        public string MaterializedDataDiscardingSchema { get; set; } = "dbo_materializing_temp";
+        public bool IsCloningIdentitySeedValueEnabled { get; set; } = true;
     }
 }

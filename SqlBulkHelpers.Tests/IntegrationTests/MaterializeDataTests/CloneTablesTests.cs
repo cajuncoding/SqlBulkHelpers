@@ -7,7 +7,7 @@ using SqlBulkHelpers.SqlBulkHelpers;
 namespace SqlBulkHelpers.IntegrationTests
 {
     [TestClass]
-    public class MaterializeDataCloneStructureTests
+    public class MaterializeDataCloneTablesTests : BaseTest
     {
         [TestMethod]
         public async Task TestCloneTableStructureByAnnotationAsync()
@@ -70,7 +70,8 @@ namespace SqlBulkHelpers.IntegrationTests
                     targetTableName: targetTableNameTerm
                 ).ConfigureAwait(false);
 
-                await sqlTrans.RollbackAsync().ConfigureAwait(false);
+                await sqlTrans.CommitAsync().ConfigureAwait(false);
+                //await sqlTrans.RollbackAsync().ConfigureAwait(false);
 
                 //ASSERT Results are Valid...
                 Assert.IsNotNull(cloneInfo);

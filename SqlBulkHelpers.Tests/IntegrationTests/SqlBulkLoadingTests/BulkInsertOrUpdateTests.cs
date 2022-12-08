@@ -1,4 +1,5 @@
-﻿using SqlBulkHelpers.Tests;
+﻿using System;
+using SqlBulkHelpers.Tests;
 using Microsoft.Data.SqlClient;
 using SqlBulkHelpers.MaterializedData;
 using SqlBulkHelpers.SqlBulkHelpers;
@@ -6,7 +7,7 @@ using SqlBulkHelpers.SqlBulkHelpers;
 namespace SqlBulkHelpers.IntegrationTests
 {
     [TestClass]
-    public class BulkInsertOrUpdateTests
+    public class SqlBulkHelpersBulkInsertOrUpdateTests : BaseTest
     {
         [TestMethod]
         public async Task TestBulkInsertOrUpdateWithCustomMatchQualifiersAsync()

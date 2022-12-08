@@ -63,19 +63,35 @@ namespace SqlBulkHelpers.MaterializedData
             return this;
         }
 
-        public MaterializedDataScriptBuilder CloneTableWithAllElements(SqlBulkHelpersTableDefinition sourceTableDefinition, TableNameTerm targetTable, IfExists ifExists = IfExists.Recreate)
+        public MaterializedDataScriptBuilder CloneTableWithAllElements(SqlBulkHelpersTableDefinition sourceTableDefinition, TableNameTerm targetTable, IfExists ifExists = IfExists.Recreate, bool cloneIdentitySeedValue = true)
         {
             sourceTableDefinition.AssertArgumentIsNotNull(nameof(sourceTableDefinition));
             targetTable.AssertArgumentIsNotNull(nameof(targetTable));
 
-            this
-                .CloneTableWithColumnsOnly(sourceTableDefinition.TableNameTerm, targetTable, ifExists)
-                .AddPrimaryKeyConstraint(targetTable, sourceTableDefinition.PrimaryKeyConstraint)
-                .AddForeignKeyConstraints(targetTable, sourceTableDefinition.ForeignKeyConstraints.AsArray())
-                .AddColumnDefaultConstraints(targetTable, sourceTableDefinition.ColumnDefaultConstraints.AsArray())
-                .AddColumnCheckConstraints(targetTable, sourceTableDefinition.ColumnCheckConstraints.AsArray())
-                .AddTableIndexes(targetTable, sourceTableDefinition.TableIndexes.AsArray());
+            CloneTableWithColumnsOnly(sourceTableDefinition.TableNameTerm, targetTable, ifExists);
+            AddPrimaryKeyConstraint(targetTable, sourceTableDefinition.PrimaryKeyConstraint);
+            AddForeignKeyConstraints(targetTable, sourceTableDefinition.ForeignKeyConstraints.AsArray());
+            AddColumnDefaultConstraints(targetTable, sourceTableDefinition.ColumnDefaultConstraints.AsArray());
+            AddColumnCheckConstraints(targetTable, sourceTableDefinition.ColumnCheckConstraints.AsArray());
+            AddTableIndexes(targetTable, sourceTableDefinition.TableIndexes.AsArray());
 
+            if (cloneIdentitySeedValue && sourceTableDefinition.IdentityColumn != null)
+                SyncIdentitySeedValue(sourceTableDefinition.TableNameTerm, targetTable);
+
+            return this;
+        }
+
+        public MaterializedDataScriptBuilder SyncIdentitySeedValue(TableNameTerm sourceTable, TableNameTerm targetTable)
+        {
+            sourceTable.AssertArgumentIsNotNull(nameof(sourceTable));
+            targetTable.AssertArgumentIsNotNull(nameof(targetTable));
+
+            var currentIdentityVariable = $"CurrentIdentity_{IdGenerator.NewId()}";
+            ScriptBuilder.Append($@"
+	            --Syncs the Identity Seed value of the Target Table with the current value of the Source Table
+                DECLARE @{currentIdentityVariable} int = IDENT_CURRENT('{sourceTable.FullyQualifiedTableName}');
+                DBCC CHECKIDENT('{targetTable.FullyQualifiedTableName}', RESEED, @{currentIdentityVariable});
+            ");
             return this;
         }
 
@@ -93,6 +109,9 @@ namespace SqlBulkHelpers.MaterializedData
 
         public MaterializedDataScriptBuilder CloneTableWithColumnsOnly(TableNameTerm sourceTable, TableNameTerm targetTable, IfExists ifExists = IfExists.Recreate)
         {
+            sourceTable.AssertArgumentIsNotNull(nameof(sourceTable));
+            targetTable.AssertArgumentIsNotNull(nameof(targetTable));
+
             CreateSchema(targetTable.SchemaName);
 
             bool addTableCopyScript = false;

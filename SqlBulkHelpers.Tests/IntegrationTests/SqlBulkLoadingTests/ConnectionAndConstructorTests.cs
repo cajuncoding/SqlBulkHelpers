@@ -1,15 +1,11 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using SqlBulkHelpers.Tests;
-using System.Collections.Generic;
+﻿using SqlBulkHelpers.Tests;
 using Microsoft.Data.SqlClient;
-using System.Linq;
-using System.Threading.Tasks;
 using SqlBulkHelpers.SqlBulkHelpers;
 
 namespace SqlBulkHelpers.IntegrationTests
 {
     [TestClass]
-    public class ConnectionAndConstructorTests
+    public class SqlBulkHelpersConnectionAndConstructorTests : BaseTest
     {
         [TestMethod]
         public async Task TestBulkInsertConstructorWithDBSchemaLoaderInstanceDeferred()

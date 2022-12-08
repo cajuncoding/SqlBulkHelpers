@@ -1,18 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using SqlBulkHelpers.SqlBulkHelpers;
 
 namespace SqlBulkHelpers.Tests.IntegrationTests
 {
     [TestClass]
-    public class ProcessingDefinitionTests
+    public class ProcessingDefinitionTests : BaseTest
     {
-
         [TestMethod]
         public void TestProcessDefinitionLoading()
         {

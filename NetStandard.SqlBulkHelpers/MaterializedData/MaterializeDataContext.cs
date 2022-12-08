@@ -5,34 +5,36 @@ using Microsoft.Data.SqlClient;
 
 namespace SqlBulkHelpers.MaterializedData
 {
-    public struct MaterializeDataContext : IAsyncDisposable
+    public class MaterializeDataContext : IAsyncDisposable
     {
-        private readonly ILookup<TableNameTerm, MaterializationTableInfo> _tableLookup;
-        private readonly SqlTransaction _sqlTrans;
-        private readonly ISqlBulkHelpersConfig _bulkHelpersConfig;
+        protected SqlTransaction SqlTransaction { get; }
+        protected ILookup<TableNameTerm, MaterializationTableInfo> TableLookup { get; }
+        protected ISqlBulkHelpersConfig BulkHelpersConfig { get; }
+        protected bool IsDisposed { get; set; } = false;
 
         public MaterializationTableInfo[] Tables { get; }
 
         public MaterializationTableInfo this[int index] => Tables[index];
 
-        public MaterializationTableInfo this[string tableName] => _tableLookup[TableNameTerm.From(tableName)].FirstOrDefault();
+        public MaterializationTableInfo this[string tableName] => TableLookup[TableNameTerm.From(tableName)].FirstOrDefault();
 
         /// <summary>
         /// Allows disabling of data validation during materialization, but may put data integrity at risk.
         /// This will improve performance for large data loads, but if disabled then the implementor is responsible
         /// for ensuring all data integrity of the data populated into the tables!
+        /// NOTE: The downside of this is that larger tables will take longer to Switch over but Data Integrity is maintained therefore this
+        ///         is the default and normal behavior that should be used.
+        /// NOTE: In addition, Disabling this poses other implications in SQL Server as the Constraints then become Untrusted which affects
+        ///         the Query Optimizer and may may adversely impact Query performance.
         /// </summary>
-        public bool EnableDataConstraintChecksOnCompletion { get; set; }
+        public bool EnableDataConstraintChecksOnCompletion { get; set; } = true;
 
         public MaterializeDataContext(SqlTransaction sqlTransaction, MaterializationTableInfo[] materializationTables, ISqlBulkHelpersConfig bulkHelpersConfig)
         {
-            _sqlTrans = sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
+            SqlTransaction = sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
             Tables = materializationTables.AssertArgumentIsNotNull(nameof(materializationTables));
-            _bulkHelpersConfig = bulkHelpersConfig.AssertArgumentIsNotNull(nameof(bulkHelpersConfig));
-
-            _isDisposed = false;
-            EnableDataConstraintChecksOnCompletion = true;
-            _tableLookup = Tables.ToLookup(t => t.LiveTable);
+            BulkHelpersConfig = bulkHelpersConfig.AssertArgumentIsNotNull(nameof(bulkHelpersConfig));
+            TableLookup = Tables.ToLookup(t => t.LiveTable);
         }
 
         public async Task FinishMaterializationProcessAsync()
@@ -43,43 +45,42 @@ namespace SqlBulkHelpers.MaterializedData
             //NOTE: We update ALL tables at each step together so that any/all constraints, relationships, etc.
             //      are valid based on newly materialized data populated in the respective loading tables (for each original table)!
             //1) First disable all referencing FKey constraints that will prevent us from being able to switch -- this is still safe within our Transaction!
-            //2) Then we can switch all existing Live tables to Temp/Holding -- this Frees the Live table up to be updated in the next step!
             foreach (var materializationTableInfo in materializationTables)
-            {
-                var originalTableDef = materializationTableInfo.LiveTableDefinition;
-                switchScriptBuilder.DisableReferencingForeignKeyChecks(originalTableDef.ReferencingForeignKeyConstraints.AsArray());
-                switchScriptBuilder.SwitchTables(materializationTableInfo.LiveTable, materializationTableInfo.TempHoldingTable);
-            }
+                switchScriptBuilder.DisableReferencingForeignKeyChecks(materializationTableInfo.LiveTableDefinition.ReferencingForeignKeyConstraints.AsArray());
 
-            //3) Now we are able to switch all existing Loading/Staging tables to Live (which were freed up above) -- this will update the Live Data!
+            //2) Then we can switch all existing Live tables to the Discarding Schema -- this Frees the Live table up to be updated in the next step!
             foreach (var materializationTableInfo in materializationTables)
-            {
+                switchScriptBuilder.SwitchTables(materializationTableInfo.LiveTable, materializationTableInfo.DiscardingTable);
+
+            //3) Now we are able to switch all existing Loading tables to Live (which were freed up above) -- this will update the Live Data!
+            foreach (var materializationTableInfo in materializationTables)
                 switchScriptBuilder.SwitchTables(materializationTableInfo.LoadingTable, materializationTableInfo.LiveTable);
-            }
 
             //4) Third we re-enable all Foreign Key Checks that were disabled!
-            //5) Finally we explicitly clean up all Temp/Holding/Loading Tables (contains old data) to free resources -- this leaves us with only the (new) Live Table in place!
+            //5) Finally we explicitly clean up all Loading/Discarding Tables (contains old data) to free resources -- this leaves us with only the (new) Live Table in place!
             foreach (var materializationTableInfo in materializationTables)
             {
                 var originalTableDef = materializationTableInfo.LiveTableDefinition;
-                switchScriptBuilder.EnableReferencingForeignKeyChecks(this.EnableDataConstraintChecksOnCompletion, originalTableDef.ReferencingForeignKeyConstraints.AsArray());
-                switchScriptBuilder.DropTable(materializationTableInfo.LoadingTable);
-                switchScriptBuilder.DropTable(materializationTableInfo.TempHoldingTable);
+                switchScriptBuilder
+                    .EnableReferencingForeignKeyChecks(this.EnableDataConstraintChecksOnCompletion, originalTableDef.ReferencingForeignKeyConstraints.AsArray())
+                    .DropTable(materializationTableInfo.LoadingTable)
+                    .DropTable(materializationTableInfo.DiscardingTable);
             }
 
-            await _sqlTrans.ExecuteMaterializedDataSqlScriptAsync(
+            await SqlTransaction.ExecuteMaterializedDataSqlScriptAsync(
                 switchScriptBuilder,
-                _bulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds
+                BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds
             ).ConfigureAwait(false);
         }
 
-        private bool _isDisposed;
-        public async ValueTask DisposeAsync()
+        public ValueTask DisposeAsync()
         {
-            if (!_isDisposed)
+            if (!IsDisposed)
             {
-                _isDisposed = true;
+                IsDisposed = true;
             }
+
+            return new ValueTask();
         }
     }
 }
