@@ -101,13 +101,13 @@ namespace SqlBulkHelpers.MaterializedData
             }
 
             //2) Now we can clone all tables efficiently creating all Loading and Discard tables!
-            //      NOTE: We always Recreate if it Exists, with no data, but with FKey Constraints disabled...
+            //   NOTE: We always Recreate if it Exists, with no data, but without FKey Constraints so that there is no links resulting in Transaction locks on Live tables!
             await CloneTablesInternalAsync(
                 sqlTransaction, 
                 cloneInfoToExecuteList, 
                 recreateIfExists: true, 
                 copyDataFromSource: false,
-                disableConstraintsOnTarget: true
+                includeFKeyConstraints: false
             ).ConfigureAwait(false);
 
             //Finally we return the complete Materialization Table Info details...
@@ -147,7 +147,7 @@ namespace SqlBulkHelpers.MaterializedData
             IEnumerable<CloneTableInfo> tablesToClone,
             bool recreateIfExists = false,
             bool copyDataFromSource = false,
-            bool disableConstraintsOnTarget = false
+            bool includeFKeyConstraints = false
         )
         {
             sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
@@ -172,17 +172,19 @@ namespace SqlBulkHelpers.MaterializedData
                 if (sourceTableSchemaDefinition == null)
                     throw new ArgumentException($"Could not resolve the source table schema for {sourceTable.FullyQualifiedTableName} on the provided connection.");
 
+                //TODO: Implement Support to copy Table Data...
                 cloneTableStructureSqlScriptBuilder.CloneTableWithAllElements(
                     sourceTableSchemaDefinition,
                     targetTable,
                     recreateIfExists ? IfExists.Recreate : IfExists.StopProcessingWithException,
-                    cloneIdentitySeedValue: BulkHelpersConfig.IsCloningIdentitySeedValueEnabled
+                    cloneIdentitySeedValue: BulkHelpersConfig.IsCloningIdentitySeedValueEnabled,
+                    includeFKeyConstraints: includeFKeyConstraints
                 );
 
-                //TODO: Might (potentially if it doesn't impede performance too much) implement support for re-mapping FKey constraints to Materialization Context tables so data integrity issues will be caught sooner
-                //      in the process, but for now they are caught when FKey constraints are re-enabled after Switching tables...
-                if (disableConstraintsOnTarget)
-                    cloneTableStructureSqlScriptBuilder.DisableAllTableConstraintChecks(targetTable);
+                ////TODO: Might (potentially if it doesn't impede performance too much) implement support for re-mapping FKey constraints to Materialization Context tables so data integrity issues will be caught sooner
+                ////      in the process, but for now they are caught when FKey constraints are re-enabled after Switching tables...
+                //if (includeFKeyConstraints)
+                //    cloneTableStructureSqlScriptBuilder.DisableAllTableConstraintChecks(targetTable);
 
                 cloneInfoResults.Add(new CloneTableInfo(sourceTable, targetTable));
             }
@@ -251,8 +253,8 @@ namespace SqlBulkHelpers.MaterializedData
                     //Use Materialized Data Helpers to efficiently SWAP out with EMPTY table -- effectively clearing the original Table
                     //  without the need to remove FKey constraints from related tables that reference this one...
                     truncateTableSqlScriptBuilder
-                        .CloneTableWithAllElements(tableDef, emptyCloneTableInfo.TargetTable, IfExists.Recreate, true)
-                        .CloneTableWithAllElements(tableDef, discardCloneTableInfo.TargetTable, IfExists.Recreate, true)
+                        .CloneTableWithAllElements(tableDef, emptyCloneTableInfo.TargetTable, IfExists.Recreate, true, true)
+                        .CloneTableWithAllElements(tableDef, discardCloneTableInfo.TargetTable, IfExists.Recreate, true, true)
                         .DisableReferencingForeignKeyChecks(referencingFKeyConstraints)
                         .SwitchTables(tableNameTerm, discardCloneTableInfo.TargetTable)
                         .SwitchTables(emptyCloneTableInfo.TargetTable, tableNameTerm)

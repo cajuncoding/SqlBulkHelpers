@@ -62,7 +62,7 @@ namespace SqlBulkHelpers.IntegrationTests
                     timer.Restart();
 
                     //Test with Table name being provided...
-                    var parentMaterializationInfo = materializeDataContext[TestHelpers.TestTableName];
+                    var parentMaterializationInfo = materializeDataContext[TestHelpers.TestTableNameFullyQualified];
                     var parentTestData = TestHelpers.CreateTestData(1500);
                     var parentResults = (await sqlTrans.BulkInsertAsync(parentTestData, tableName: parentMaterializationInfo.LoadingTable).ConfigureAwait(false)).ToList();
 

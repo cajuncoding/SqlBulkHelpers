@@ -90,5 +90,12 @@ namespace SqlBulkHelpers
 
         public static bool ContainsIgnoreCase(this IEnumerable<string> items, string valueToFind)
             => items != null && items.Any(i => i.Equals(valueToFind, StringComparison.OrdinalIgnoreCase));
+
+        public static bool TryAdd<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key, TValue value)
+        {
+            if (dictionary.ContainsKey(key)) return false;
+            dictionary.Add(key, value);
+            return true;
+        }
     }
 }

@@ -143,7 +143,8 @@ namespace SqlBulkHelpers
         public string ConstraintName { get; }
         public KeyConstraintType ConstraintType { get; }
 
-        public override string ToString() => ConstraintName;
+        //NOTE: Source Table and Constraint Name are required since this is used as a Lookup Identifier for Referencing, and FKey constraints
+        public override string ToString() => $"{SourceTableNameTerm} {ConstraintName}";
 
         public TableNameTerm SourceTableNameTerm { get; }
 
