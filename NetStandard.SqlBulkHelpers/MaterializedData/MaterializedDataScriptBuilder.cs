@@ -133,8 +133,8 @@ namespace SqlBulkHelpers.MaterializedData
         {
             sourceTable.AssertArgumentIsNotNull(nameof(sourceTable));
             targetTable.AssertArgumentIsNotNull(nameof(targetTable));
-            columnDefs.AssertArgumentIsNotNull(nameof(targetTable));
 
+            //Validate that we have Table Columns...
             if (!columnDefs.HasAny())
                 throw new ArgumentException($"At least one valid column definition must be specified to denote what data to copy between tables.");
 
@@ -222,8 +222,12 @@ namespace SqlBulkHelpers.MaterializedData
             if (pkeyConstraint.ConstraintType != KeyConstraintType.PrimaryKey)
                 throw new ArgumentException($"The Key Constraint provided is not a {nameof(KeyConstraintType.PrimaryKey)} constraint type.");
 
-            var pkeyName = pkeyConstraint.MapConstraintNameToTarget(tableName);
-            var keyColumns = pkeyConstraint.KeyColumns.OrderBy(c => c.OrdinalPosition).Select(c => c.ColumnName.QualifySqlTerm());
+            var pkeyName = pkeyConstraint.MapConstraintNameToTargetAndEnsureUniqueness(tableName);
+            var keyColumns = pkeyConstraint.KeyColumns?.OrderBy(c => c.OrdinalPosition).Select(c => c.ColumnName.QualifySqlTerm());
+
+            //Validate that we have Primary Key Columns...
+            if (!keyColumns.HasAny())
+                throw new ArgumentException($"At least one valid Key Column definition must be specified to create a Primary Key Constraint {pkeyName} on {tableName}.");
 
             ScriptBuilder.Append($@"
                 ALTER TABLE {tableName.FullyQualifiedTableName} ADD CONSTRAINT {pkeyName} PRIMARY KEY CLUSTERED ({keyColumns.ToCsv()});
@@ -240,9 +244,17 @@ namespace SqlBulkHelpers.MaterializedData
             {
                 fkeyConstraint.AssertIsForeignKeyConstraint();
 
-                var fkeyName = fkeyConstraint.MapConstraintNameToTarget(tableName);
-                var keyColumns = fkeyConstraint.KeyColumns.OrderBy(c => c.OrdinalPosition).Select(c => c.ColumnName.QualifySqlTerm());
-                var referenceColumns = fkeyConstraint.ReferenceColumns.OrderBy(c => c.OrdinalPosition).Select(c => c.ColumnName.QualifySqlTerm());
+                var fkeyName = fkeyConstraint.MapConstraintNameToTargetAndEnsureUniqueness(tableName);
+                var keyColumns = fkeyConstraint.KeyColumns?.OrderBy(c => c.OrdinalPosition).Select(c => c.ColumnName.QualifySqlTerm());
+                var referenceColumns = fkeyConstraint.ReferenceColumns?.OrderBy(c => c.OrdinalPosition).Select(c => c.ColumnName.QualifySqlTerm());
+
+                //Validate that we have FKey Columns...
+                if (!keyColumns.HasAny())
+                    throw new ArgumentException($"At least one valid Key Column definition must be specified to create a Foreign Key Constraint {fkeyName} on {tableName}.");
+
+                //Validate that we have FKey Reference Columns...
+                if (!referenceColumns.HasAny())
+                    throw new ArgumentException($"At least one valid Reference Column definition must be specified to create a Foreign Key Constraint {fkeyName} on {tableName}.");
 
                 ScriptBuilder.Append($@"
                     ALTER TABLE {tableName.FullyQualifiedTableName} {GetNoCheckClause(executeConstraintValidation)} ADD CONSTRAINT {fkeyName} 
@@ -255,13 +267,23 @@ namespace SqlBulkHelpers.MaterializedData
             return this;
         }
 
+        /// <summary>
+        /// Drops FKey Constraints, and attempts to Map names that contain Source Table Name in the convention.
+        /// NOTE: We currently DO NOT support dropping FKeys for whom the Name was mutated to be Unique! These will result in
+        ///         SQL Exception that the Constraint does not exist; the workaround to this currently is to retrieve the full DB Schema
+        ///         of cloned tables that result in Unique Constraint Names so that the full name is known...
+        /// </summary>
+        /// <param name="tableName"></param>
+        /// <param name="fkeyConstraints"></param>
+        /// <returns></returns>
         public MaterializedDataScriptBuilder DropForeignKeyConstraints(TableNameTerm tableName, params ForeignKeyConstraintDefinition[] fkeyConstraints)
         {
             foreach (var fkeyConstraint in fkeyConstraints)
             {
                 fkeyConstraint.AssertIsForeignKeyConstraint();
 
-                var fkeyName = fkeyConstraint.MapConstraintNameToTarget(tableName);
+                //NOTE: We currently do not support dropping FKeys for whom the Name was mutated to be Unique!
+                var fkeyName = fkeyConstraint.MapConstraintNameToTargetAndEnsureUniqueness(tableName);
 
                 ScriptBuilder.Append($@"
                     ALTER TABLE {tableName.FullyQualifiedTableName} DROP CONSTRAINT {fkeyName};
@@ -383,8 +405,12 @@ namespace SqlBulkHelpers.MaterializedData
         {
             foreach (var index in tableIndexes)
             {
-                var indexName = index.MapIndexNameToTarget(tableName);
-                var keyColumns = index.KeyColumns.OrderBy(c => c.OrdinalPosition).Select(c => c.ColumnName.QualifySqlTerm());
+                var indexName = index.MapIndexNameToTargetAndEnsureUniqueness(tableName);
+                var keyColumns = index.KeyColumns?.OrderBy(c => c.OrdinalPosition).Select(c => c.ColumnName.QualifySqlTerm());
+
+                //Validate that we have FKey Columns...
+                if (!keyColumns.HasAny())
+                    throw new ArgumentException($"At least one valid Key Column definition must be specified to create an Index {indexName} on {tableName}.");
 
                 if (index.IsUniqueConstraint)
                 {
@@ -395,12 +421,14 @@ namespace SqlBulkHelpers.MaterializedData
                 }
                 else
                 {
-                    var includeColumns = index.IncludeColumns
-                        .OrderBy(c => c.OrdinalPosition)
-                        .Select(c => c.ColumnName.QualifySqlTerm());
+                    //NOTE: We must be Null-Safe here when initially calling Linq
+                    var includeColumnsCsv = index.IncludeColumns
+                        ?.OrderBy(c => c.OrdinalPosition)
+                        .Select(c => c.ColumnName.QualifySqlTerm())
+                        .ToCsv();
 
-                    var includeSql = includeColumns.HasAny()
-                        ? $"INCLUDE ({includeColumns.ToCsv()})"
+                    var includeSql = !string.IsNullOrWhiteSpace(includeColumnsCsv)
+                        ? $"INCLUDE ({includeColumnsCsv})"
                         : string.Empty;
 
                     var filterSql = !string.IsNullOrWhiteSpace(index.FilterDefinition)
@@ -425,7 +453,7 @@ namespace SqlBulkHelpers.MaterializedData
         {
             foreach(var columnCheckConstraint in columnCheckConstraints)
             {
-                var constraintName = columnCheckConstraint.MapConstraintNameToTarget(tableName);
+                var constraintName = columnCheckConstraint.MapConstraintNameToTargetAndEnsureUniqueness(tableName);
                 ScriptBuilder.Append($@"
                     --Adding Column Check Constraint
                     ALTER TABLE {tableName.FullyQualifiedTableName} WITH CHECK ADD CONSTRAINT {constraintName} CHECK {columnCheckConstraint.CheckClause};
@@ -438,7 +466,7 @@ namespace SqlBulkHelpers.MaterializedData
         {
             foreach (var columnDefaultConstraint in columnDefaultConstraints)
             {
-                var constraintName = columnDefaultConstraint.MapConstraintNameToTarget(tableName);
+                var constraintName = columnDefaultConstraint.MapConstraintNameToTargetAndEnsureUniqueness(tableName);
                 var columnName = columnDefaultConstraint.ColumnName.QualifySqlTerm();
                 ScriptBuilder.Append($@"
                     --Adding Column Default Constraint

@@ -1,6 +1,7 @@
 ﻿using Microsoft.Data.SqlClient;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -20,7 +21,15 @@ namespace SqlBulkHelpers.MaterializedData
 
             using (var sqlCmd = new SqlCommand(materializedDataSqlScript, sqlTransaction.Connection, sqlTransaction))
             {
-                if(commandTimeout.HasValue)
+                #if DEBUG
+                if (Debugger.IsAttached)
+                {
+                    Debug.WriteLine($"[{nameof(SqlBulkHelpers)}] Executing Materialized Data SQL Script:");
+                    Debug.WriteLine(materializedDataSqlScript);
+                }
+                #endif
+
+                if (commandTimeout.HasValue)
                     sqlCmd.CommandTimeout = commandTimeout.Value;
 
                 using (var sqlReader = await sqlCmd.ExecuteReaderAsync().ConfigureAwait(false))

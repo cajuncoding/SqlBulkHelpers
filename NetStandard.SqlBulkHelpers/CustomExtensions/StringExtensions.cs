@@ -6,6 +6,9 @@ namespace SqlBulkHelpers.CustomExtensions
 {
     internal static class StringExtensions
     {
+        public static string TruncateToLength(this string str, int length)
+            => str.Length > length ? str.Substring(0, length) : str;
+
         public static string ReplaceCaseInsensitive(this string str, string oldValue, string @newValue)
             => Replace(str, oldValue, @newValue, StringComparison.OrdinalIgnoreCase);
 
@@ -21,10 +24,8 @@ namespace SqlBulkHelpers.CustomExtensions
         /// <param name="comparisonType">One of the enumeration values that specifies the rules for the search.</param>
         /// <returns>A string that is equivalent to the current string except that all instances of <paramref name="oldValue"/> are replaced with <paramref name="newValue"/>. 
         /// If <paramref name="oldValue"/> is not found in the current instance, the method returns the current instance unchanged.</returns>
-        [DebuggerStepThrough]
         public static string Replace(this string str, string oldValue, string @newValue, StringComparison comparisonType)
         {
-
             // Check inputs...
             if (str == null)
                 // Same as original .NET C# string.Replace behavior.
@@ -58,7 +59,6 @@ namespace SqlBulkHelpers.CustomExtensions
                 // Process the replacement.
                 if (!isReplacementNullOrEmpty)
                     resultStringBuilder.Append(@newValue);
-
 
                 // Prepare start index for the next search; 
                 // This needed to prevent infinite loop, otherwise method always start search 

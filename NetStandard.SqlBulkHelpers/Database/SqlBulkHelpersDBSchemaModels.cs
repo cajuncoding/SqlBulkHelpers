@@ -123,33 +123,44 @@ namespace SqlBulkHelpers
     }
 
     [JsonConverter(typeof(JsonStringEnumConverter))]
-    public abstract class CommonConstraintDefinition
+    public abstract class CommonSourceDefinition
+    {
+        protected CommonSourceDefinition(
+            string sourceTableSchema,
+            string sourceTableName
+        )
+        {
+            SourceTableSchema = sourceTableSchema;
+            SourceTableName = sourceTableName;
+            SourceTableNameTerm = TableNameTerm.From(sourceTableSchema, sourceTableName);
+        }
+        public string SourceTableSchema { get; }
+        public string SourceTableName { get; }
+        public TableNameTerm SourceTableNameTerm { get; }
+    }
+
+
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public abstract class CommonConstraintDefinition : CommonSourceDefinition
     {
         protected CommonConstraintDefinition(
             string sourceTableSchema,
             string sourceTableName,
             string constraintName,
             KeyConstraintType constraintType
-        )
+        ) : base(sourceTableSchema, sourceTableName)
         {
-            SourceTableSchema = sourceTableSchema;
-            SourceTableName = sourceTableName;
             ConstraintName = constraintName;
             ConstraintType = constraintType;
-            SourceTableNameTerm = TableNameTerm.From(sourceTableSchema, sourceTableName);
         }
-        public string SourceTableSchema { get; }
-        public string SourceTableName { get; }
+
         public string ConstraintName { get; }
         public KeyConstraintType ConstraintType { get; }
-
         //NOTE: Source Table and Constraint Name are required since this is used as a Lookup Identifier for Referencing, and FKey constraints
         public override string ToString() => $"{SourceTableNameTerm} {ConstraintName}";
 
-        public TableNameTerm SourceTableNameTerm { get; }
-
-        public string MapConstraintNameToTarget(TableNameTerm targetTable)
-            => this.ConstraintName.ReplaceCaseInsensitive(this.SourceTableName, targetTable.TableName).QualifySqlTerm();
+        public string MapConstraintNameToTargetAndEnsureUniqueness(TableNameTerm targetTable)
+            => SqlSchemaUtils.MapNameToTargetAndEnsureUniqueness(ConstraintName, SourceTableNameTerm, targetTable);
     }
 
     [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -273,7 +284,7 @@ namespace SqlBulkHelpers
         public string CheckClause { get; }
     }
 
-    public class TableIndexDefinition
+    public class TableIndexDefinition : CommonSourceDefinition
     {
         public TableIndexDefinition(
             string sourceTableSchema, 
@@ -285,10 +296,8 @@ namespace SqlBulkHelpers
             string filterDefinition, 
             List<IndexKeyColumnDefinition> keyColumns, 
             List<IndexIncludeColumnDefinition> includeColumns
-        )
+        ) : base(sourceTableSchema, sourceTableName)
         {
-            SourceTableSchema = sourceTableSchema;
-            SourceTableName = sourceTableName;
             IndexId = indexId;
             IndexName = indexName;
             IsUnique = isUnique;
@@ -297,9 +306,6 @@ namespace SqlBulkHelpers
             KeyColumns = keyColumns;
             IncludeColumns = includeColumns;
         }
-
-        public string SourceTableSchema { get; }
-        public string SourceTableName { get; }
 
         public int IndexId { get; }
         public string IndexName { get; }
@@ -311,8 +317,8 @@ namespace SqlBulkHelpers
 
         public override string ToString() => IndexName;
 
-        public string MapIndexNameToTarget(TableNameTerm targetTable)
-            => this.IndexName.ReplaceCaseInsensitive(this.SourceTableName, targetTable.TableName).QualifySqlTerm();
+        public string MapIndexNameToTargetAndEnsureUniqueness(TableNameTerm targetTable)
+            => SqlSchemaUtils.MapNameToTargetAndEnsureUniqueness(IndexName, SourceTableNameTerm, targetTable);
     }
 
     public class IndexKeyColumnDefinition : KeyColumnDefinition
@@ -344,5 +350,29 @@ namespace SqlBulkHelpers
         public string ColumnName { get; }
 
         public override string ToString() => $"[{OrdinalPosition}] {ColumnName}";
+    }
+
+    internal static class SqlSchemaUtils
+    {
+        public static string MapNameToTargetAndEnsureUniqueness(string originalObjectName, TableNameTerm sourceTable, TableNameTerm targetTable)
+        {
+            //THis is the max length of SQL Object names (e.g. Indexes, Columns, etc.)
+            //More Info Here: https://stackoverflow.com/questions/5808332/sql-server-maximum-character-length-of-object-names
+            const int SQL_NAME_MAX_LENGTH = 128;
+
+            var mappedName = originalObjectName.ReplaceCaseInsensitive(sourceTable.TableName, targetTable.TableName);
+
+            //NOTE: We must ensure that the PKey Name does not exceed the max length and that it is also unique!
+            //      We need to handle cases where the original Table Name was not used in the Constraint Naming convention;
+            //      which is common with auto-generated constraints.
+            if (mappedName.Length >= SQL_NAME_MAX_LENGTH || mappedName.Equals(originalObjectName))
+            {
+                var uniqueIdSuffix = string.Concat("_", IdGenerator.NewId());
+                var truncatedMappedName = mappedName.TruncateToLength(SQL_NAME_MAX_LENGTH - uniqueIdSuffix.Length);
+                mappedName = string.Concat(truncatedMappedName, uniqueIdSuffix);
+            }
+
+            return mappedName.QualifySqlTerm();
+        }
     }
 }

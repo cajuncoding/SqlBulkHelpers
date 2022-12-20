@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using SqlBulkHelpers.Tests;
 using SqlBulkHelpers.MaterializedData;
 using Microsoft.Data.SqlClient;
