@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NetStandard.SqlBulkHelpers\NetStandard.SqlBulkHelpers.csproj" />
+    <ProjectReference Include="..\SqlBulkHelpers.SampleApp.Common\SqlBulkHelpers.SampleApp.Common.csproj" />
   </ItemGroup>  
 
   <ItemGroup>

@@ -1,31 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
+using SqlBulkHelpers.Tests;
 
 namespace SqlBulkHelpersSample.ConsoleApp
 {
     public static class SqlBulkHelpersSample
     {
         public static List<TestElement> CreateTestData(int dataSize)
-        {
-            var list = new List<TestElement>();
-            for (var x = 1; x <= dataSize; x++)
-            {
-                list.Add(new TestElement()
-                {
-                    Id = default,
-                    Key = $"TEST_CSHARP_{Guid.NewGuid()}_{x}",
-                    Value = $"VALUE_{x}"
-                });
-            }
+            => TestHelpers.CreateTestData(dataSize, "TEST_CSHARP_NetFramework");
 
-            return list;
-        }
-    }
-
-    public class TestElement
-    {
-        public int Id { get; set; }
-        public String Key { get; set; }
-        public String Value { get; set; }
+        public static List<ChildTestElement> CreateChildTestData(List<TestElement> testData)
+            => TestHelpers.CreateChildTestData(testData);
     }
 }

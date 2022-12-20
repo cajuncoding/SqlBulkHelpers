@@ -33,8 +33,12 @@
 		- Added more Integration Tests for Constructors and Connections, as well as the new DB Schema Loader caching implementation.
 		- Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances that automtically load the connection string from the application configuration setting.
 	</PackageReleaseNotes>
-    <Version>1.4</Version>
+    <Version>2.0-beta1</Version>
   </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Database\SqlQueries\QueryDBTableSchemaJson.sql" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Include="..\LICENSE" Link="LICENSE" />
@@ -42,8 +46,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="LazyCacheHelpers" Version="1.2.0" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.0.0" />
+    <PackageReference Include="FastMember" Version="1.5.0" />
+    <PackageReference Include="LazyCacheHelpers" Version="1.3.2" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.0.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
   </ItemGroup>
 
