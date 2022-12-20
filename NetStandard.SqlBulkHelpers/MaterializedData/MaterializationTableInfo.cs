@@ -2,7 +2,7 @@
 
 namespace SqlBulkHelpers.MaterializedData
 {
-    public struct MaterializationTableInfo
+    public class MaterializationTableInfo
     {
         public TableNameTerm LiveTable { get; }
 

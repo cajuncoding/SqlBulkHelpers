@@ -53,78 +53,83 @@ namespace SqlBulkHelpers.IntegrationTests
                 TestContext.WriteLine($"Second Connection & Transaction started in [{timer.ElapsedMilliseconds}] millis...");
                 timer.Restart();
 
-                await using (var materializeDataContext = await sqlTrans.MaterializeDataIntoAsync(
+                //******************************************************************************************
+                //START the Materialize Data Process...
+                //******************************************************************************************
+                var materializeDataContext = await sqlTrans.StartMaterializeDataProcessAsync(
                     TestHelpers.TestTableNameFullyQualified,
                     TestHelpers.TestChildTableNameFullyQualified
-                ).ConfigureAwait(false))
+                ).ConfigureAwait(false);
+
+                TestContext.WriteLine($"MaterializedData Context Created in [{timer.ElapsedMilliseconds}] millis...");
+                timer.Restart();
+
+                //Test with Table name being provided...
+                var parentMaterializationInfo = materializeDataContext[TestHelpers.TestTableNameFullyQualified];
+                var parentTestData = TestHelpers.CreateTestData(1500);
+                var parentResults = (await sqlTrans.BulkInsertAsync(parentTestData, tableName: parentMaterializationInfo.LoadingTable).ConfigureAwait(false)).ToList();
+
+                TestContext.WriteLine($"Parent Data Created [{parentTestData.Count}] items in [{timer.ElapsedMilliseconds}] millis...");
+                timer.Restart();
+
+                //Test Child Data with Table name being derived from Model Annotation...
+                var childMaterializationInfo = materializeDataContext[TestHelpers.TestChildTableNameFullyQualified];
+                var childTestData = TestHelpers.CreateChildTestData(parentResults);
+                var childResults = await sqlTrans.BulkInsertOrUpdateAsync(childTestData, tableName: childMaterializationInfo.LoadingTable).ConfigureAwait(false);
+
+                TestContext.WriteLine($"Child/Related Data Created [{childTestData.Count}] items in [{timer.ElapsedMilliseconds}] millis...");
+                timer.Restart();
+
+                //******************************************************************************************
+                //FINISH the Materialize Data Process...
+                //******************************************************************************************
+                await materializeDataContext.FinishMaterializeDataProcessAsync().ConfigureAwait(false);
+
+                TestContext.WriteLine($"Materialization Process Completed/Finished in [{timer.ElapsedMilliseconds}] millis...");
+                timer.Restart();
+
+                await sqlTrans.CommitAsync().ConfigureAwait(false);
+
+                TestContext.WriteLine($"Transaction Committed in [{timer.ElapsedMilliseconds}] millis...");
+                timer.Restart();
+
+                //We Sort the Results by Identity Id to ensure that the inserts occurred in the correct
+                //  ordinal order matching our Array of original values, but now with incrementing ID values!
+                //This validates that data is inserted as expected for Identity columns and is validated
+                //  correctly by sorting on the Incrementing Identity value when Queried (e.g. ORDER BY Id)
+                //  which must then match our original order of data.
+                var resultsSorted = parentResults.OrderBy(r => r.Id).ToList();
+                Assert.AreEqual(resultsSorted.Count(), parentTestData.Count);
+
+                var i = 0;
+                foreach (var result in resultsSorted)
                 {
-                    TestContext.WriteLine($"MaterializedData Context Created in [{timer.ElapsedMilliseconds}] millis...");
-                    timer.Restart();
-
-                    //Test with Table name being provided...
-                    var parentMaterializationInfo = materializeDataContext[TestHelpers.TestTableNameFullyQualified];
-                    var parentTestData = TestHelpers.CreateTestData(1500);
-                    var parentResults = (await sqlTrans.BulkInsertAsync(parentTestData, tableName: parentMaterializationInfo.LoadingTable).ConfigureAwait(false)).ToList();
-
-                    TestContext.WriteLine($"Parent Data Created [{parentTestData.Count}] items in [{timer.ElapsedMilliseconds}] millis...");
-                    timer.Restart();
-
-                    //Test Child Data with Table name being derived from Model Annotation...
-                    var childMaterializationInfo = materializeDataContext[TestHelpers.TestChildTableNameFullyQualified];
-                    var childTestData = TestHelpers.CreateChildTestData(parentResults);
-                    var childResults = await sqlTrans.BulkInsertOrUpdateAsync(childTestData, tableName: childMaterializationInfo.LoadingTable).ConfigureAwait(false);
-
-                    TestContext.WriteLine($"Child/Related Data Created [{childTestData.Count}] items in [{timer.ElapsedMilliseconds}] millis...");
-                    timer.Restart();
-
-                    await materializeDataContext.FinishMaterializationProcessAsync().ConfigureAwait(false);
-
-                    TestContext.WriteLine($"Materialization Process Completed/Finished in [{timer.ElapsedMilliseconds}] millis...");
-                    timer.Restart();
-
-                    await sqlTrans.CommitAsync().ConfigureAwait(false);
-
-                    TestContext.WriteLine($"Transaction Committed in [{timer.ElapsedMilliseconds}] millis...");
-                    timer.Restart();
-
-                    //We Sort the Results by Identity Id to ensure that the inserts occurred in the correct
-                    //  ordinal order matching our Array of original values, but now with incrementing ID values!
-                    //This validates that data is inserted as expected for Identity columns and is validated
-                    //  correctly by sorting on the Incrementing Identity value when Queried (e.g. ORDER BY Id)
-                    //  which must then match our original order of data.
-                    var resultsSorted = parentResults.OrderBy(r => r.Id).ToList();
-                    Assert.AreEqual(resultsSorted.Count(), parentTestData.Count);
-
-                    var i = 0;
-                    foreach (var result in resultsSorted)
-                    {
-                        Assert.IsNotNull(result);
-                        Assert.IsTrue(result.Id > 0);
-                        Assert.AreEqual(parentTestData[i].Key, result.Key);
-                        Assert.AreEqual(parentTestData[i].Value, result.Value);
-                        i++;
-                    }
-
-                    var parentTestDataLookupById = parentResults.ToLookup(r => r.Id);
-
-                    //The Bulk Merge Process should automatically be handling the Sorting for us so this ordinal testing should always work...
-                    var c = 0;
-                    foreach (var childResult in childResults)
-                    {
-                        Assert.IsNotNull(childResult);
-                        Assert.IsTrue(childResult.ParentId > 0);
-                        Assert.IsNotNull(parentTestDataLookupById[childResult.ParentId].FirstOrDefault());
-                        Assert.AreEqual(childTestData[c].ChildKey, childResult.ChildKey);
-                        Assert.AreEqual(childTestData[c].ChildValue, childResult.ChildValue);
-                        c++;
-                    }
-
-                    //Finally validate the actual Table Counts in the database as a double check!
-                    var parentTableCount = await sqlConn.CountAllAsync(tableName: parentMaterializationInfo.LiveTable);
-                    Assert.AreEqual(parentTestData.Count, parentTableCount);
-                    var childTableCount = await sqlConn.CountAllAsync(tableName: childMaterializationInfo.LiveTable);
-                    Assert.AreEqual(childTestData.Count, childTableCount);
+                    Assert.IsNotNull(result);
+                    Assert.IsTrue(result.Id > 0);
+                    Assert.AreEqual(parentTestData[i].Key, result.Key);
+                    Assert.AreEqual(parentTestData[i].Value, result.Value);
+                    i++;
                 }
+
+                var parentTestDataLookupById = parentResults.ToLookup(r => r.Id);
+
+                //The Bulk Merge Process should automatically be handling the Sorting for us so this ordinal testing should always work...
+                var c = 0;
+                foreach (var childResult in childResults)
+                {
+                    Assert.IsNotNull(childResult);
+                    Assert.IsTrue(childResult.ParentId > 0);
+                    Assert.IsNotNull(parentTestDataLookupById[childResult.ParentId].FirstOrDefault());
+                    Assert.AreEqual(childTestData[c].ChildKey, childResult.ChildKey);
+                    Assert.AreEqual(childTestData[c].ChildValue, childResult.ChildValue);
+                    c++;
+                }
+
+                //Finally validate the actual Table Counts in the database as a double check!
+                var parentTableCount = await sqlConn.CountAllAsync(tableName: parentMaterializationInfo.LiveTable);
+                Assert.AreEqual(parentTestData.Count, parentTableCount);
+                var childTableCount = await sqlConn.CountAllAsync(tableName: childMaterializationInfo.LiveTable);
+                Assert.AreEqual(childTestData.Count, childTableCount);
             }
 
             TestContext.WriteLine($"{Environment.NewLine}Total Execution time was [{totalTimer.Elapsed.TotalSeconds}] seconds...");
@@ -159,6 +164,7 @@ namespace SqlBulkHelpers.IntegrationTests
             catch (Exception exc)
             {
                 sqlException = exc;
+                TestContext.WriteLine(exc.Message);
             }
 
             //ASSERT Results are Valid...
@@ -172,11 +178,23 @@ namespace SqlBulkHelpers.IntegrationTests
             //NOW Materialize Data into the Tables!
             await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
             await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
-            await using (var materializeDataContext = await sqlTrans.MaterializeDataIntoAsync(
-                             TestHelpers.TestTableNameFullyQualified,
-                             TestHelpers.TestChildTableNameFullyQualified
-                         ).ConfigureAwait(false))
             {
+                ////Must clear all Data and Related Data to maintain Data Integrity...
+                ////NOTE: If we don't clear the related table then the FKey Constraint Check on the Related data (Child table) will FAIL!
+                //await sqlTrans.ClearTablesAsync(new[]
+                //{
+                //    TestHelpers.TestChildTableNameFullyQualified,
+                //    TestHelpers.TestTableNameFullyQualified
+                //}, forceOverrideOfConstraints: true).ConfigureAwait(false);
+
+                //******************************************************************************************
+                //START the Materialize Data Process...
+                //******************************************************************************************
+                var materializeDataContext = await sqlTrans.StartMaterializeDataProcessAsync(
+                    TestHelpers.TestTableNameFullyQualified,
+                    TestHelpers.TestChildTableNameFullyQualified
+                ).ConfigureAwait(false);
+
                 //Test with Table name being provided...
                 var parentMaterializationInfo = materializeDataContext[TestHelpers.TestTableName];
                 var parentTestData = TestHelpers.CreateTestData(100);
@@ -185,7 +203,7 @@ namespace SqlBulkHelpers.IntegrationTests
                 //***********************************************************************
                 //Now Clear the Parent Table to FORCE INVALID FKey STATE!!!
                 //***********************************************************************
-                await sqlTrans.ClearTableAsync(parentMaterializationInfo.LoadingTable);
+                await sqlTrans.ClearTableAsync(parentMaterializationInfo.LoadingTable).ConfigureAwait(false);
 
                 //Test Child Data with Table name being derived from Model Annotation...
                 var childMaterializationInfo = materializeDataContext[TestHelpers.TestChildTableNameFullyQualified];
@@ -196,7 +214,10 @@ namespace SqlBulkHelpers.IntegrationTests
                 //  This can easily leave our data in an invalid state leaving the implementor responsible for ensuring Data Integrity of all tables being Materialized!
                 materializeDataContext.EnableDataConstraintChecksOnCompletion = validationEnabled;
 
-                await materializeDataContext.FinishMaterializationProcessAsync().ConfigureAwait(false);
+                //******************************************************************************************
+                //FINISH the Materialize Data Process...
+                //******************************************************************************************
+                await materializeDataContext.FinishMaterializeDataProcessAsync().ConfigureAwait(false);
                 await sqlTrans.CommitAsync().ConfigureAwait(false);
             }
         }

@@ -204,11 +204,10 @@ namespace SqlBulkHelpers
 
             //***STEP #2: Build all of the Sql Scripts needed to Process the entities based on the specified Table definition.
             var sqlScripts = this.BuildSqlMergeScriptsInternal(
-                tableDefinition, 
+                tableDefinition,
+                processingDefinition,
                 mergeAction,
-                //NOTE: We use the parameter argument for Match Qualifier if specified, otherwise we fall-back to to use what may
-                //      have been configured on the Entity model via SqlMatchQualifier property attributes.
-                matchQualifierExpressionParam ?? processingDefinition.MergeMatchQualifierExpressionFromEntityModel
+                matchQualifierExpressionParam
             );
 
             //***STEP #3: Dynamically Initialize the Bulk Copy Helper using our Table data and table Definition!

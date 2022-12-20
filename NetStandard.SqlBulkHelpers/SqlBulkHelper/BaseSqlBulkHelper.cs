@@ -47,14 +47,16 @@ namespace SqlBulkHelpers
         }
 
         protected virtual SqlMergeScriptResults BuildSqlMergeScriptsInternal(
-            SqlBulkHelpersTableDefinition tableDefinition, 
+            SqlBulkHelpersTableDefinition tableDefinition,
+            SqlBulkHelpersProcessingDefinition processingDefinition,
             SqlBulkHelpersMergeAction mergeAction,
             SqlMergeMatchQualifierExpression matchQualifierExpression
         )
         {
             var mergeScriptBuilder = new SqlBulkHelpersMergeScriptBuilder();
             var sqlMergeScripts = mergeScriptBuilder.BuildSqlMergeScripts(
-                tableDefinition, 
+                tableDefinition,
+                processingDefinition,
                 mergeAction, 
                 matchQualifierExpression
             );

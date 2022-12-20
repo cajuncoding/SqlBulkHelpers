@@ -1,6 +1,5 @@
 ﻿using SqlBulkHelpers.Tests;
 using Microsoft.Data.SqlClient;
-using SqlBulkHelpers.SqlBulkHelpers;
 
 namespace SqlBulkHelpers.IntegrationTests
 {
@@ -71,6 +70,14 @@ namespace SqlBulkHelpers.IntegrationTests
         protected async Task DoInsertOrUpdateTestAsync(ISqlBulkHelper<TestElement> sqlBulkIdentityHelper, SqlTransaction sqlTrans)
         {
             List<TestElement> testData = TestHelpers.CreateTestData(10);
+
+            ////Must clear all Data and Related Data to maintain Data Integrity...
+            ////NOTE: If we don't clear the related table then the FKey Constraint Check on the Related data (Child table) will FAIL!
+            //await sqlTrans.ClearTablesAsync(new[]
+            //{
+            //    TestHelpers.TestChildTableNameFullyQualified,
+            //    TestHelpers.TestTableNameFullyQualified
+            //}, forceOverrideOfConstraints: true).ConfigureAwait(false);
 
             var results = (await sqlTrans.BulkInsertOrUpdateAsync(
                 testData,

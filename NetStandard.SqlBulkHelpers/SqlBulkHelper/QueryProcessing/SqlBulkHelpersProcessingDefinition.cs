@@ -34,6 +34,9 @@ namespace SqlBulkHelpers
     public class SqlBulkHelpersProcessingDefinition
     {
         private static readonly LazyStaticInMemoryCache<string, SqlBulkHelpersProcessingDefinition> _processingDefinitionsLazyCache = new LazyStaticInMemoryCache<string, SqlBulkHelpersProcessingDefinition>();
+        
+        protected ILookup<string, PropInfoDefinition> PropInfoLookupByPropNameCaseInsensitive { get; }
+
         public static readonly Type SkipMappingLookupType = typeof(ISkipMappingLookup);
 
         public static SqlBulkHelpersProcessingDefinition GetProcessingDefinition<T>(TableColumnDefinition identityColumnDefinition = null)
@@ -64,11 +67,12 @@ namespace SqlBulkHelpers
             MappedDbTableName = GetMappedDbTableName(entityType);
             IdentityPropDefinition = propertyDefinitions.FirstOrDefault(p => p.IsIdentityProperty);
 
+            //Initialize Lookups for high performance processing since this will be cached and only initialized once...
+            PropInfoLookupByPropNameCaseInsensitive = PropertyDefinitions.ToLookup(pi => pi.PropertyName, StringComparer.OrdinalIgnoreCase);
+
             if (entityType.FindAttributes(nameof(SqlBulkTableAttribute)).FirstOrDefault() is SqlBulkTableAttribute tableMappingAttr)
-            {
                 //NOTES: Defaults to true but can be overriden by the configuration on the Table attribute.
                 UniqueMatchMergeValidationEnabled = tableMappingAttr.UniqueMatchMergeValidationEnabled;
-            }
 
             //If any Match Qualifier Fields are noted (by Attributes annotations we load them into the Match Qualifier expression...
             var matchQualifierMappedDbColumnNames = propertyDefinitions
@@ -100,7 +104,14 @@ namespace SqlBulkHelpers
         public SqlMergeMatchQualifierExpression MergeMatchQualifierExpressionFromEntityModel { get; protected set; }
 
         public bool UniqueMatchMergeValidationEnabled { get; protected set; } = true;
-        
+
+        public PropInfoDefinition this[string propName] => FindPropDefinitionByNameCaseInsensitive(propName);
+
+        public PropInfoDefinition this[int index] => PropertyDefinitions[index];
+
+        public PropInfoDefinition FindPropDefinitionByNameCaseInsensitive(string propertyName) 
+            => PropInfoLookupByPropNameCaseInsensitive[propertyName].FirstOrDefault();
+
         protected string GetMappedDbTableName(Type entityType)
         {
             var mappingAttribute = entityType.FindAttributes(

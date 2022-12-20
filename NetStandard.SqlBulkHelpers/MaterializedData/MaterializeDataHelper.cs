@@ -172,13 +172,13 @@ namespace SqlBulkHelpers.MaterializedData
                 if (sourceTableSchemaDefinition == null)
                     throw new ArgumentException($"Could not resolve the source table schema for {sourceTable.FullyQualifiedTableName} on the provided connection.");
 
-                //TODO: Implement Support to copy Table Data...
                 cloneTableStructureSqlScriptBuilder.CloneTableWithAllElements(
                     sourceTableSchemaDefinition,
                     targetTable,
                     recreateIfExists ? IfExists.Recreate : IfExists.StopProcessingWithException,
                     cloneIdentitySeedValue: BulkHelpersConfig.IsCloningIdentitySeedValueEnabled,
-                    includeFKeyConstraints: includeFKeyConstraints
+                    includeFKeyConstraints: includeFKeyConstraints,
+                    copyDataFromSource: copyDataFromSource
                 );
 
                 ////TODO: Might (potentially if it doesn't impede performance too much) implement support for re-mapping FKey constraints to Materialization Context tables so data integrity issues will be caught sooner

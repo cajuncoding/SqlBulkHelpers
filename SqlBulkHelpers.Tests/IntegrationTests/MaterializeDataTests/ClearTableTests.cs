@@ -131,13 +131,11 @@ namespace SqlBulkHelpers.IntegrationTests
                 Assert.IsTrue(initialChildCount > 0);
 
                 //NOW we can now test Truncation with support for overriding the constraints...
-                var tableResults = await sqlTrans.ClearTablesAsync(
-            new string[] {
-                        childTableNameTerm, 
-                        parentTableNameTerm
-                    }, 
-                    forceOverrideOfConstraints: true
-                );
+                var tableResults = await sqlTrans.ClearTablesAsync(new string[] 
+                {
+                    childTableNameTerm, 
+                    parentTableNameTerm
+                }, forceOverrideOfConstraints: true).ConfigureAwait(false);
 
                 Assert.IsNotNull(tableResults);
                 Assert.AreEqual(2, tableResults.Length);

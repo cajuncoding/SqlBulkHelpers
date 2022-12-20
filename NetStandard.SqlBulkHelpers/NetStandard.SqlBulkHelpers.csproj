@@ -33,7 +33,7 @@
 		- Added more Integration Tests for Constructors and Connections, as well as the new DB Schema Loader caching implementation.
 		- Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances that automtically load the connection string from the application configuration setting.
 	</PackageReleaseNotes>
-    <Version>1.4</Version>
+    <Version>2.0-beta1</Version>
   </PropertyGroup>
 
   <ItemGroup>

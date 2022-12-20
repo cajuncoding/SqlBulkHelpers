@@ -2,6 +2,7 @@
 using SqlBulkHelpers.Tests;
 using SqlBulkHelpers.MaterializedData;
 using Microsoft.Data.SqlClient;
+using RepoDb;
 using SqlBulkHelpers.SqlBulkHelpers;
 
 namespace SqlBulkHelpers.IntegrationTests
@@ -41,12 +42,12 @@ namespace SqlBulkHelpers.IntegrationTests
                 Assert.AreEqual(sourceTableSchema.ColumnCheckConstraints.Count, clonedTableSchema.ColumnCheckConstraints.Count);
                 Assert.AreEqual(sourceTableSchema.IdentityColumn.ColumnName, clonedTableSchema.IdentityColumn.ColumnName);
                 Assert.AreEqual(
-                    sourceTableSchema.PrimaryKeyConstraint.KeyColumns.OrderBy(k => k.OrdinalPosition).Select(k => k.ColumnName).ToCSV(),
-                    clonedTableSchema.PrimaryKeyConstraint.KeyColumns.OrderBy(k => k.OrdinalPosition).Select(k => k.ColumnName).ToCSV()
+                    sourceTableSchema.PrimaryKeyConstraint.KeyColumns.OrderBy(k => k.OrdinalPosition).Select(k => k.ColumnName).ToCsv(),
+                    clonedTableSchema.PrimaryKeyConstraint.KeyColumns.OrderBy(k => k.OrdinalPosition).Select(k => k.ColumnName).ToCsv()
                 );
                 Assert.AreEqual(
-                    sourceTableSchema.TableColumns.OrderBy(k => k.OrdinalPosition).Select(k => k.ColumnName).ToCSV(),
-                    clonedTableSchema.TableColumns.OrderBy(k => k.OrdinalPosition).Select(k => k.ColumnName).ToCSV()
+                    sourceTableSchema.TableColumns.OrderBy(k => k.OrdinalPosition).Select(k => k.ColumnName).ToCsv(),
+                    clonedTableSchema.TableColumns.OrderBy(k => k.OrdinalPosition).Select(k => k.ColumnName).ToCsv()
                 );
             }
         }
@@ -67,7 +68,8 @@ namespace SqlBulkHelpers.IntegrationTests
             {
                 var cloneInfo = await sqlTrans.CloneTableAsync(
                     sourceTableName: TestHelpers.TestTableNameFullyQualified, 
-                    targetTableName: targetTableNameTerm
+                    targetTableName: targetTableNameTerm, 
+                    recreateIfExists: true
                 ).ConfigureAwait(false);
 
                 await sqlTrans.CommitAsync().ConfigureAwait(false);
@@ -80,6 +82,44 @@ namespace SqlBulkHelpers.IntegrationTests
                 Assert.AreNotEqual(cloneInfo.SourceTable.FullyQualifiedTableName, cloneInfo.TargetTable.FullyQualifiedTableName);
                 Assert.AreEqual(targetTableNameTerm, cloneInfo.TargetTable.FullyQualifiedTableName);
                 Assert.AreNotEqual(cloneInfo.SourceTable.SchemaName, cloneInfo.TargetTable.SchemaName);
+
+                //Validate that the new table has No Data!
+                var targetTableCount = await sqlConn.CountAllAsync(tableName: cloneInfo.TargetTable).ConfigureAwait(false);
+                Assert.AreEqual(0, targetTableCount);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestCloneTableStructureWithCopiedDataAsync()
+        {
+            var sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
+            const string CUSTOM_TARGET_SCHEMA = "materialized_data";
+
+            //We can construct this multiple ways, so here we test the Parse and Switch Schema methods...
+            var targetTableNameTerm = TestHelpers.TestTableNameFullyQualified
+                .ParseAsTableNameTerm()
+                .SwitchSchema(CUSTOM_TARGET_SCHEMA);
+
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+            {
+                var cloneInfo = await sqlTrans.CloneTableAsync(
+                    sourceTableName: TestHelpers.TestTableNameFullyQualified,
+                    targetTableName: targetTableNameTerm,
+                    recreateIfExists: true,
+                    copyDataFromSource: true
+                ).ConfigureAwait(false);
+
+                await sqlTrans.CommitAsync().ConfigureAwait(false);
+                //await sqlTrans.RollbackAsync().ConfigureAwait(false);
+
+                //Validate that the new table has No Data!
+                Assert.IsNotNull(cloneInfo);
+                var sourceTableCount = await sqlConn.CountAllAsync(tableName: cloneInfo.SourceTable).ConfigureAwait(false);
+                var targetTableCount = await sqlConn.CountAllAsync(tableName: cloneInfo.TargetTable).ConfigureAwait(false);
+
+                //Ensure both Source & Target contain the same number of records!
+                Assert.AreEqual(sourceTableCount, targetTableCount);
             }
         }
 

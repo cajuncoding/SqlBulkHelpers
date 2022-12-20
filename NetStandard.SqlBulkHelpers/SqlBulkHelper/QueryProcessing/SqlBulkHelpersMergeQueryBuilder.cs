@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace SqlBulkHelpers
@@ -6,9 +7,10 @@ namespace SqlBulkHelpers
     public class SqlBulkHelpersMergeScriptBuilder
     {
         public virtual SqlMergeScriptResults BuildSqlMergeScripts(
-            SqlBulkHelpersTableDefinition tableDefinition, 
+            SqlBulkHelpersTableDefinition tableDefinition,
+            SqlBulkHelpersProcessingDefinition processingDefinition,
             SqlBulkHelpersMergeAction mergeAction, 
-            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+            SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null
         )
         {
             tableDefinition.AssertArgumentIsNotNull(nameof(tableDefinition));
@@ -22,11 +24,30 @@ namespace SqlBulkHelpers
             //Validate the MatchQualifiers that may be specified, and limit to ONLY valid fields of the Table Definition...
             //NOTE: We use the parameter argument for Match Qualifier if specified, otherwise we fall-back to to use the Identity Column.
             SqlMergeMatchQualifierExpression sanitizedQualifierExpression = null;
+            //NOTE: We use the parameter argument for Match Qualifier if specified, otherwise we fall-back to to use what may
+            //      have been configured on the Entity model via SqlMatchQualifier property attributes.
+            var matchQualifierExpression = matchQualifierExpressionParam ?? processingDefinition.MergeMatchQualifierExpressionFromEntityModel;
             if (matchQualifierExpression != null)
             {
-                var sanitizedQualifierFields = matchQualifierExpression.MatchQualifierFields
-                    .Where(q => tableDefinition.FindColumnCaseInsensitive(q.SanitizedName) != null)
-                    .ToList();
+                //Get Sanitized mapped names for Fields Specified as follows:
+                //1) If it's already an exact Table Match then we use it...
+                //2) If not then, when Mapping Lookups are enabled, we look to the Class/Model Processing Definition to determine if it's a valid
+                //      property with Mapped Database name that we should use instead...
+                //3) Finally, Mapped Fields are STILL checked to ensure they actually exist as valid Table Columns, otherwise they are excluded!
+                var sanitizedQualifierFields = new List<SqlMatchQualifierField>();
+                foreach (var qualifierField in matchQualifierExpression.MatchQualifierFields)
+                {
+                    if (tableDefinition.FindColumnCaseInsensitive(qualifierField.SanitizedName) != null)
+                    {
+                        sanitizedQualifierFields.Add(qualifierField);
+                    }
+                    else if (processingDefinition.IsMappingLookupEnabled)
+                    {
+                        var propDef = processingDefinition.FindPropDefinitionByNameCaseInsensitive(qualifierField.SanitizedName);
+                        if(propDef != null && tableDefinition.FindColumnCaseInsensitive(propDef.MappedDbColumnName) != null)
+                            sanitizedQualifierFields.Add(new SqlMatchQualifierField(propDef.MappedDbColumnName));
+                    }
+                }
 
                 //If we have valid Fields, then we must re-initialize a valid Qualifier Expression parameter with ONLY the valid fields...
                 sanitizedQualifierExpression = new SqlMergeMatchQualifierExpression(sanitizedQualifierFields)
@@ -60,7 +81,7 @@ namespace SqlBulkHelpers
                 );
 
             var columnNamesListWithoutIdentity = tableDefinition.GetColumnNames(false);
-            var columnNamesWithoutIdentityCSV = columnNamesListWithoutIdentity.Select(c => c.QualifySqlTerm()).ToCSV();
+            var columnNamesWithoutIdentityCSV = columnNamesListWithoutIdentity.Select(c => c.QualifySqlTerm()).ToCsv();
 
             //Dynamically build the Merge Match Qualifier Fields Expression
             //NOTE: This is an optional parameter when an Identity Column exists as it is initialized to the IdentityColumn as a Default (Validated above!)
@@ -137,7 +158,7 @@ namespace SqlBulkHelpers
                 mergeInsertSql = $@"
                     WHEN NOT MATCHED BY TARGET THEN
                         INSERT ({columnNamesWithoutIdentityCSV}) 
-                        VALUES ({columnNamesListWithoutIdentity.Select(c => $"source.[{c}]").ToCSV()})
+                        VALUES ({columnNamesListWithoutIdentity.Select(c => $"source.[{c}]").ToCsv()})
                 ";
             }
 
@@ -146,7 +167,7 @@ namespace SqlBulkHelpers
             {
                 mergeUpdateSql = $@"
                     WHEN MATCHED THEN
-                        UPDATE SET {columnNamesListWithoutIdentity.Select(c => $"target.[{c}] = source.[{c}]").ToCSV()}
+                        UPDATE SET {columnNamesListWithoutIdentity.Select(c => $"target.[{c}] = source.[{c}]").ToCsv()}
                 ";
             }
 

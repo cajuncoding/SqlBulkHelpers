@@ -1,6 +1,7 @@
 ﻿using System;
 using SqlBulkHelpers.Tests;
 using Microsoft.Data.SqlClient;
+using SqlBulkHelpers.MaterializedData;
 using SqlBulkHelpers.SqlBulkHelpers;
 
 namespace SqlBulkHelpers.IntegrationTests
@@ -17,6 +18,14 @@ namespace SqlBulkHelpers.IntegrationTests
             await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
             await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
             {
+                ////Must clear all Data and Related Data to maintain Data Integrity...
+                ////NOTE: If we don't clear the related table then the FKey Constraint Check on the Related data (Child table) will FAIL!
+                //await sqlTrans.ClearTablesAsync(new[]
+                //{
+                //    TestHelpers.TestChildTableNameFullyQualified,
+                //    TestHelpers.TestTableNameFullyQualified
+                //}, forceOverrideOfConstraints: true).ConfigureAwait(false);
+
                 //Test with Table name being provided...
                 var testData = TestHelpers.CreateTestData(10);
                 var results = (await sqlTrans.BulkInsertAsync(testData, tableName: TestHelpers.TestTableName).ConfigureAwait(false)).ToList();
@@ -74,6 +83,14 @@ namespace SqlBulkHelpers.IntegrationTests
             await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
             await using (SqlTransaction sqlTrans = sqlConn.BeginTransaction())
             {
+                ////Must clear all Data and Related Data to maintain Data Integrity...
+                ////NOTE: If we don't clear the related table then the FKey Constraint Check on the Related data (Child table) will FAIL!
+                //await sqlTrans.ClearTablesAsync(new[]
+                //{
+                //    TestHelpers.TestChildTableNameFullyQualified,
+                //    TestHelpers.TestTableNameFullyQualified
+                //}, forceOverrideOfConstraints: true).ConfigureAwait(false);
+
                 var testData = TestHelpers.CreateTestDataWithIdentitySetter(10);
                 var results = (await sqlTrans.BulkInsertAsync(testData, TestHelpers.TestTableName)).ToList();
 
@@ -132,6 +149,17 @@ namespace SqlBulkHelpers.IntegrationTests
             await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
             await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
             {
+                //Must clear all Data and Related Data to maintain Data Integrity...
+                //NOTE: If we don't clear the related table then the FKey Constraint Check on the Related data (Child table) will FAIL!
+                await sqlTrans.ClearTablesAsync(
+                    tableNames: new [] 
+                    { 
+                        TestHelpers.TestChildTableNameFullyQualified,
+                        TestHelpers.TestTableNameFullyQualified
+                    }, 
+                    forceOverrideOfConstraints: true
+                ).ConfigureAwait(false);
+
                 //Test with Table name being provided...
                 var results = (await sqlTrans.BulkInsertAsync(initialTestData, tableName: TestHelpers.TestTableName).ConfigureAwait(false)).ToList();
                 await sqlTrans.CommitAsync().ConfigureAwait(false);

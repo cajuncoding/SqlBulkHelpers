@@ -71,14 +71,18 @@ namespace SqlBulkHelpers.MaterializedData
             TableNameTerm targetTable, 
             IfExists ifExists = IfExists.Recreate, 
             bool cloneIdentitySeedValue = true, 
-            bool includeFKeyConstraints = true
+            bool includeFKeyConstraints = true,
+            bool copyDataFromSource = false
         )
         {
             sourceTableDefinition.AssertArgumentIsNotNull(nameof(sourceTableDefinition));
             targetTable.AssertArgumentIsNotNull(nameof(targetTable));
 
             CloneTableWithColumnsOnly(sourceTableDefinition.TableNameTerm, targetTable, ifExists);
-            
+
+            if (copyDataFromSource)
+                CopyTableData(sourceTableDefinition, targetTable);
+
             //GET the Seed Value immediately, since there is a small chance of it changing...
             if (cloneIdentitySeedValue && sourceTableDefinition.IdentityColumn != null)
                 SyncIdentitySeedValue(sourceTableDefinition.TableNameTerm, targetTable);
@@ -91,6 +95,57 @@ namespace SqlBulkHelpers.MaterializedData
             if (includeFKeyConstraints)
                 AddForeignKeyConstraints(targetTable, sourceTableDefinition.ForeignKeyConstraints.AsArray());
 
+            return this;
+        }
+
+        public MaterializedDataScriptBuilder CopyTableData(SqlBulkHelpersTableDefinition sourceTableDefinition, TableNameTerm targetTable)
+        {
+            sourceTableDefinition.AssertArgumentIsNotNull(nameof(sourceTableDefinition));
+            targetTable.AssertArgumentIsNotNull(nameof(targetTable));
+
+            bool hasIdentityColumn = sourceTableDefinition.IdentityColumn != null;
+
+            //In this overload we handle the Source Table Definition and can dynamically determine if there is An Identity column we handle by enabling insertion for them...
+            if (hasIdentityColumn)
+            {
+                ScriptBuilder.Append($@"
+                    --The Table {sourceTableDefinition.TableFullyQualifiedName} has an Identity Column {sourceTableDefinition.IdentityColumn.ColumnName.QualifySqlTerm()} so we must allow Insertion of IDENTITY values to copy raw table data...
+                    SET IDENTITY_INSERT {targetTable.FullyQualifiedTableName} ON;
+                ");
+            }
+
+            //Now we can Copy data between the two tables...
+            CopyTableData(sourceTableDefinition.TableNameTerm, targetTable, sourceTableDefinition.TableColumns.AsArray());
+
+            //In this overload we handle the Source Table Definition and can dynamically determine if there is An Identity column we handle by enabling insertion for them...
+            if (hasIdentityColumn)
+            {
+                ScriptBuilder.Append($@"
+	                --We now disable IDENTITY Inserts once all data is copied into {targetTable}...
+                    SET IDENTITY_INSERT {targetTable.FullyQualifiedTableName} OFF;
+                ");
+            }
+
+            return this;
+        }
+
+        public MaterializedDataScriptBuilder CopyTableData(TableNameTerm sourceTable, TableNameTerm targetTable, params TableColumnDefinition[] columnDefs)
+        {
+            sourceTable.AssertArgumentIsNotNull(nameof(sourceTable));
+            targetTable.AssertArgumentIsNotNull(nameof(targetTable));
+            columnDefs.AssertArgumentIsNotNull(nameof(targetTable));
+
+            if (!columnDefs.HasAny())
+                throw new ArgumentException($"At least one valid column definition must be specified to denote what data to copy between tables.");
+
+            var columnNamesCsv = columnDefs.Select(c => c.ColumnName.QualifySqlTerm()).ToCsv();
+
+            ScriptBuilder.Append($@"
+	            --Syncs the Identity Seed value of the Target Table with the current value of the Source Table (captured into Variable at top of script)
+                INSERT INTO {targetTable.FullyQualifiedTableName} ({columnNamesCsv})
+                    SELECT {columnNamesCsv}
+                    FROM {sourceTable.FullyQualifiedTableName};
+            ");
             return this;
         }
 
@@ -171,7 +226,7 @@ namespace SqlBulkHelpers.MaterializedData
             var keyColumns = pkeyConstraint.KeyColumns.OrderBy(c => c.OrdinalPosition).Select(c => c.ColumnName.QualifySqlTerm());
 
             ScriptBuilder.Append($@"
-                ALTER TABLE {tableName.FullyQualifiedTableName} ADD CONSTRAINT {pkeyName} PRIMARY KEY CLUSTERED ({keyColumns.ToCSV()});
+                ALTER TABLE {tableName.FullyQualifiedTableName} ADD CONSTRAINT {pkeyName} PRIMARY KEY CLUSTERED ({keyColumns.ToCsv()});
             ");
             return this;
         }
@@ -191,8 +246,8 @@ namespace SqlBulkHelpers.MaterializedData
 
                 ScriptBuilder.Append($@"
                     ALTER TABLE {tableName.FullyQualifiedTableName} {GetNoCheckClause(executeConstraintValidation)} ADD CONSTRAINT {fkeyName} 
-	                    FOREIGN KEY ({keyColumns.ToCSV()}) 
-                        REFERENCES {fkeyConstraint.ReferenceTableFullyQualifiedName} ({referenceColumns.ToCSV()})
+	                    FOREIGN KEY ({keyColumns.ToCsv()}) 
+                        REFERENCES {fkeyConstraint.ReferenceTableFullyQualifiedName} ({referenceColumns.ToCsv()})
 	                    ON UPDATE {fkeyConstraint.ReferentialUpdateRuleClause}
                         ON DELETE {fkeyConstraint.ReferentialDeleteRuleClause};
                 ");
@@ -268,9 +323,29 @@ namespace SqlBulkHelpers.MaterializedData
             {
                 fkeyConstraint.AssertIsForeignKeyConstraint();
 
+                var fkeyConstraintNameQualified = fkeyConstraint.ConstraintName.QualifySqlTerm();
+                
+                //We manually provide better error handling because the Messages from Sql Server are vague and it's unclear to a developer
+                //  that this FKey constraint Check was the likely cause of failures, so we provide more details in a custom error message!
+                //NOTE: We use THROW, not RAISEERROR(), as the recommended best practice by Microsoft because it honors SET XACT_ABORT.
+                //More Info Here: https://learn.microsoft.com/en-us/sql/t-sql/language-elements/raiserror-transact-sql?view=sql-server-ver16
                 ScriptBuilder.Append($@"
-                    --Enabling the FKey Constraints and Trigger validation checks for each of them...
-                    ALTER TABLE {fkeyConstraint.SourceTableNameTerm.FullyQualifiedTableName} {GetCheckClause(executeConstraintValidation)} CHECK CONSTRAINT {fkeyConstraint.ConstraintName.QualifySqlTerm()};
+                    --Due to the Nebulous errors returned by Sql Server when a CHECK violation occurs, we handle this and return a more helpful error 
+                    --  when FKey Checks fail so that developers have a better idea of why it failed; likely due to related data not being valid.
+                    BEGIN TRY  
+                        --Enabling the FKey Constraints and Trigger validation checks for each of them...
+                        ALTER TABLE {fkeyConstraint.SourceTableNameTerm.FullyQualifiedTableName} {GetCheckClause(executeConstraintValidation)} CHECK CONSTRAINT {fkeyConstraintNameQualified};
+                    END TRY  
+                    BEGIN CATCH  
+                        -- Raise a custom error that can be handled within C# as defined by severity level:
+                        DECLARE @errorMsg NVARCHAR(2048) = CONCAT(
+							'An error occurred while executing the FKey constraint check for Foreign Key {fkeyConstraintNameQualified} on {fkeyConstraint.SourceTableNameTerm.FullyQualifiedTableName}. ', 
+							'This exception ensures that the data integrity is maintained. ',
+							ERROR_MESSAGE()
+						);
+						
+                        THROW 51000, @errorMsg, 1;
+					END CATCH; 
                 ");
             }
             return this;
@@ -315,7 +390,7 @@ namespace SqlBulkHelpers.MaterializedData
                 {
                     //Add a Unique (Non-PKEY) Constraint -- Sql Server stores Unique Constraints along with Indexes so they are processed from teh same model.
                     ScriptBuilder.Append($@"
-                        ALTER TABLE {tableName.FullyQualifiedTableName} ADD CONSTRAINT {indexName} UNIQUE ({keyColumns.ToCSV()});
+                        ALTER TABLE {tableName.FullyQualifiedTableName} ADD CONSTRAINT {indexName} UNIQUE ({keyColumns.ToCsv()});
                     ");
                 }
                 else
@@ -325,7 +400,7 @@ namespace SqlBulkHelpers.MaterializedData
                         .Select(c => c.ColumnName.QualifySqlTerm());
 
                     var includeSql = includeColumns.HasAny()
-                        ? $"INCLUDE ({includeColumns.ToCSV()})"
+                        ? $"INCLUDE ({includeColumns.ToCsv()})"
                         : string.Empty;
 
                     var filterSql = !string.IsNullOrWhiteSpace(index.FilterDefinition)
@@ -336,7 +411,7 @@ namespace SqlBulkHelpers.MaterializedData
 
                     ScriptBuilder.Append($@"
                         CREATE {uniqueSql} NONCLUSTERED INDEX {indexName} 
-                            ON {tableName.FullyQualifiedTableName} ({keyColumns.ToCSV()})
+                            ON {tableName.FullyQualifiedTableName} ({keyColumns.ToCsv()})
                             {includeSql}
                             {filterSql}
                     ");

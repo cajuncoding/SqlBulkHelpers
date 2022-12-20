@@ -73,10 +73,7 @@ namespace SqlBulkHelpers
                 : $"[{term.TrimTableNameTerm()}]";
         }
 
-        public static TValue GetValueOrDefault<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key)
-            => dictionary.TryGetValue(key, out var value) ? value : default;
-
-        public static String ToCSV(this IEnumerable<String> enumerableList)
+        public static string ToCsv(this IEnumerable<string> enumerableList)
             => string.Join(", ", enumerableList);
 
         public static bool HasAny<T>(this IEnumerable<T> items)

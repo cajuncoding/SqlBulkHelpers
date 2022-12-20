@@ -65,7 +65,7 @@ namespace SqlBulkHelpers
 
         public override string ToString()
         {
-            return MatchQualifierFields.Select(f => f.ToString()).ToCSV();
+            return MatchQualifierFields.Select(f => f.ToString()).ToCsv();
         }
     }
 }

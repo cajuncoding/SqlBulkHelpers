@@ -180,34 +180,34 @@ namespace SqlBulkHelpers.MaterializedData
         #endregion
 
         #region Materialize Data Extensions
-        public static Task<MaterializeDataContext> MaterializeDataIntoAsync<T>(
+        public static Task<MaterializeDataContext> StartMaterializeDataProcessAsync<T>(
             this SqlTransaction sqlTransaction,
             ISqlBulkHelpersConfig bulkHelpersConfig = null
-        ) where T : class => MaterializeDataIntoAsync(sqlTransaction, new[] { typeof(T) }, bulkHelpersConfig);
+        ) where T : class => StartMaterializeDataProcessAsync(sqlTransaction, new[] { typeof(T) }, bulkHelpersConfig);
 
-        public static Task<MaterializeDataContext> MaterializeDataIntoAsync(
+        public static Task<MaterializeDataContext> StartMaterializeDataProcessAsync(
             this SqlTransaction sqlTransaction,
             string tableName,
             ISqlBulkHelpersConfig bulkHelpersConfig = null
-        ) => MaterializeDataIntoAsync(sqlTransaction, new[] { tableName }, bulkHelpersConfig);
+        ) => StartMaterializeDataProcessAsync(sqlTransaction, new[] { tableName }, bulkHelpersConfig);
 
-        public static Task<MaterializeDataContext> MaterializeDataIntoAsync(
+        public static Task<MaterializeDataContext> StartMaterializeDataProcessAsync(
             this SqlTransaction sqlTransaction,
             params Type[] mappedModelTypeParams
-        ) => MaterializeDataIntoAsync(sqlTransaction, ConvertToMappedTableNames(mappedModelTypeParams), null);
+        ) => StartMaterializeDataProcessAsync(sqlTransaction, ConvertToMappedTableNames(mappedModelTypeParams), null);
 
-        public static Task<MaterializeDataContext> MaterializeDataIntoAsync(
+        public static Task<MaterializeDataContext> StartMaterializeDataProcessAsync(
             this SqlTransaction sqlTransaction,
             IEnumerable<Type> mappedModelTypes,
             ISqlBulkHelpersConfig bulkHelpersConfig = null
-        ) => MaterializeDataIntoAsync(sqlTransaction, ConvertToMappedTableNames(mappedModelTypes), bulkHelpersConfig);
+        ) => StartMaterializeDataProcessAsync(sqlTransaction, ConvertToMappedTableNames(mappedModelTypes), bulkHelpersConfig);
 
-        public static Task<MaterializeDataContext> MaterializeDataIntoAsync(
+        public static Task<MaterializeDataContext> StartMaterializeDataProcessAsync(
             this SqlTransaction sqlTransaction,
             params string[] tableNameParams
-        ) => MaterializeDataIntoAsync(sqlTransaction, tableNameParams, null);
+        ) => StartMaterializeDataProcessAsync(sqlTransaction, tableNameParams, null);
 
-        public static async Task<MaterializeDataContext> MaterializeDataIntoAsync(
+        public static async Task<MaterializeDataContext> StartMaterializeDataProcessAsync(
             this SqlTransaction sqlTransaction,
             IEnumerable<string> tableNames,
             ISqlBulkHelpersConfig bulkHelpersConfig = null

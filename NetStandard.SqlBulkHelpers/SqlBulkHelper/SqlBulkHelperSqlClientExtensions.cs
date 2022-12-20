@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace SqlBulkHelpers.SqlBulkHelpers
+namespace SqlBulkHelpers
 {
     public static class SqlBulkHelperSqlClientExtensions
     {

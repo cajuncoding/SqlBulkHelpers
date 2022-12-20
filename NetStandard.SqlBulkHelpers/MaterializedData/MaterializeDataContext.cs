@@ -3,10 +3,11 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
+using Microsoft.Identity.Client;
 
 namespace SqlBulkHelpers.MaterializedData
 {
-    public class MaterializeDataContext : IAsyncDisposable
+    public class MaterializeDataContext
     {
         protected SqlTransaction SqlTransaction { get; }
         protected ILookup<string, MaterializationTableInfo> TableLookup { get; }
@@ -17,8 +18,16 @@ namespace SqlBulkHelpers.MaterializedData
 
         public MaterializationTableInfo this[int index] => Tables[index];
 
-        public MaterializationTableInfo this[string fullyQualifiedTableName] => TableLookup[fullyQualifiedTableName].FirstOrDefault();
+        public MaterializationTableInfo this[string fullyQualifiedTableName] => FindMaterializationTableInfoCaseInsensitive(fullyQualifiedTableName);
 
+        public MaterializationTableInfo FindMaterializationTableInfoCaseInsensitive(string fullyQualifiedTableName)
+        {
+            //Try to find the table via specified term, but if not then parse the term and try again...
+            var tableInfo = TableLookup[fullyQualifiedTableName].FirstOrDefault()
+                ?? TableLookup[fullyQualifiedTableName.ParseAsTableNameTerm()].FirstOrDefault();
+            
+            return tableInfo;
+        }
         /// <summary>
         /// Allows disabling of data validation during materialization, but may put data integrity at risk.
         /// This will improve performance for large data loads, but if disabled then the implementor is responsible
@@ -35,10 +44,10 @@ namespace SqlBulkHelpers.MaterializedData
             SqlTransaction = sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
             Tables = materializationTables.AssertArgumentIsNotNull(nameof(materializationTables));
             BulkHelpersConfig = bulkHelpersConfig.AssertArgumentIsNotNull(nameof(bulkHelpersConfig));
-            TableLookup = Tables.ToLookup(t => t.LiveTable.FullyQualifiedTableName);
+            TableLookup = Tables.ToLookup(t => t.LiveTable.FullyQualifiedTableName, StringComparer.OrdinalIgnoreCase);
         }
 
-        public async Task FinishMaterializationProcessAsync()
+        public async Task FinishMaterializeDataProcessAsync()
         {
             var materializationTables = this.Tables;
             var switchScriptBuilder = MaterializedDataScriptBuilder.NewSqlScript();
@@ -88,11 +97,11 @@ namespace SqlBulkHelpers.MaterializedData
                 var otherReferencingFKeyConstraints = liveTableDefinition.ReferencingForeignKeyConstraints.Where(rc => !allLiveTableFKeyConstraintLookup.Contains(rc.ToString()));
 
                 switchScriptBuilder
-                    //HERE We enable all FKey Constraints and Trigger a Re-check to ensure Data Integrity!
+                    //HERE We enable all FKey Constraints and Trigger a Re-check to ensure Data Integrity (unless EXPLICITLY Overridden)!
                     //NOTE: This is critical because the FKeys were added with NOCHECK status above so that we could safely switch
-                    .EnableAllTableConstraintChecks(materializationTableInfo.LiveTable, true)
+                    .EnableAllTableConstraintChecks(materializationTableInfo.LiveTable, this.EnableDataConstraintChecksOnCompletion)
                     //NOTE: FKeys must be explicitly re-enabled to ensure they are restored to Trusted state; they aren't included in the ALL Constraint Check.
-                    .EnableForeignKeyChecks(liveTableDefinition.ForeignKeyConstraints.AsArray())
+                    .EnableForeignKeyChecks(this.EnableDataConstraintChecksOnCompletion, liveTableDefinition.ForeignKeyConstraints.AsArray())
                     //Re-enable All other Referencing FKey Checks that were disable above to allow the switching above...
                     .EnableReferencingForeignKeyChecks(this.EnableDataConstraintChecksOnCompletion, otherReferencingFKeyConstraints.AsArray())
                     //Finally cleanup the Loading and Discarding tables...
@@ -104,16 +113,6 @@ namespace SqlBulkHelpers.MaterializedData
                 switchScriptBuilder,
                 BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds
             ).ConfigureAwait(false);
-        }
-
-        public ValueTask DisposeAsync()
-        {
-            if (!IsDisposed)
-            {
-                IsDisposed = true;
-            }
-
-            return new ValueTask();
         }
     }
 }

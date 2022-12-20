@@ -8,7 +8,7 @@ namespace SqlBulkHelpers
 {
     public class SqlBulkHelpersTableDefinition
     {
-        protected Dictionary<string, TableColumnDefinition> ColumnCaseInsensitiveDictionary { get; }
+        protected ILookup<string, TableColumnDefinition> ColumnLookupByNameCaseInsensitive { get; }
 
         public SqlBulkHelpersTableDefinition(
             string tableSchema, 
@@ -40,7 +40,7 @@ namespace SqlBulkHelpers
             IdentityColumn = this.TableColumns.FirstOrDefault(c => c.IsIdentityColumn);
 
             //Initialize the Case-insensitive Dictionary for quickly looking up Columns...
-            ColumnCaseInsensitiveDictionary = this.TableColumns.ToDictionary(c => c.ColumnName, c => c, StringComparer.OrdinalIgnoreCase);
+            ColumnLookupByNameCaseInsensitive = this.TableColumns.ToLookup(c => c.ColumnName, StringComparer.OrdinalIgnoreCase);
         }
 
         public TableNameTerm TableNameTerm { get; }
@@ -70,7 +70,7 @@ namespace SqlBulkHelpers
         }
 
         public TableColumnDefinition FindColumnCaseInsensitive(string columnName)
-            => ColumnCaseInsensitiveDictionary.GetValueOrDefault(columnName);
+            => ColumnLookupByNameCaseInsensitive[columnName].FirstOrDefault();
 
         public override string ToString() => TableNameTerm.FullyQualifiedTableName;
     }
