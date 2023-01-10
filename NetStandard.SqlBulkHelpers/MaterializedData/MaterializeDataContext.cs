@@ -74,14 +74,12 @@ namespace SqlBulkHelpers.MaterializedData
                     //      the FKey status must match the currently disabled Live Table FKey status for switching to work.
                     .DisableForeignKeyChecks(materializationTableInfo.LiveTable, fkeyConstraints)
                     .DisableAllTableConstraintChecks(materializationTableInfo.LiveTable)
-                    //NOTE: We also have to disable the in context FKey constraints for both Loading and Discarding tables by ensuring that the constraint
-                    //      validation is NOT executed when we add them (because it's likely invalid until switched into the Live position)!
+                    //NOTE: We also have to disable the in context constraint checks (FKey, Check Constraints, etc.) for both Loading and Discarding tables 
+                    //      by ensuring that the constraint validation is NOT executed when we add them (because it's likely invalid until switched into the Live position)!
                     .AddForeignKeyConstraints(materializationTableInfo.LoadingTable, executeConstraintValidation: false, fkeyConstraints)
                     .DisableAllTableConstraintChecks(materializationTableInfo.LoadingTable)
-                    //.DisableForeignKeyChecks(materializationTableInfo.LoadingTable, inContextFKeyConstraints)
                     .AddForeignKeyConstraints(materializationTableInfo.DiscardingTable, executeConstraintValidation: false, fkeyConstraints)
                     .DisableAllTableConstraintChecks(materializationTableInfo.DiscardingTable);
-                    //.DisableForeignKeyChecks(materializationTableInfo.DiscardingTable, inContextFKeyConstraints);
             }
 
             //2) Then we can switch all existing Live tables to the Discarding Schema -- this Frees the Live table up to be updated in the next step!
