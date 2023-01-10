@@ -336,17 +336,19 @@ namespace SqlBulkHelpers.MaterializedData
             return this;
         }
 
-        public MaterializedDataScriptBuilder EnableForeignKeyChecks(params ForeignKeyConstraintDefinition[] fkeyConstraints)
-            => EnableForeignKeyChecks(true, fkeyConstraints);
+        public MaterializedDataScriptBuilder EnableForeignKeyChecks(TableNameTerm tableName, params ForeignKeyConstraintDefinition[] fkeyConstraints)
+            => EnableForeignKeyChecks(tableName, true, fkeyConstraints);
 
-        public MaterializedDataScriptBuilder EnableForeignKeyChecks(bool executeConstraintValidation, params ForeignKeyConstraintDefinition[] fkeyConstraints)
+        public MaterializedDataScriptBuilder EnableForeignKeyChecks(TableNameTerm tableName, bool executeConstraintValidation, params ForeignKeyConstraintDefinition[] fkeyConstraints)
         {
             foreach (var fkeyConstraint in fkeyConstraints)
             {
                 fkeyConstraint.AssertIsForeignKeyConstraint();
 
                 var fkeyConstraintNameQualified = fkeyConstraint.ConstraintName.QualifySqlTerm();
-                
+                var fullyQualifiedTableName = tableName.FullyQualifiedTableName;
+                var errorMsgVariableName = $"@errorMsg_{IdGenerator.NewId()}";
+
                 //We manually provide better error handling because the Messages from Sql Server are vague and it's unclear to a developer
                 //  that this FKey constraint Check was the likely cause of failures, so we provide more details in a custom error message!
                 //NOTE: We use THROW, not RAISEERROR(), as the recommended best practice by Microsoft because it honors SET XACT_ABORT.
@@ -356,17 +358,17 @@ namespace SqlBulkHelpers.MaterializedData
                     --  when FKey Checks fail so that developers have a better idea of why it failed; likely due to related data not being valid.
                     BEGIN TRY  
                         --Enabling the FKey Constraints and Trigger validation checks for each of them...
-                        ALTER TABLE {fkeyConstraint.SourceTableNameTerm.FullyQualifiedTableName} {GetCheckClause(executeConstraintValidation)} CHECK CONSTRAINT {fkeyConstraintNameQualified};
+                        ALTER TABLE {fullyQualifiedTableName} {GetCheckClause(executeConstraintValidation)} CHECK CONSTRAINT {fkeyConstraintNameQualified};
                     END TRY  
                     BEGIN CATCH  
                         -- Raise a custom error that can be handled within C# as defined by severity level:
-                        DECLARE @errorMsg NVARCHAR(2048) = CONCAT(
-							'An error occurred while executing the FKey constraint check for Foreign Key {fkeyConstraintNameQualified} on {fkeyConstraint.SourceTableNameTerm.FullyQualifiedTableName}. ', 
+                        DECLARE {errorMsgVariableName} NVARCHAR(2048) = CONCAT(
+							'An error occurred while executing the FKey constraint check for Foreign Key {fkeyConstraintNameQualified} on {fullyQualifiedTableName}. ', 
 							'This exception ensures that the data integrity is maintained. ',
 							ERROR_MESSAGE()
 						);
 						
-                        THROW 51000, @errorMsg, 1;
+                        THROW 51000, {errorMsgVariableName}, 1;
 					END CATCH; 
                 ");
             }
@@ -393,10 +395,33 @@ namespace SqlBulkHelpers.MaterializedData
             {
                 referencingFKey.AssertIsForeignKeyConstraint();
 
+                var fkeyConstraintNameQualified = referencingFKey.ConstraintName.QualifySqlTerm();
+                var fullyQualifiedTableName = referencingFKey.SourceTableNameTerm.FullyQualifiedTableName;
+                var errorMsgVariableName = $"@errorMsg_{IdGenerator.NewId()}";
+
+                //We manually provide better error handling because the Messages from Sql Server are vague and it's unclear to a developer
+                //  that this FKey constraint Check was the likely cause of failures, so we provide more details in a custom error message!
+                //NOTE: We use THROW, not RAISEERROR(), as the recommended best practice by Microsoft because it honors SET XACT_ABORT.
+                //More Info Here: https://learn.microsoft.com/en-us/sql/t-sql/language-elements/raiserror-transact-sql?view=sql-server-ver16
                 ScriptBuilder.Append($@"
-                    --Enabling the Referencing FKey Constraints...
-                    ALTER TABLE {referencingFKey.SourceTableNameTerm.FullyQualifiedTableName} {GetCheckClause(executeConstraintValidation)} CHECK CONSTRAINT {referencingFKey.ConstraintName.QualifySqlTerm()};
+                    --Due to the Nebulous errors returned by Sql Server when a CHECK violation occurs, we handle this and return a more helpful error 
+                    --  when FKey Checks fail so that developers have a better idea of why it failed; likely due to related data not being valid.
+                    BEGIN TRY  
+                        --Enabling the Referencing FKey Constraints...
+                        ALTER TABLE {fullyQualifiedTableName} {GetCheckClause(executeConstraintValidation)} CHECK CONSTRAINT {fkeyConstraintNameQualified};
+                    END TRY  
+                    BEGIN CATCH  
+                        -- Raise a custom error that can be handled within C# as defined by severity level:
+                        DECLARE {errorMsgVariableName} NVARCHAR(2048) = CONCAT(
+							'An error occurred while executing the FKey constraint check for Foreign Key {fkeyConstraintNameQualified} on {fullyQualifiedTableName}. ', 
+							'This exception ensures that the data integrity is maintained. ',
+							ERROR_MESSAGE()
+						);
+						
+                        THROW 51000, {errorMsgVariableName}, 1;
+					END CATCH; 
                 ");
+
             }
             return this;
         }

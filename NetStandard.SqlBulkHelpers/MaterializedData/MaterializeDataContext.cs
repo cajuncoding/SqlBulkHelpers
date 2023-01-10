@@ -58,8 +58,9 @@ namespace SqlBulkHelpers.MaterializedData
 
             //NOTE: We update ALL tables at each step together so that any/all constraints, relationships, etc.
             //      are valid based on newly materialized data populated in the respective loading tables (for each Live table)!
-            //1) First Add all missing FKey constraints (not added during initial cloning) that will prevent us from being able to switch -- this is still safe within our Transaction!
+            //1) First Add & Sync all missing FKey constraints (intentionally not added during initial cloning) that will prevent us from being able to switch -- this is still safe within our Transaction!
             //   NOTE: We could not add FKey constraints at initial load because the links will result in Transaction locks on the Live Tables which we must avoid!!!
+            //   NOTE: WE also disable all FKey constraints on the Live Table so taht ALL FKeys across live/loading/temp are all disabled so that Switching can Occur -- this is still safe within our Transaction!
             foreach (var materializationTableInfo in materializationTables)
             {
                 var fkeyConstraints = materializationTableInfo.LiveTableDefinition.ForeignKeyConstraints.AsArray();
@@ -69,10 +70,12 @@ namespace SqlBulkHelpers.MaterializedData
                     //We must disable FKeys that reference the Live Table we are switching...
                     .DisableReferencingForeignKeyChecks(materializationTableInfo.LiveTableDefinition.ReferencingForeignKeyConstraints.AsArray())
                     //We must add the missing FKeys to the Loading/Discarding tables so that we can now safely switch to/from them!
-                    //NOTE: We have to explicitly Disable any FKey that References a Table in context (being switched) newly added FKeys are still enabled,
-                    //      and the FKey status must match the currently disabled Live Table FKey status for switching to work; but we should NOT disable
-                    //      any FKeys to tables not being switched...
-                    //NOTE: We also have to disable the in context FKey constraints for both Loading and Discarding tables.
+                    //NOTE: We have to explicitly Disable Constraints (FKey & Check Constraints) for all Tables in context (being switched) because
+                    //      the FKey status must match the currently disabled Live Table FKey status for switching to work.
+                    .DisableForeignKeyChecks(materializationTableInfo.LiveTable, fkeyConstraints)
+                    .DisableAllTableConstraintChecks(materializationTableInfo.LiveTable)
+                    //NOTE: We also have to disable the in context FKey constraints for both Loading and Discarding tables by ensuring that the constraint
+                    //      validation is NOT executed when we add them (because it's likely invalid until switched into the Live position)!
                     .AddForeignKeyConstraints(materializationTableInfo.LoadingTable, executeConstraintValidation: false, fkeyConstraints)
                     .DisableAllTableConstraintChecks(materializationTableInfo.LoadingTable)
                     //.DisableForeignKeyChecks(materializationTableInfo.LoadingTable, inContextFKeyConstraints)
@@ -101,7 +104,7 @@ namespace SqlBulkHelpers.MaterializedData
                     //NOTE: This is critical because the FKeys were added with NOCHECK status above so that we could safely switch
                     .EnableAllTableConstraintChecks(materializationTableInfo.LiveTable, this.EnableDataConstraintChecksOnCompletion)
                     //NOTE: FKeys must be explicitly re-enabled to ensure they are restored to Trusted state; they aren't included in the ALL Constraint Check.
-                    .EnableForeignKeyChecks(this.EnableDataConstraintChecksOnCompletion, liveTableDefinition.ForeignKeyConstraints.AsArray())
+                    .EnableForeignKeyChecks(materializationTableInfo.LiveTable, this.EnableDataConstraintChecksOnCompletion, liveTableDefinition.ForeignKeyConstraints.AsArray())
                     //Re-enable All other Referencing FKey Checks that were disable above to allow the switching above...
                     .EnableReferencingForeignKeyChecks(this.EnableDataConstraintChecksOnCompletion, otherReferencingFKeyConstraints.AsArray())
                     //Finally cleanup the Loading and Discarding tables...

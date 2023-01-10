@@ -236,45 +236,40 @@ namespace SqlBulkHelpers.MaterializedData
             if (!tableNames.HasAny())
                 return Array.Empty<TableNameTerm>();
 
-            var truncateTableSqlScriptBuilder = MaterializedDataScriptBuilder.NewSqlScript();
-            var tableNameTermsList = tableNames.Distinct().Select(TableNameTerm.From).ToList();
+            var distinctTableNames = tableNames.Distinct().ToList();
+            var tableNameTermsList = distinctTableNames.Select(TableNameTerm.From).ToList();
+            var processTablesWithTruncateEnabled = true;
 
-            foreach (var tableNameTerm in tableNameTermsList)
+            if (forceOverrideOfConstraints)
             {
-                var tableDef = GetTableSchemaDefinitionInternal(sqlTransaction, tableNameTerm);
-                if (tableDef.ReferencingForeignKeyConstraints.HasAny() && forceOverrideOfConstraints)
+                var tableDefs = tableNameTermsList.Select(tableNameTerm => GetTableSchemaDefinitionInternal(sqlTransaction, tableNameTerm));
+                processTablesWithTruncateEnabled = !tableDefs.Any(tableDef => tableDef.ReferencingForeignKeyConstraints.HasAny() || tableDef.ForeignKeyConstraints.HasAny());
+                
+                if (!processTablesWithTruncateEnabled)
                 {
-                    var referencingFKeyConstraints = tableDef.ReferencingForeignKeyConstraints.AsArray();
+                    //BBernard
+                    //NOTE: To Clear the tables and ensure all Constraints, and FKeys are handled we re-use the Materialized Data Helpers that alraedy do this
+                    //          and we simply complete the process by materializing to EMPTY tables (newly cloned) with no data!
+                    //START the Materialize Data Process... but we do NOT insert any new data to the Empty Tables!
+                    var materializeDataContext = await sqlTransaction.StartMaterializeDataProcessAsync(distinctTableNames).ConfigureAwait(false);
 
-                    //Cloning without a target table name result in unique target name being generated based on the source...
-                    var emptyCloneTableInfo = new CloneTableInfo(tableNameTerm);
-                    var discardCloneTableInfo = new CloneTableInfo(tableNameTerm);
-
-                    //Use Materialized Data Helpers to efficiently SWAP out with EMPTY table -- effectively clearing the original Table
-                    //  without the need to remove FKey constraints from related tables that reference this one...
-                    truncateTableSqlScriptBuilder
-                        .CloneTableWithAllElements(tableDef, emptyCloneTableInfo.TargetTable, IfExists.Recreate, true, true)
-                        .CloneTableWithAllElements(tableDef, discardCloneTableInfo.TargetTable, IfExists.Recreate, true, true)
-                        .DisableReferencingForeignKeyChecks(referencingFKeyConstraints)
-                        .SwitchTables(tableNameTerm, discardCloneTableInfo.TargetTable)
-                        .SwitchTables(emptyCloneTableInfo.TargetTable, tableNameTerm)
-                        .DropTable(discardCloneTableInfo.TargetTable)
-                        .DropTable(emptyCloneTableInfo.TargetTable)
-                        //NOTE: Despite the fact that we are forcing the override of Table Constraints we still need to ensure overall data integrity so
-                        //      FKey references will be validated -- this means that Tables need to be cleared in the proper Order of FKey referencing chain
-                        //      to maintain data integrity.
-                        .EnableReferencingForeignKeyChecks(true, referencingFKeyConstraints);
-                }
-                else
-                {
-                    truncateTableSqlScriptBuilder.TruncateTable(tableNameTerm);
+                    //We finish the Clearing process by immediately switching out with the new/empty tables to Clear the Data!
+                    await materializeDataContext.FinishMaterializeDataProcessAsync().ConfigureAwait(false);
                 }
             }
 
-            //Execute the Script!
-            await sqlTransaction
-                .ExecuteMaterializedDataSqlScriptAsync(truncateTableSqlScriptBuilder, BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds)
-                .ConfigureAwait(false);
+            if (processTablesWithTruncateEnabled)
+            {
+                var truncateTableSqlScriptBuilder = MaterializedDataScriptBuilder.NewSqlScript();
+
+                foreach (var tableNameTerm in tableNameTermsList)
+                    truncateTableSqlScriptBuilder.TruncateTable(tableNameTerm);
+
+                //Execute the Script!
+                await sqlTransaction
+                    .ExecuteMaterializedDataSqlScriptAsync(truncateTableSqlScriptBuilder, BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds)
+                    .ConfigureAwait(false);
+            }
 
             return tableNameTermsList.AsArray();
         }

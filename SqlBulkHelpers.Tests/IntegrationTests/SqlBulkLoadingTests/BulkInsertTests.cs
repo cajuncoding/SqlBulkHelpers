@@ -85,11 +85,11 @@ namespace SqlBulkHelpers.IntegrationTests
             {
                 ////Must clear all Data and Related Data to maintain Data Integrity...
                 ////NOTE: If we don't clear the related table then the FKey Constraint Check on the Related data (Child table) will FAIL!
-                //await sqlTrans.ClearTablesAsync(new[]
-                //{
-                //    TestHelpers.TestChildTableNameFullyQualified,
-                //    TestHelpers.TestTableNameFullyQualified
-                //}, forceOverrideOfConstraints: true).ConfigureAwait(false);
+                await sqlTrans.ClearTablesAsync(new[]
+                {
+                    TestHelpers.TestChildTableNameFullyQualified,
+                    TestHelpers.TestTableNameFullyQualified
+                }, forceOverrideOfConstraints: true).ConfigureAwait(false);
 
                 var testData = TestHelpers.CreateTestDataWithIdentitySetter(10);
                 var results = (await sqlTrans.BulkInsertAsync(testData, TestHelpers.TestTableName)).ToList();
