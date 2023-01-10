@@ -128,7 +128,7 @@ namespace SqlBulkHelpers.MaterializedData
             this SqlTransaction sqlTransaction,
             IEnumerable<Type> mappedModelTypes,
             ISqlBulkHelpersConfig bulkHelpersConfig = null
-        ) => DropTablesAsync(sqlTransaction, ConvertToMappedTableNames(mappedModelTypes), bulkHelpersConfig);
+        ) => DropTablesAsync(sqlTransaction, ConvertToMappedTableNamesInternal(mappedModelTypes), bulkHelpersConfig);
 
         public static async Task<TableNameTerm[]> DropTablesAsync(
             this SqlTransaction sqlTransaction,
@@ -168,7 +168,7 @@ namespace SqlBulkHelpers.MaterializedData
             IEnumerable<Type> mappedModelTypes,
             bool forceOverrideOfConstraints = false,
             ISqlBulkHelpersConfig bulkHelpersConfig = null
-        ) => ClearTablesAsync(sqlTransaction, ConvertToMappedTableNames(mappedModelTypes), forceOverrideOfConstraints, bulkHelpersConfig);
+        ) => ClearTablesAsync(sqlTransaction, ConvertToMappedTableNamesInternal(mappedModelTypes), forceOverrideOfConstraints, bulkHelpersConfig);
 
         public static async Task<TableNameTerm[]> ClearTablesAsync(
             this SqlTransaction sqlTransaction,
@@ -203,13 +203,13 @@ namespace SqlBulkHelpers.MaterializedData
         public static Task<MaterializeDataContext> StartMaterializeDataProcessAsync(
             this SqlTransaction sqlTransaction,
             params Type[] mappedModelTypeParams
-        ) => StartMaterializeDataProcessAsync(sqlTransaction, ConvertToMappedTableNames(mappedModelTypeParams), null);
+        ) => StartMaterializeDataProcessAsync(sqlTransaction, ConvertToMappedTableNamesInternal(mappedModelTypeParams), null);
 
         public static Task<MaterializeDataContext> StartMaterializeDataProcessAsync(
             this SqlTransaction sqlTransaction,
             IEnumerable<Type> mappedModelTypes,
             ISqlBulkHelpersConfig bulkHelpersConfig = null
-        ) => StartMaterializeDataProcessAsync(sqlTransaction, ConvertToMappedTableNames(mappedModelTypes), bulkHelpersConfig);
+        ) => StartMaterializeDataProcessAsync(sqlTransaction, ConvertToMappedTableNamesInternal(mappedModelTypes), bulkHelpersConfig);
 
         public static Task<MaterializeDataContext> StartMaterializeDataProcessAsync(
             this SqlTransaction sqlTransaction,
@@ -225,7 +225,7 @@ namespace SqlBulkHelpers.MaterializedData
             sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
 
             var materializeDataContext = await new MaterializeDataHelper<ISkipMappingLookup>(sqlTransaction, bulkHelpersConfig)
-                .MaterializeDataIntoAsync(sqlTransaction, tableNames.AsArray())
+                .StartMaterializeDataProcessAsync(sqlTransaction, tableNames.AsArray())
                 .ConfigureAwait(false);
 
             return materializeDataContext;
@@ -235,7 +235,7 @@ namespace SqlBulkHelpers.MaterializedData
 
         #region Internal Helpers
 
-        public static IEnumerable<string> ConvertToMappedTableNames(IEnumerable<Type> mappedModelTypes)
+        private static IEnumerable<string> ConvertToMappedTableNamesInternal(IEnumerable<Type> mappedModelTypes)
         {
             return mappedModelTypes
                 .Where(type => type != null)

@@ -32,10 +32,10 @@ namespace SqlBulkHelpers.MaterializedData
 
         #region Materialize Data API Methods (& Cloning for Materialization Process)
 
-        public Task<MaterializeDataContext> MaterializeDataIntoAsync(SqlTransaction sqlTransaction, params string[] tableNames)
-            => MaterializeDataIntoAsync(sqlTransaction, BulkHelpersConfig.MaterializedDataLoadingSchema, BulkHelpersConfig.MaterializedDataDiscardingSchema, tableNames);
+        public Task<MaterializeDataContext> StartMaterializeDataProcessAsync(SqlTransaction sqlTransaction, params string[] tableNames)
+            => StartMaterializeDataProcessAsync(sqlTransaction, BulkHelpersConfig.MaterializedDataLoadingSchema, BulkHelpersConfig.MaterializedDataDiscardingSchema, tableNames);
 
-        public async Task<MaterializeDataContext> MaterializeDataIntoAsync(SqlTransaction sqlTransaction, string loadingSchemaName, string discardingSchemaName, params string[] tableNames)
+        public async Task<MaterializeDataContext> StartMaterializeDataProcessAsync(SqlTransaction sqlTransaction, string loadingSchemaName, string discardingSchemaName, params string[] tableNames)
         {
             //This will clone each of the Live tables into one Temp and one Loading table (each in different Schema as defined in the BulkHelperSettings)..
             var cloneMaterializationTables = await CloneTableStructuresForMaterializationAsync(
@@ -70,27 +70,37 @@ namespace SqlBulkHelpers.MaterializedData
             var materializationTableInfoList = new List<MaterializationTableInfo>();
             var cloneInfoToExecuteList = new List<CloneTableInfo>();
 
+            //NOTE: The ParseAsTableNameTerm() method will validate that the value could be parsed...
             var tableNameTermsList = tableNames.Select(n => n.ParseAsTableNameTerm()).ToList();
             if (!tableNameTermsList.HasAny())
-                return Array.Empty<MaterializationTableInfo>();
+                throw new ArgumentOutOfRangeException(nameof(tableNames), "No valid table names were specified.");
 
             var loadingTablesSchema = loadingSchemaName.TrimTableNameTerm() ?? BulkHelpersConfig.MaterializedDataLoadingSchema;
+            loadingTablesSchema.AssertArgumentIsNotNullOrWhiteSpace(nameof(loadingTablesSchema));
+
             var discardingTablesSchema = discardingSchemaName.TrimTableNameTerm() ?? BulkHelpersConfig.MaterializedDataDiscardingSchema;
-            
-            //This Lookup is to determine what tables are in context so that all referencing FKey Constraints can be resolved and disabled...
-            var tablesInContextLookup = tableNameTermsList.ToLookup(t => t, StringComparer.OrdinalIgnoreCase);
+            discardingTablesSchema.AssertArgumentIsNotNullOrWhiteSpace(nameof(discardingTablesSchema));
 
             //1) First compute all table cloning instructions, and Materialization table info./details to generate the Loading Tables and the Discard Tables for every table to be cloned...
             foreach (var originalTableNameTerm in tableNameTermsList)
             {
                 //Add Clones for Loading tables...
-                //NOTE: It is important that we DISABLE constraints on the Loading Tables so that FKey Checks are not enforced until ALL tables are switched to LIVE;
-                //      otherwise the bulk loading may fail if the data doesn't exist in other related tables which should be part of the Materialization context also being loaded...
-                var loadingCloneInfo = CloneTableInfo.ForNewSchema(originalTableNameTerm, loadingTablesSchema);
+                //NOTE: We make the Loading table name highly unique just in case multiple processes run at the same time they will have less risk of impacting each other;
+                //  though such a conflict would be a flawed design and should be eliminated via an SQL lock or Distributed Mutex lock (aka SqlAppLockHelper library).
+                var loadingCloneInfo = CloneTableInfo.ForNewSchema(originalTableNameTerm, loadingTablesSchema).MakeTargetTableNameUnique();
                 cloneInfoToExecuteList.Add(loadingCloneInfo);
 
+                // ReSharper disable once PossibleNullReferenceException
+                bool isDiscardingSchemaDifferentFromLoadingSchema = !loadingSchemaName.Equals(discardingTablesSchema, StringComparison.OrdinalIgnoreCase);
+
                 //Add Clones for Discarding tables (used for switching Live OUT for later cleanup)...
-                var discardingCloneInfo = CloneTableInfo.ForNewSchema(originalTableNameTerm, discardingTablesSchema);
+                //NOTE: We try to keep our Loading and Discarding table names in sync if possible but enforce their uniqueness if the Schema names are not different...
+                var discardingCloneInfo = isDiscardingSchemaDifferentFromLoadingSchema
+                    //Try to keep the Table Names highly unique but in-sync between Loading and Discarding schemas (for debugging purposes mainly).
+                    ? CloneTableInfo.From(originalTableNameTerm, loadingCloneInfo.TargetTable.SwitchSchema(discardingTablesSchema))
+                    //Otherwise enforce uniqueness...
+                    : CloneTableInfo.ForNewSchema(originalTableNameTerm, discardingTablesSchema).MakeTargetTableNameUnique();
+                    
                 cloneInfoToExecuteList.Add(discardingCloneInfo);
 
                 //Finally aggregate the Live/Original, Loading, and Discarding tables into the MaterializationTableInfo

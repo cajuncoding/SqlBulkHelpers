@@ -14,16 +14,26 @@ namespace SqlBulkHelpers.MaterializedData
             //If both Source & Target are the same (e.g. Target was not explicitly specified) then we adjust
             //  the Target to ensure we create a copy and append a unique Copy Id...
             var validTargetTable = targetTable == null || targetTable.Value.EqualsIgnoreCase(sourceTable)
-                ? TableNameTerm.From(sourceTable.SchemaName, $"{sourceTable.TableName}_Copy_{IdGenerator.NewId(10)}")
+                ? MakeTableNameUniqueInternal(sourceTable)
                 : targetTable.Value;
 
             SourceTable = sourceTable;
             TargetTable = validTargetTable;
         }
 
+        /// <summary>
+        /// Ensures that the Target Table Name is truly unique (and not simply scoped to a different Schema.
+        /// </summary>
+        /// <returns></returns>
+        public CloneTableInfo MakeTargetTableNameUnique()
+            => new CloneTableInfo(SourceTable, MakeTableNameUniqueInternal(TargetTable));
+
+        private static TableNameTerm MakeTableNameUniqueInternal(TableNameTerm tableNameTerm)
+            => TableNameTerm.From(tableNameTerm.SchemaName, $"{tableNameTerm.TableName}_Copy_{IdGenerator.NewId(10)}");
+
         public static CloneTableInfo From<TSource, TTarget>(string sourceTableName = null, string targetTableName = null)
         {
-            //If the generic type is ISkipMappingLookup then we have a valid sourceTableName specified...
+            //If the generic type is ISkipMappingLookup then we must have a valid sourceTableName specified as a param...
             if (SqlBulkHelpersProcessingDefinition.SkipMappingLookupType.IsAssignableFrom(typeof(TSource)))
                 sourceTableName.AssertArgumentIsNotNullOrWhiteSpace(nameof(sourceTableName));
 
@@ -35,7 +45,7 @@ namespace SqlBulkHelpers.MaterializedData
                 ? sourceTableName
                 : targetTableName;
 
-            //If the generic type is ISkipMappingLookup then we have a valid sourceTableName specified...
+            //If the generic type is ISkipMappingLookup then we must have a valid sourceTableName specified as a param...
             if (SqlBulkHelpersProcessingDefinition.SkipMappingLookupType.IsAssignableFrom(typeof(TTarget)))
             {
                 //We validate the valid target table name but if it's still blank then we throw an Argument

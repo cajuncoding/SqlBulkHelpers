@@ -1,16 +1,36 @@
 ﻿using System;
-using System.Diagnostics;
 using SqlBulkHelpers.Tests;
 using SqlBulkHelpers.MaterializedData;
 using Microsoft.Data.SqlClient;
 using RepoDb;
-using SqlBulkHelpers.SqlBulkHelpers;
 
 namespace SqlBulkHelpers.IntegrationTests
 {
     [TestClass]
     public class MaterializeDataClearTableTests : BaseTest
     {
+        /// <summary>
+        /// NOTE: ALL TESTS Assume that the tables started off in an empty state so we clear them.... Ironically we are also testing this Feature
+        ///     of clearing (haha), but any failure of this or the tests points to an issue so we use the feature to prep for testing the feature
+        ///     and if everything passes then we are good go go :-)
+        /// </summary>
+        /// <returns></returns>
+        [TestInitialize]
+        public async Task SetupEachTestAsync()
+        {
+            var sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
+
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+            {
+                await sqlTrans.ClearTablesAsync(new string[]
+                {
+                    TestHelpers.TestTableNameFullyQualified,
+                    TestHelpers.TestChildTableNameFullyQualified
+                }, forceOverrideOfConstraints: true).ConfigureAwait(false);
+            }
+        }
+
         [TestMethod]
         public async Task TestClearTableAsync()
         {

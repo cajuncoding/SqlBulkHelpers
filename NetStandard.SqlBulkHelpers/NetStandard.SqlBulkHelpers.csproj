@@ -13,10 +13,13 @@
     <Description>A library for easy, efficient and high performance bulk insert and update of data, into a Sql Database, from .Net applications. By leveraging the power of the SqlBulkCopy classes with added support for Identity primary key table columns this library provides a greatly simplified interface to process Identity based Entities with Bulk Performance with the wide compatibility of .NetStandard 2.0.</Description>
 	<PackageTags>sql server database table bulk insert update identity column sqlbulkcopy orm dapper fast data load loading performance</PackageTags>
     <PackageReleaseNotes>
-		- Add improved reliability now with use of LazyCacheHelpers for the in-memory caching of DB Schema Loaders; this now fixes an edge case issue where an Exception could be cached and re-initialization was never attempted.
-		- Added support to now clear the DB Schema cache via SqlBulkHelpersSchemaLoaderCache.ClearCache() to enable dynamic re-initialization when needed (vs applicaiton restart).
+		- v2.0 Beta release now includes all new MaterializeData Helpers to make it significantly easier to implement highly efficient loading and publishing of materialized data via Sql Server much easier via an easy C# API.
+		- The concept of Materializing data is to enable easy aysnc (background) bulk loading of data with, no impact to Live tables, until the data is switched out extremely quickly accomplishing a refresh of Live data in milliseconds.
+		- The all new APIs include: ClearTablesAsync(), CloneTablesAsync(), DropTablesAsync(), StartMaterializeDataProcessAsync(), &amp; GetTableSchemaDefinition().
 
 		Prior Relese Notes:
+		- Add improved reliability now with use of LazyCacheHelpers for the in-memory caching of DB Schema Loaders; this now fixes an edge case issue where an Exception could be cached and re-initialization was never attempted.
+		- Added support to now clear the DB Schema cache via SqlBulkHelpersSchemaLoaderCache.ClearCache() to enable dynamic re-initialization when needed (vs applicaiton restart).
 		- Add improved support for use of SqlBulkHelpersDbSchemaCache with new SqlConnection factory func to greatly simplifying its use with optimized deferral of Sql Connection creation (if and only when needed) without having to implement the full Interface.
 		- Merge PR to enable support Fully Qualified Table Names - Thanks to @simelis
 		- Migrated the library to use `Microsoft.Data.SqlClient` vs legacy `System.Data.SqlClient` which is no longer being updated with most improvements, especially performance and edge case bugs. From v1.1 onward we will only use `Microsoft.Data.SqlClient`.
@@ -33,7 +36,7 @@
 		- Added more Integration Tests for Constructors and Connections, as well as the new DB Schema Loader caching implementation.
 		- Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances that automtically load the connection string from the application configuration setting.
 	</PackageReleaseNotes>
-    <Version>2.0-beta3</Version>
+    <Version>2.0-beta4</Version>
   </PropertyGroup>
 
   <ItemGroup>

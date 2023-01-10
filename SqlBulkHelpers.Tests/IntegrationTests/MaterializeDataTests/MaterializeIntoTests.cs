@@ -61,7 +61,11 @@ namespace SqlBulkHelpers.IntegrationTests
                     TestHelpers.TestChildTableNameFullyQualified
                 ).ConfigureAwait(false);
 
+                timer.Stop();
                 TestContext.WriteLine($"MaterializedData Context Created in [{timer.ElapsedMilliseconds}] millis...");
+                foreach (var table in materializeDataContext.Tables)
+                    TestContext.WriteLine($"    - {table.LoadingTable.FullyQualifiedTableName} ==> {table.LiveTable.FullyQualifiedTableName}");
+
                 timer.Restart();
 
                 //Test with Table name being provided...
