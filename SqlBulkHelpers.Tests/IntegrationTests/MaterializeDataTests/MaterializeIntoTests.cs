@@ -140,6 +140,55 @@ namespace SqlBulkHelpers.IntegrationTests
         }
 
         [TestMethod]
+        public async Task TestMaterializeDataIntoTableWithFullTextIndexAsync()
+        {
+            var sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
+            var timer = Stopwatch.StartNew();
+
+            //NOW Materialize Data into the Tables!
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            {
+                var initialCount = (int)await sqlConn.CountAllAsync(TestHelpers.TestTableWithFullTextIndexFullyQualified);
+                var testDataCount = Math.Max(initialCount * 2, 500);
+
+                //******************************************************************************************
+                //START the Materialize Data Process...
+                //******************************************************************************************
+                await sqlConn.ExecuteMaterializeDataProcessAsync(TestHelpers.TestTableWithFullTextIndexFullyQualified, async (materializeDataContext, sqlTransaction) =>
+                {
+                    TestContext.WriteLine($"MaterializedData Context:");
+                    foreach (var table in materializeDataContext.Tables)
+                        TestContext.WriteLine($"    - {table.LoadingTable.FullyQualifiedTableName} ==> {table.LiveTable.FullyQualifiedTableName}");
+
+                    //Test with Table name being provided...
+                    var testData = TestHelpers.CreateTestData(testDataCount);
+                    var loadingTableTerm = materializeDataContext.GetLoadingTableName(TestHelpers.TestTableWithFullTextIndexFullyQualified);
+                    await sqlTransaction.BulkInsertAsync(testData, tableName: loadingTableTerm).ConfigureAwait(false);
+                    
+                    //NOTE: WE CANNOT Commit the Transaction or else the rest of the Materialization Process cannot complete...
+                    //await sqlTransaction.CommitAsync().ConfigureAwait(false);
+                }).ConfigureAwait(false);
+
+
+                timer.Stop();
+                TestContext.WriteLine($"Materialization Process Completed/Finished in [{timer.ElapsedMilliseconds}] millis...");
+
+                var finalCount = (int)await sqlConn.CountAllAsync(TestHelpers.TestTableWithFullTextIndexFullyQualified);
+                Assert.AreEqual(testDataCount, finalCount);
+
+                var tableSchema = await sqlConn.GetTableSchemaDefinitionAsync(
+                    TestHelpers.TestTableWithFullTextIndexFullyQualified, 
+                    TableSchemaDetailLevel.ExtendedDetails, 
+                    forceCacheReload: true
+                );
+
+                Assert.IsNotNull(tableSchema);
+                Assert.IsNotNull(tableSchema.FullTextIndex);
+                Assert.AreEqual("PK_SqlBulkHelpersTestElements_WithFullTextIndex", tableSchema.FullTextIndex.UniqueIndexName);
+            }
+        }
+
+        [TestMethod]
         public async Task TestMaterializeDataWithFKeyConstraintFailedValidationAsync()
         {
             Exception sqlException = null;

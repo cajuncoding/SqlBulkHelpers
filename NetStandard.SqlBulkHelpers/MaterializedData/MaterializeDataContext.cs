@@ -8,7 +8,8 @@ namespace SqlBulkHelpers.MaterializedData
     public class MaterializeDataContext : IMaterializeDataContextCompletionSource, IMaterializeDataContext
     {
         protected SqlTransaction SqlTransaction { get; }
-        protected ILookup<string, MaterializationTableInfo> TableLookup { get; }
+        protected ILookup<string, MaterializationTableInfo> TableLookupByFullyQualifiedName { get; }
+        protected ILookup<string, MaterializationTableInfo> TableLookupByOriginalName { get; }
         protected ISqlBulkHelpersConfig BulkHelpersConfig { get; }
         protected bool IsDisposed { get; set; } = false;
 
@@ -16,13 +17,23 @@ namespace SqlBulkHelpers.MaterializedData
 
         public MaterializationTableInfo this[int index] => Tables[index];
 
-        public MaterializationTableInfo this[string fullyQualifiedTableName] => FindMaterializationTableInfoCaseInsensitive(fullyQualifiedTableName);
+        public MaterializationTableInfo this[string tableName] => FindMaterializationTableInfoCaseInsensitive(tableName);
 
-        public MaterializationTableInfo FindMaterializationTableInfoCaseInsensitive(string fullyQualifiedTableName)
+        public TableNameTerm GetLoadingTableName(string tableName)
+        {
+            var materializationTableInfo = FindMaterializationTableInfoCaseInsensitive(tableName);
+            if (materializationTableInfo == null) 
+                throw new ArgumentOutOfRangeException(nameof(tableName), $"No materialization table info could be found for the term specified [{tableName}].");
+
+            return materializationTableInfo.LoadingTable;
+        }
+
+        public MaterializationTableInfo FindMaterializationTableInfoCaseInsensitive(string tableName)
         {
             //Try to find the table via specified term, but if not then parse the term and try again...
-            var tableInfo = TableLookup[fullyQualifiedTableName].FirstOrDefault()
-                ?? TableLookup[fullyQualifiedTableName.ParseAsTableNameTerm()].FirstOrDefault();
+            var tableInfo = TableLookupByOriginalName[tableName].FirstOrDefault() 
+                            ?? TableLookupByFullyQualifiedName[tableName].FirstOrDefault()
+                            ?? TableLookupByFullyQualifiedName[tableName.ParseAsTableNameTerm()].FirstOrDefault();
             
             return tableInfo;
         }
@@ -42,7 +53,8 @@ namespace SqlBulkHelpers.MaterializedData
             SqlTransaction = sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
             Tables = materializationTables.AssertArgumentIsNotNull(nameof(materializationTables));
             BulkHelpersConfig = bulkHelpersConfig.AssertArgumentIsNotNull(nameof(bulkHelpersConfig));
-            TableLookup = Tables.ToLookup(t => t.LiveTable.FullyQualifiedTableName, StringComparer.OrdinalIgnoreCase);
+            TableLookupByFullyQualifiedName = Tables.ToLookup(t => t.LiveTable.FullyQualifiedTableName, StringComparer.OrdinalIgnoreCase);
+            TableLookupByOriginalName = Tables.ToLookup(t => t.OriginalTableName, StringComparer.OrdinalIgnoreCase);
         }
 
         public async Task FinishMaterializeDataProcessAsync()

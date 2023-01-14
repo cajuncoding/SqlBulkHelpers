@@ -95,7 +95,7 @@ namespace SqlBulkHelpers.MaterializedData
                 //Finally aggregate the Live/Original, Loading, and Discarding tables into the MaterializationTableInfo
                 var originalTableDef = await GetTableSchemaDefinitionInternalAsync(TableSchemaDetailLevel.ExtendedDetails, sqlTransaction.Connection, sqlTransaction, originalTableNameTerm);
 
-                var materializationTableInfo = new MaterializationTableInfo(originalTableDef, loadingCloneInfo.TargetTable, discardingCloneInfo.TargetTable);
+                var materializationTableInfo = new MaterializationTableInfo(originalTableNameTerm, originalTableDef, loadingCloneInfo.TargetTable, discardingCloneInfo.TargetTable);
                 materializationTableInfoList.Add(materializationTableInfo);
             }
 

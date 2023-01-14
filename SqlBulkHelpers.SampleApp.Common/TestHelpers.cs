@@ -12,6 +12,7 @@ namespace SqlBulkHelpers.Tests
         public const string TestTableName = "SqlBulkHelpersTestElements";
         public const string TestTableNameFullyQualified = "[dbo].[SqlBulkHelpersTestElements]";
         public const string TestChildTableNameFullyQualified = "[dbo].[SqlBulkHelpersTestElements_Child_NoIdentity]";
+        public const string TestTableWithFullTextIndexFullyQualified = "[dbo].[SqlBulkHelpersTestElements_WithFullTextIndex]";
 
         public const int SqlTimeoutSeconds = 150;
 

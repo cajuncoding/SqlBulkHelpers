@@ -461,7 +461,8 @@ namespace SqlBulkHelpers.MaterializedData
             //NOTE: We currently do not support dropping FKeys for whom the Name was mutated to be Unique!
             ScriptBuilder
                 .AppendLine()
-                .Append($"CREATE FULLTEXT INDEX ON {tableName.FullyQualifiedTableName}(");
+                .AppendLine($"CREATE FULLTEXT INDEX ON {tableName.FullyQualifiedTableName}")
+                .Append("(");
                 
             var i = 0;
             foreach (var col in fullTextIndex.IndexedColumns.OrderBy(c => c.OrdinalPosition))
@@ -488,13 +489,13 @@ namespace SqlBulkHelpers.MaterializedData
 
             ScriptBuilder
                 .AppendLine()
-                .Append(TAB)
-                .Append($"KEY INDEX {fullTextIndex.UniqueIndexName.QualifySqlTerm()} ON {fullTextIndex.FullTextCatalogName.QualifySqlTerm()};");
+                .AppendLine(")")
+                .Append($"KEY INDEX {fullTextIndex.UniqueIndexName.QualifySqlTerm()} ON {fullTextIndex.FullTextCatalogName.QualifySqlTerm()}");
 
             //Initialize and Populate With Commands!
             var withCommands = new List<string>();
             if(!string.IsNullOrWhiteSpace(fullTextIndex.ChangeTrackingStateDescription))
-                withCommands.Add($"CHANGE_TRACKING  {fullTextIndex.ChangeTrackingStateDescription}");
+                withCommands.Add($"CHANGE_TRACKING {fullTextIndex.ChangeTrackingStateDescription}");
 
             if(!string.IsNullOrWhiteSpace(fullTextIndex.StopListName))
                 withCommands.Add($"STOPLIST = {fullTextIndex.StopListName}");
@@ -503,15 +504,12 @@ namespace SqlBulkHelpers.MaterializedData
                 withCommands.Add($"SEARCH PROPERTY LIST = {fullTextIndex.PropertyListName}");
 
             if (withCommands.Any())
-                ScriptBuilder
-                    .AppendLine()
-                    .Append(TAB)
-                    .Append("WITH ").Append(withCommands.ToCsv());
+                ScriptBuilder.Append(" WITH ").Append(withCommands.ToCsv());
 
+            //End the statement...
+            ScriptBuilder.Append(";").AppendLine();
             return this;
         }
-
-
 
         public MaterializedDataScriptBuilder AddTableIndexes(TableNameTerm tableName, params TableIndexDefinition[] tableIndexes)
         {

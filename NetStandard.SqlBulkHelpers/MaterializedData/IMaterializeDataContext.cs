@@ -16,7 +16,8 @@
         bool EnableDataConstraintChecksOnCompletion { get; set; }
 
         MaterializationTableInfo this[int index] { get; }
-        MaterializationTableInfo this[string fullyQualifiedTableName] { get; }
-        MaterializationTableInfo FindMaterializationTableInfoCaseInsensitive(string fullyQualifiedTableName);
+        MaterializationTableInfo this[string tableName] { get; }
+        MaterializationTableInfo FindMaterializationTableInfoCaseInsensitive(string tableName);
+        TableNameTerm GetLoadingTableName(string tableName);
     }
 }

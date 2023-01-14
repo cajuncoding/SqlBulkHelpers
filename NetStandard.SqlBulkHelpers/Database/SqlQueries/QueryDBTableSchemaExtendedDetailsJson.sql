@@ -233,7 +233,7 @@
 				INNER JOIN sys.indexes i ON (fti.unique_index_id = i.index_id AND fti.[object_id] = i.[object_id])
 				LEFT JOIN sys.fulltext_stoplists sl ON (sl.stoplist_id = fti.stoplist_id)
 				LEFT JOIN sys.registered_search_property_lists pl ON (pl.property_list_id = fti.property_list_id)
-			WHERE fti.[object_id] = 955202503
+			WHERE fti.[object_id] = t.ObjectId
 			FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
 		))
 	FROM TablesCte t

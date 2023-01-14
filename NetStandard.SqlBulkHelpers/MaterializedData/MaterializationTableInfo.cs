@@ -4,6 +4,8 @@ namespace SqlBulkHelpers.MaterializedData
 {
     public class MaterializationTableInfo
     {
+        internal string OriginalTableName { get; }
+
         public TableNameTerm LiveTable { get; }
 
         public SqlBulkHelpersTableDefinition LiveTableDefinition { get; }
@@ -12,8 +14,9 @@ namespace SqlBulkHelpers.MaterializedData
 
         public TableNameTerm DiscardingTable { get; }
 
-        public MaterializationTableInfo(SqlBulkHelpersTableDefinition originalTableDef, TableNameTerm loadingTableTerm, TableNameTerm discardingTableNameTerm)
+        public MaterializationTableInfo(string originalTableName, SqlBulkHelpersTableDefinition originalTableDef, TableNameTerm loadingTableTerm, TableNameTerm discardingTableNameTerm)
         {
+            OriginalTableName = originalTableName;
             LiveTableDefinition = originalTableDef;
             LiveTable = originalTableDef.TableNameTerm;
             LoadingTable = loadingTableTerm.AssertArgumentIsNotNull(nameof(loadingTableTerm));
