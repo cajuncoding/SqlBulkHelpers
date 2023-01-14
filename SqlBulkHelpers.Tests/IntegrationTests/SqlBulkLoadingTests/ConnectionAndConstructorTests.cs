@@ -7,67 +7,18 @@ namespace SqlBulkHelpers.IntegrationTests
     public class SqlBulkHelpersConnectionAndConstructorTests : BaseTest
     {
         [TestMethod]
-        public async Task TestBulkInsertConstructorWithDBSchemaLoaderInstanceDeferred()
-        {
-            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
-            var sqlBulkDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnectionProvider);
-
-            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
-            await using (var sqlTrans = (SqlTransaction) await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
-            {
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(sqlBulkDbSchemaLoader);
-
-                await DoInsertOrUpdateTestAsync(sqlBulkIdentityHelper, sqlTrans);
-            }
-        }
-
-        [TestMethod]
-        public async Task TestBulkInsertConstructorWithDBSchemaLoaderInstanceFromExistingConnectionAndTransaction()
-        {
-            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
-
-            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
-            await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
-            {
-                //TEST the code flow where the DB Schema Loader is initialized from existing
-                //Connection + sqlTrans and immediately initialized
-                var sqlBulkDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConn.ConnectionString);
-
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(sqlBulkDbSchemaLoader);
-
-                await DoInsertOrUpdateTestAsync(sqlBulkIdentityHelper, sqlTrans).ConfigureAwait(false);
-            }
-        }
-
-        [TestMethod]
-        public async Task TestBulkInsertConstructorWithSqlConnectionProvider()
-        {
-            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
-
-            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
-            await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
-            {
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(sqlConnectionProvider);
-
-                await DoInsertOrUpdateTestAsync(sqlBulkIdentityHelper, sqlTrans).ConfigureAwait(false);
-            }
-        }
-
-        [TestMethod]
         public async Task TestBulkInsertConstructorWithExistingConnectionAndTransactionAsync()
         {
-            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
+            var sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
 
             await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
             await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
             {
-                ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkHelper<TestElement>(sqlTrans);
-
-                await DoInsertOrUpdateTestAsync(sqlBulkIdentityHelper, sqlTrans).ConfigureAwait(false);
+                await DoInsertOrUpdateTestAsync(sqlTrans).ConfigureAwait(false);
             }
         }
 
-        protected async Task DoInsertOrUpdateTestAsync(ISqlBulkHelper<TestElement> sqlBulkIdentityHelper, SqlTransaction sqlTrans)
+        protected async Task DoInsertOrUpdateTestAsync(SqlTransaction sqlTrans)
         {
             List<TestElement> testData = TestHelpers.CreateTestData(10);
 

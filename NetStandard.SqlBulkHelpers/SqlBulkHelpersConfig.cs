@@ -13,7 +13,7 @@ namespace SqlBulkHelpers
         int MaterializeDataStructureProcessingTimeoutSeconds { get; }
         string MaterializedDataLoadingSchema { get; }
         string MaterializedDataDiscardingSchema { get; }
-        bool IsCloningIdentitySeedValueEnabled{ get; }
+        bool IsCloningIdentitySeedValueEnabled { get; }
     }
 
     public class SqlBulkHelpersConfig : ISqlBulkHelpersConfig
@@ -47,8 +47,8 @@ namespace SqlBulkHelpers
         public SqlBulkCopyOptions SqlBulkCopyOptions { get; set; } = SqlBulkCopyOptions.Default | SqlBulkCopyOptions.TableLock;
         
         public int MaterializeDataStructureProcessingTimeoutSeconds { get; set; } = 30;
-        public string MaterializedDataLoadingSchema { get; set; } = "dbo_materializing";
-        public string MaterializedDataDiscardingSchema { get; set; } = "dbo_materializing_temp";
+        public string MaterializedDataLoadingSchema { get; set; } = "materializing_load";
+        public string MaterializedDataDiscardingSchema { get; set; } = "materializing_discard";
         public bool IsCloningIdentitySeedValueEnabled { get; set; } = true;
     }
 }

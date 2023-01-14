@@ -11,7 +11,7 @@ namespace SqlBulkHelpers.IntegrationTests
     {
         /// <summary>
         /// NOTE: ALL TESTS Assume that the tables started off in an empty state so we clear them.... Ironically we are also testing this Feature
-        ///     of clearing (haha), but any failure of this or the tests points to an issue so we use the feature to prep for testing the feature
+        ///     of clearing, but any failure of this or the tests points to an issue so we use the feature to prep for testing the feature
         ///     and if everything passes then we are good go go :-)
         /// </summary>
         /// <returns></returns>
@@ -28,6 +28,8 @@ namespace SqlBulkHelpers.IntegrationTests
                     TestHelpers.TestTableNameFullyQualified,
                     TestHelpers.TestChildTableNameFullyQualified
                 }, forceOverrideOfConstraints: true).ConfigureAwait(false);
+
+                await sqlTrans.CommitAsync().ConfigureAwait(false);
             }
         }
 

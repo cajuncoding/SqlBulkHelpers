@@ -13,6 +13,7 @@
 	SELECT
 		t.TableSchema, 
 		t.TableName,
+		[SchemaDetailLevel] = 'ExtendedDetails',
 		[TableColumns] = (
 			SELECT 
 				SourceTableSchema = t.TableSchema,
@@ -202,7 +203,39 @@
 				[type] = 2 -- Type 2 are NONCLUSTERED Table Indexes
 				AND [object_id] = t.ObjectId
             FOR JSON PATH
-        )
+        ),
+		[FullTextIndex] = JSON_QUERY((
+			SELECT TOP (1)
+				SourceTableSchema = t.TableSchema,
+				SourceTableName = t.TableName,
+				FullTextCatalogName = cat.[name], 
+				UniqueIndexName = i.[name],
+				ChangeTrackingStateDescription = fti.[change_tracking_state_desc],
+				StopListName = sl.[name],
+				PropertyListName = pl.[name],
+				IndexedColumns = (
+					SELECT 
+						OrdinalPosition = ROW_NUMBER() OVER(ORDER BY ic.column_id ASC),
+						ColumnName = c.[name],
+						LanguageId = ic.[language_id],
+						StatisticalSemanticsEnabled = ic.[statistical_semantics],
+						TypeColumnName = typec.[name]
+					FROM 
+						sys.fulltext_index_columns ic
+			            INNER JOIN sys.columns c ON (c.[object_id] = ic.[object_id] and c.column_id = ic.column_id)
+						LEFT JOIN sys.columns typec ON (typec.[object_id] = ic.[object_id] and typec.column_id = ic.type_column_id)
+					WHERE c.[object_id] = fti.[object_id]
+					FOR JSON PATH
+				)
+			FROM
+				sys.fulltext_indexes fti
+				INNER JOIN sys.fulltext_catalogs cat ON (fti.fulltext_catalog_id = cat.fulltext_catalog_id)
+				INNER JOIN sys.indexes i ON (fti.unique_index_id = i.index_id AND fti.[object_id] = i.[object_id])
+				LEFT JOIN sys.fulltext_stoplists sl ON (sl.stoplist_id = fti.stoplist_id)
+				LEFT JOIN sys.registered_search_property_lists pl ON (pl.property_list_id = fti.property_list_id)
+			WHERE fti.[object_id] = 955202503
+			FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+		))
 	FROM TablesCte t
 	ORDER BY t.TableName
 	FOR JSON PATH, WITHOUT_ARRAY_WRAPPER

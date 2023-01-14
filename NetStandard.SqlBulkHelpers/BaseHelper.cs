@@ -1,11 +1,12 @@
 ﻿using Microsoft.Data.SqlClient;
 using System;
+using System.Threading.Tasks;
 
 namespace SqlBulkHelpers
 {
-    public abstract class BaseHelper<T> where T : class
+    internal abstract class BaseHelper<T> where T : class
     {
-        public ISqlBulkHelpersDBSchemaLoader SqlDbSchemaLoader { get; protected set; }
+        protected ISqlBulkHelpersDBSchemaLoader SqlDbSchemaLoader { get; set; }
 
         public ISqlBulkHelpersConfig BulkHelpersConfig { get; protected set; }
 
@@ -16,54 +17,10 @@ namespace SqlBulkHelpers
         #region Constructors
 
         /// <summary>
-        /// Constructor that support passing in a customized Sql DB Schema Loader implementation.
-        /// NOTE: This is usually a shared/cached/static class (such as SqlBulkHelpersDBSchemaStaticLoader) because it may 
-        ///         cache the Sql DB Schema for maximum performance of all Bulk insert/update activities within an application; 
-        ///         because Schemas usually do not change during the lifetime of an application restart.
-        /// NOTE: With this overload there is no internal caching done, as it assumes that the instance provided is already
-        ///         being managed for performance.
+        /// Constructor that should be used for most use cases; Sql DB Schemas will be automatically resolved internally
+        /// with caching support via SqlBulkHelpersSchemaLoaderCache.
         /// </summary>
-        /// <param name="sqlDbSchemaLoader"></param>
-        /// <param name="bulkHelpersConfig"></param>
-        protected BaseHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader, ISqlBulkHelpersConfig bulkHelpersConfig = null)
-            : this(bulkHelpersConfig)
-        {
-            this.SqlDbSchemaLoader = sqlDbSchemaLoader.AssertArgumentIsNotNull(nameof(sqlDbSchemaLoader));
-        }
-
-        /// <summary>
-        /// Constructor that support passing in an SqlConnection Provider which will enable deferred (lazy) initialization of the
-        /// Sql DB Schema Loader and Schema Definitions internally. the Sql DB Schema Loader will be resolved internally using
-        /// the SqlBulkHelpersSchemaLoaderCache manager for performance.
-        /// NOTE: With this overload the resolve ISqlBulkHelpersDBSchemaLoader will be resolved for this unique Connection,
-        ///         as an internally managed cached resource for performance.
-        /// </summary>
-        /// <param name="sqlBulkHelpersConnectionProvider"></param>
-        /// <param name="bulkHelpersConfig"></param>
-        protected BaseHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider, ISqlBulkHelpersConfig bulkHelpersConfig = null)
-            : this(bulkHelpersConfig)
-        {
-            sqlBulkHelpersConnectionProvider.AssertArgumentIsNotNull(nameof(sqlBulkHelpersConnectionProvider));
-            this.SqlDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlBulkHelpersConnectionProvider);
-        }
-
-        /// <summary>
-        /// Convenience constructor that support passing in an existing Transaction for an open Connection; whereby
-        /// the Sql DB Schema Loader will be resolved internally using the SqlBulkHelpersSchemaLoaderCache manager.
-        /// NOTE: With this overload the resolve ISqlBulkHelpersDBSchemaLoader will be resolved for this unique Connection,
-        ///         as an internally managed cached resource for performance.
-        /// </summary>
-        /// <param name="sqlTransaction"></param>
-        /// <param name="bulkHelpersConfig"></param>
-        protected BaseHelper(SqlTransaction sqlTransaction, ISqlBulkHelpersConfig bulkHelpersConfig = null)
-            : this(bulkHelpersConfig)
-        {
-            sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
-            this.SqlDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlTransaction.Connection.ConnectionString);
-        }
-
-        //Private Constructor for common element initialization...
-        private BaseHelper(ISqlBulkHelpersConfig bulkHelpersConfig = null)
+        protected BaseHelper(ISqlBulkHelpersConfig bulkHelpersConfig = null)
         {
             this.BulkHelpersConfig = bulkHelpersConfig ?? SqlBulkHelpersConfig.DefaultConfig;
             this.BulkHelpersProcessingDefinition = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>();
@@ -75,27 +32,53 @@ namespace SqlBulkHelpers
             => GenericType.GetSqlBulkHelpersMappedTableNameTerm(tableNameOverride);
 
         //BBernard
+        //NOTE: MOST APIs will use a Transaction to get the DB Schema loader so this is the recommended method to use for all cases except for edge cases
+        //      that cannot run within a Transaction (e.g. FullTableIndex APIs).
         //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
         //      we eliminate risk of Sql Injection.
         //NOTE: All other parameters are Strongly typed (vs raw Strings) thus eliminating risk of Sql Injection
-        protected virtual SqlBulkHelpersTableDefinition GetTableSchemaDefinitionInternal(SqlTransaction sqlTransaction, string tableNameOverride = null)
-            => GetTableSchemaDefinitionInternal(sqlTransaction, GetMappedTableNameTerm(tableNameOverride));
-
-        //BBernard
-        //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
-        //      we eliminate risk of Sql Injection.
-        //NOTE: All other parameters are Strongly typed (vs raw Strings) thus eliminating risk of Sql Injection
-        protected virtual SqlBulkHelpersTableDefinition GetTableSchemaDefinitionInternal(SqlTransaction sqlTransaction, TableNameTerm tableNameTerm)
+        protected virtual SqlBulkHelpersTableDefinition GetTableSchemaDefinitionInternal(TableSchemaDetailLevel detailLevel, SqlConnection sqlConnection, SqlTransaction sqlTransaction = null, string tableNameOverride = null, bool forceCacheReload = false)
         {
+            //Initialize the DB Schema loader (if specified, or from our Cache)...
+            var dbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnection.ConnectionString);
+
             //BBernard
             //Load the Table Schema Definitions from the table name term provided or fall-back to use mapped data
             //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
             //      we eliminate risk of Sql Injection.
-            var tableDefinition = this.SqlDbSchemaLoader.GetTableSchemaDefinition(tableNameTerm, sqlTransaction);
-            if (tableDefinition == null) 
-                throw new ArgumentOutOfRangeException(nameof(tableNameTerm), $"The specified {nameof(tableNameTerm)} argument value of [{tableNameTerm}] is invalid; no table definition could be resolved.");
-            
+            var tableNameTerm = GetMappedTableNameTerm(tableNameOverride);
+            var tableDefinition = dbSchemaLoader.GetTableSchemaDefinition(tableNameTerm, detailLevel, sqlConnection, sqlTransaction, forceCacheReload);
+            AssertTableDefinitionIsValid(tableNameTerm, tableDefinition);
+
             return tableDefinition;
+        }
+
+        //BBernard
+        //NOTE: MOST APIs will use a Transaction to get the DB Schema loader so this is the recommended method to use for all cases except for edge cases
+        //      that cannot run within a Transaction (e.g. FullTableIndex APIs).
+        //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
+        //      we eliminate risk of Sql Injection.
+        //NOTE: All other parameters are Strongly typed (vs raw Strings) thus eliminating risk of Sql Injection
+        protected virtual async Task<SqlBulkHelpersTableDefinition> GetTableSchemaDefinitionInternalAsync(TableSchemaDetailLevel detailLevel, SqlConnection sqlConnection, SqlTransaction sqlTransaction = null, string tableNameOverride = null, bool forceCacheReload = false)
+        {
+            //Initialize the DB Schema loader (if specified, or from our Cache)...
+            var dbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnection.ConnectionString);
+
+            //BBernard
+            //Load the Table Schema Definitions from the table name term provided or fall-back to use mapped data
+            //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
+            //      we eliminate risk of Sql Injection.
+            var tableNameTerm = GetMappedTableNameTerm(tableNameOverride);
+            var tableDefinition = await dbSchemaLoader.GetTableSchemaDefinitionAsync(tableNameTerm, detailLevel, sqlConnection, sqlTransaction, forceCacheReload).ConfigureAwait(false);
+            AssertTableDefinitionIsValid(tableNameTerm, tableDefinition);
+
+            return tableDefinition;
+        }
+
+        protected void AssertTableDefinitionIsValid(TableNameTerm tableNameTerm, SqlBulkHelpersTableDefinition tableDefinition)
+        {
+            if (tableDefinition == null)
+                throw new ArgumentOutOfRangeException(nameof(tableNameTerm), $"The specified {nameof(tableNameTerm)} argument value of [{tableNameTerm}] is invalid; no table definition could be resolved.");
         }
 
     }

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace SqlBulkHelpers
 {
-    public partial class SqlBulkHelper<T> : BaseSqlBulkHelper<T>, ISqlBulkHelper<T> where T : class
+    internal partial class SqlBulkHelper<T> : BaseSqlBulkHelper<T> where T : class
     {
         #region Processing Methods (that do the real work)
 
@@ -33,9 +33,16 @@ namespace SqlBulkHelpers
             //For Performance we ensure the entities are only ever enumerated One Time!
             var entityList = entities.ToList();
 
+            var tableDefinition = await this.GetTableSchemaDefinitionInternalAsync(
+                TableSchemaDetailLevel.BasicDetails, 
+                sqlTransaction.Connection, 
+                sqlTransaction: sqlTransaction, 
+                tableNameOverride: tableNameParam
+            );
+
             using (ProcessHelper processHelper = this.CreateProcessHelper(
-                entityList, mergeAction, sqlTransaction, tableNameParam, matchQualifierExpressionParam)
-            ) {
+                entityList, mergeAction, tableDefinition, sqlTransaction, tableNameParam, matchQualifierExpressionParam
+            )) {
                 var sqlCmd = processHelper.SqlCommand;
                 var sqlBulkCopy = processHelper.SqlBulkCopy;
                 var sqlScripts = processHelper.SqlMergeScripts;
@@ -112,8 +119,16 @@ namespace SqlBulkHelpers
             var entityList = entities.ToList();
             var bulkOperationTimeoutSeconds = this.BulkHelpersConfig;
 
+            var tableDefinition = this.GetTableSchemaDefinitionInternal(
+                TableSchemaDetailLevel.BasicDetails, 
+                sqlTransaction.Connection, 
+                sqlTransaction: sqlTransaction, 
+                tableNameOverride: tableNameParam
+            );
+
             using (ProcessHelper processHelper = this.CreateProcessHelper(
-                entityList, mergeAction, sqlTransaction, tableNameParam, matchQualifierExpressionParam))
+                entityList, mergeAction, tableDefinition, sqlTransaction, tableNameParam, matchQualifierExpressionParam
+            ))
             {
                 var sqlCmd = processHelper.SqlCommand;
                 var sqlBulkCopy = processHelper.SqlBulkCopy;
@@ -150,8 +165,8 @@ namespace SqlBulkHelpers
                 //      other items may have in-reality actually been updated within the DB.  This is a likely scenario
                 //      IF a different non-unique Match Qualifier Field is specified.
                 var updatedEntityList = this.PostProcessEntitiesWithMergeResults(
-                    entityList, 
-                    mergeResultsList, 
+                    entityList,
+                    mergeResultsList,
                     processHelper.TableDefinition.IdentityColumn,
                     processHelper.SqlMergeScripts.SqlMatchQualifierExpression
                 );
@@ -186,20 +201,21 @@ namespace SqlBulkHelpers
         /// </summary>
         /// <param name="entityData"></param>
         /// <param name="mergeAction"></param>
+        /// <param name="tableDefinition"></param>
         /// <param name="sqlTransaction"></param>
         /// <param name="tableNameOverride"></param>
         /// <param name="matchQualifierExpressionParam"></param>
         /// <returns></returns>
         protected virtual ProcessHelper CreateProcessHelper(
             List<T> entityData, 
-            SqlBulkHelpersMergeAction mergeAction, 
+            SqlBulkHelpersMergeAction mergeAction,
+            SqlBulkHelpersTableDefinition tableDefinition,
             SqlTransaction sqlTransaction,
             string tableNameOverride = null,
             SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null
         )
         {
             //***STEP #1: Get the Table & Model Processing Definitions (cached after initial Load)!!!
-            var tableDefinition = this.GetTableSchemaDefinitionInternal(sqlTransaction, tableNameOverride);
             var processingDefinition = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>(tableDefinition.IdentityColumn);
 
             //***STEP #2: Build all of the Sql Scripts needed to Process the entities based on the specified Table definition.

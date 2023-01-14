@@ -426,12 +426,101 @@ namespace SqlBulkHelpers.MaterializedData
             return this;
         }
 
+
+        /// <summary>
+        /// Drops the one (and only) Full Text Index on the specified table. This method is idempotent and safe and will only Drop it if it exists.
+        /// NOTE: Sql Server only allows one Full Text Index per table, so it doesn't have a unique name:
+        ///     https://learn.microsoft.com/en-us/sql/t-sql/statements/create-fulltext-index-transact-sql?view=sql-server-ver16
+        /// </summary>
+        /// <param name="tableName"></param>
+        /// <returns></returns>
+        public MaterializedDataScriptBuilder DropFullTextIndex(TableNameTerm tableName)
+        {
+            //NOTE: We currently do not support dropping FKeys for whom the Name was mutated to be Unique!
+            ScriptBuilder.Append($@"
+                IF EXISTS(SELECT * FROM sys.fulltext_indexes fti WHERE fti.[object_id] = OBJECT_ID('{tableName.FullyQualifiedTableName}'))
+                    DROP FULLTEXT INDEX ON {tableName.FullyQualifiedTableName};
+            ");
+            return this;
+        }
+
+        /// <summary>
+        /// Adds the provided Full Text Index to the specified table.
+        /// NOTE: Sql Server only allows one Full Text Index per table:
+        ///     https://learn.microsoft.com/en-us/sql/t-sql/statements/create-fulltext-index-transact-sql?view=sql-server-ver16
+        /// </summary>
+        /// <param name="tableName"></param>
+        /// <param name="fullTextIndex"></param>
+        /// <returns></returns>
+        public MaterializedDataScriptBuilder AddFullTextIndex(TableNameTerm tableName, FullTextIndexDefinition fullTextIndex)
+        {
+            if (fullTextIndex == null) return this;
+
+            const string TAB = "\t";
+
+            //NOTE: We currently do not support dropping FKeys for whom the Name was mutated to be Unique!
+            ScriptBuilder
+                .AppendLine()
+                .Append($"CREATE FULLTEXT INDEX ON {tableName.FullyQualifiedTableName}(");
+                
+            var i = 0;
+            foreach (var col in fullTextIndex.IndexedColumns.OrderBy(c => c.OrdinalPosition))
+            {
+                //CSV Separator for the Prior Item before the next/current one...
+                if (i++ > 0) ScriptBuilder.Append(",");
+                    
+                ScriptBuilder
+                    .AppendLine()//New Line for each Column definition...
+                    .Append(TAB).Append(col.ColumnName.QualifySqlTerm()); //Column Name
+
+                //TYPE COLUMN directive (Optional)
+                if (!string.IsNullOrWhiteSpace(col.TypeColumnName))
+                    ScriptBuilder.Append($" TYPE COLUMN {col.TypeColumnName}");
+
+                //LANGUAGE directive (probably always Exists, but we check for safety)
+                if (col.LanguageId > 0)
+                    ScriptBuilder.Append($" LANGUAGE {col.LanguageId}");
+
+                //STATISTICAL_SEMANTICS directive (Optional)
+                if(col.StatisticalSemanticsEnabled)
+                    ScriptBuilder.Append($" STATISTICAL_SEMANTICS");
+            }
+
+            ScriptBuilder
+                .AppendLine()
+                .Append(TAB)
+                .Append($"KEY INDEX {fullTextIndex.UniqueIndexName.QualifySqlTerm()} ON {fullTextIndex.FullTextCatalogName.QualifySqlTerm()};");
+
+            //Initialize and Populate With Commands!
+            var withCommands = new List<string>();
+            if(!string.IsNullOrWhiteSpace(fullTextIndex.ChangeTrackingStateDescription))
+                withCommands.Add($"CHANGE_TRACKING  {fullTextIndex.ChangeTrackingStateDescription}");
+
+            if(!string.IsNullOrWhiteSpace(fullTextIndex.StopListName))
+                withCommands.Add($"STOPLIST = {fullTextIndex.StopListName}");
+
+            if (!string.IsNullOrWhiteSpace(fullTextIndex.PropertyListName))
+                withCommands.Add($"SEARCH PROPERTY LIST = {fullTextIndex.PropertyListName}");
+
+            if (withCommands.Any())
+                ScriptBuilder
+                    .AppendLine()
+                    .Append(TAB)
+                    .Append("WITH ").Append(withCommands.ToCsv());
+
+            return this;
+        }
+
+
+
         public MaterializedDataScriptBuilder AddTableIndexes(TableNameTerm tableName, params TableIndexDefinition[] tableIndexes)
         {
             foreach (var index in tableIndexes)
             {
                 var indexName = index.MapIndexNameToTargetAndEnsureUniqueness(tableName);
-                var keyColumns = index.KeyColumns?.OrderBy(c => c.OrdinalPosition).Select(c => c.ColumnName.QualifySqlTerm());
+                var keyColumns = index.KeyColumns?
+                    .OrderBy(c => c.OrdinalPosition)
+                    .Select(c => c.ColumnName.QualifySqlTerm());
 
                 //Validate that we have FKey Columns...
                 if (!keyColumns.HasAny())

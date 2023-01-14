@@ -3,28 +3,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
+using SqlBulkHelpers.CustomExtensions;
 
 namespace SqlBulkHelpers.MaterializedData
 {
-    public class MaterializeDataHelper<T> : BaseHelper<T> where T : class
+    internal class MaterializeDataHelper<T> : BaseHelper<T> where T : class
     {
         #region Constructors
 
         /// <inheritdoc/>
-        public MaterializeDataHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader, ISqlBulkHelpersConfig bulkHelpersConfig = null)
-            : base(sqlDbSchemaLoader, bulkHelpersConfig)
-        {
-        }
-
-        /// <inheritdoc/>
-        public MaterializeDataHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider, ISqlBulkHelpersConfig bulkHelpersConfig = null)
-            : base(sqlBulkHelpersConnectionProvider, bulkHelpersConfig)
-        {
-        }
-
-        /// <inheritdoc/>
-        public MaterializeDataHelper(SqlTransaction sqlTransaction, ISqlBulkHelpersConfig bulkHelpersConfig = null)
-            : base(sqlTransaction, bulkHelpersConfig)
+        public MaterializeDataHelper(ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            : base(bulkHelpersConfig)
         {
         }
 
@@ -104,7 +93,7 @@ namespace SqlBulkHelpers.MaterializedData
                 cloneInfoToExecuteList.Add(discardingCloneInfo);
 
                 //Finally aggregate the Live/Original, Loading, and Discarding tables into the MaterializationTableInfo
-                var originalTableDef = GetTableSchemaDefinitionInternal(sqlTransaction, originalTableNameTerm);
+                var originalTableDef = await GetTableSchemaDefinitionInternalAsync(TableSchemaDetailLevel.ExtendedDetails, sqlTransaction.Connection, sqlTransaction, originalTableNameTerm);
 
                 var materializationTableInfo = new MaterializationTableInfo(originalTableDef, loadingCloneInfo.TargetTable, discardingCloneInfo.TargetTable);
                 materializationTableInfoList.Add(materializationTableInfo);
@@ -166,7 +155,7 @@ namespace SqlBulkHelpers.MaterializedData
             if (cloneInfoList.IsNullOrEmpty())
                 throw new ArgumentException("At least one source & target table pair must be specified.");
 
-            var cloneTableStructureSqlScriptBuilder = MaterializedDataScriptBuilder.NewSqlScript();
+            var sqlScriptBuilder = MaterializedDataScriptBuilder.NewSqlScript();
             var cloneInfoResults = new List<CloneTableInfo>();
             foreach (var cloneInfo in cloneInfoList)
             {
@@ -178,11 +167,11 @@ namespace SqlBulkHelpers.MaterializedData
                 if (targetTable.EqualsIgnoreCase(sourceTable))
                     throw new InvalidOperationException($"The source table name {sourceTable.FullyQualifiedTableName} and target table name {targetTable.FullyQualifiedTableName} must be unique.");
 
-                var sourceTableSchemaDefinition = GetTableSchemaDefinitionInternal(sqlTransaction, sourceTable);
+                var sourceTableSchemaDefinition = await GetTableSchemaDefinitionInternalAsync(TableSchemaDetailLevel.ExtendedDetails, sqlTransaction.Connection, sqlTransaction, sourceTable);
                 if (sourceTableSchemaDefinition == null)
                     throw new ArgumentException($"Could not resolve the source table schema for {sourceTable.FullyQualifiedTableName} on the provided connection.");
 
-                cloneTableStructureSqlScriptBuilder.CloneTableWithAllElements(
+                sqlScriptBuilder.CloneTableWithAllElements(
                     sourceTableSchemaDefinition,
                     targetTable,
                     recreateIfExists ? IfExists.Recreate : IfExists.StopProcessingWithException,
@@ -201,7 +190,7 @@ namespace SqlBulkHelpers.MaterializedData
 
             //Execute the Script!
             await sqlTransaction
-                .ExecuteMaterializedDataSqlScriptAsync(cloneTableStructureSqlScriptBuilder, BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds)
+                .ExecuteMaterializedDataSqlScriptAsync(sqlScriptBuilder, BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds)
                 .ConfigureAwait(false);
 
             //If everything was successful then we can simply return the input values as they were all cloned...
@@ -221,14 +210,14 @@ namespace SqlBulkHelpers.MaterializedData
                 return Array.Empty<TableNameTerm>();
 
             var tableNameTermsList = tableNames.Distinct().Select(TableNameTerm.From).ToList();
-            var dropTableSqlScriptBuilder = MaterializedDataScriptBuilder.NewSqlScript();
+            var sqlScriptBuilder = MaterializedDataScriptBuilder.NewSqlScript();
 
             foreach (var tableNameTerm in tableNameTermsList)
-                dropTableSqlScriptBuilder.DropTable(tableNameTerm);
+                sqlScriptBuilder.DropTable(tableNameTerm);
 
             //Execute the Script!
             await sqlTransaction
-                .ExecuteMaterializedDataSqlScriptAsync(dropTableSqlScriptBuilder, BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds)
+                .ExecuteMaterializedDataSqlScriptAsync(sqlScriptBuilder, BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds)
                 .ConfigureAwait(false);
 
             return tableNameTermsList.AsArray();
@@ -248,31 +237,46 @@ namespace SqlBulkHelpers.MaterializedData
 
             var distinctTableNames = tableNames.Distinct().ToList();
             var tableNameTermsList = distinctTableNames.Select(TableNameTerm.From).ToList();
-            var processTablesWithTruncateEnabled = true;
+            var tablesToProcessWithTruncation = new List<TableNameTerm>();
 
             if (forceOverrideOfConstraints)
             {
-                var tableDefs = tableNameTermsList.Select(tableNameTerm => GetTableSchemaDefinitionInternal(sqlTransaction, tableNameTerm));
-                processTablesWithTruncateEnabled = !tableDefs.Any(tableDef => tableDef.ReferencingForeignKeyConstraints.HasAny() || tableDef.ForeignKeyConstraints.HasAny());
-                
-                if (!processTablesWithTruncateEnabled)
+                 //NOTE: We use String here because the StartMaterializeDataProcessAsync takes in string names (not parsed names)...
+                var tablesToMaterializeAsEmpty = new List<string>();
+                foreach(var tableNameTerm in tableNameTermsList)
+                {
+                    var sqlConnection = sqlTransaction.Connection;
+                    var tableDef = await GetTableSchemaDefinitionInternalAsync(TableSchemaDetailLevel.ExtendedDetails, sqlConnection, sqlTransaction: sqlTransaction, tableNameTerm).ConfigureAwait(false);
+                    //Bucket our Table Definitions based on if they REQUIRE Materialization or if they can be handled by Truncate processing...
+                    if (tableDef.ReferencingForeignKeyConstraints.HasAny() || tableDef.ForeignKeyConstraints.HasAny())
+                        lock (tablesToMaterializeAsEmpty) tablesToMaterializeAsEmpty.Add(tableNameTerm);
+                    else
+                        lock (tablesToProcessWithTruncation) tablesToProcessWithTruncation.Add(tableNameTerm);
+                };
+
+                if (tablesToMaterializeAsEmpty.Any())
                 {
                     //BBernard
-                    //NOTE: To Clear the tables and ensure all Constraints, and FKeys are handled we re-use the Materialized Data Helpers that alraedy do this
+                    //NOTE: To Clear the tables and ensure all Constraints, and FKeys are handled we re-use the Materialized Data Helpers that already do this
                     //          and we simply complete the process by materializing to EMPTY tables (newly cloned) with no data!
                     //START the Materialize Data Process... but we do NOT insert any new data to the Empty Tables!
-                    var materializeDataContext = await sqlTransaction.StartMaterializeDataProcessAsync(distinctTableNames).ConfigureAwait(false);
+                    var materializeDataContext = await sqlTransaction.StartMaterializeDataProcessAsync(tablesToMaterializeAsEmpty).ConfigureAwait(false);
 
                     //We finish the Clearing process by immediately switching out with the new/empty tables to Clear the Data!
                     await materializeDataContext.FinishMaterializeDataProcessAsync().ConfigureAwait(false);
                 }
             }
+            else
+            {
+                //Attempt to Process all as with Truncation...
+                tablesToProcessWithTruncation.AddRange(tableNameTermsList);
+            }
 
-            if (processTablesWithTruncateEnabled)
+            if (tablesToProcessWithTruncation.Any())
             {
                 var truncateTableSqlScriptBuilder = MaterializedDataScriptBuilder.NewSqlScript();
 
-                foreach (var tableNameTerm in tableNameTermsList)
+                foreach (var tableNameTerm in tablesToProcessWithTruncation)
                     truncateTableSqlScriptBuilder.TruncateTable(tableNameTerm);
 
                 //Execute the Script!
@@ -286,5 +290,79 @@ namespace SqlBulkHelpers.MaterializedData
 
         #endregion
 
+        #region Full Text Index API Methods
+
+        /// <summary>
+        /// Remove and Return the Details for the Full Text Index of specified mapped table model type.
+        /// NOTE: THIS API is Unique in that this CANNOT be called within the context of a Transaction and therefore
+        ///         must be executed on a Connection without a Transaction!!!
+        /// </summary>
+        /// <param name="sqlConnection"></param>
+        /// <param name="tableNameOverride"></param>
+        /// <returns></returns>
+        public async Task<FullTextIndexDefinition> RemoveFullTextIndexAsync(
+            SqlConnection sqlConnection,
+            string tableNameOverride = null
+        )
+        {
+            sqlConnection.AssertArgumentIsNotNull(nameof(sqlConnection));
+
+            var tableSchemaDefinition = await this.GetTableSchemaDefinitionInternalAsync(
+                TableSchemaDetailLevel.ExtendedDetails, 
+                sqlConnection, 
+                sqlTransaction: null, 
+                tableNameOverride: tableNameOverride
+            ).ConfigureAwait(false);
+
+            if (tableSchemaDefinition.FullTextIndex != null)
+            {
+                var sqlScriptBuilder = MaterializedDataScriptBuilder
+                    .NewSqlScript()
+                    .DropFullTextIndex(tableSchemaDefinition.TableNameTerm);
+
+                //Execute the Script!
+                await sqlConnection
+                    .ExecuteMaterializedDataSqlScriptAsync(sqlScriptBuilder, BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds)
+                    .ConfigureAwait(false);
+
+                return tableSchemaDefinition.FullTextIndex;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Add the Full Text Index specified by the Definition to specified table.
+        /// NOTE: THIS API is Unique in that this CANNOT be called within the context of a Transaction and therefore
+        ///         must be executed on a Connection without a Transaction!!!
+        /// NOTE: This is usually done when Materializing data into a table that has a Full Text Index, so the index must be removed and re-added outside
+        ///         of the Transaction.
+        /// </summary>
+        /// <param name="sqlConnection"></param>
+        /// <param name="fullTextIndex"></param>
+        /// <param name="tableNameOverride"></param>
+        /// <returns></returns>
+        public async Task AddFullTextIndexAsync(
+            SqlConnection sqlConnection,
+            FullTextIndexDefinition fullTextIndex,
+            string tableNameOverride = null
+        )
+        {
+            sqlConnection.AssertArgumentIsNotNull(nameof(sqlConnection));
+            fullTextIndex.AssertArgumentIsNotNull(nameof(fullTextIndex));
+
+            var tableNameTerm = GetMappedTableNameTerm(tableNameOverride);
+
+            var sqlScriptBuilder = MaterializedDataScriptBuilder
+                .NewSqlScript()
+                .AddFullTextIndex(tableNameTerm, fullTextIndex);
+
+            //Execute the Script!
+            await sqlConnection
+                .ExecuteMaterializedDataSqlScriptAsync(sqlScriptBuilder, BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds)
+                .ConfigureAwait(false);
+        }
+
+        #endregion
     }
 }

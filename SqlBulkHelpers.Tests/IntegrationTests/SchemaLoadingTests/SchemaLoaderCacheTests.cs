@@ -95,7 +95,8 @@ namespace SqlBulkHelpers.IntegrationTests
                     //Initial Call should result in SQL Exception due to Pending Transaction...
                     var tableDefinition = dbSchemaLoaderFromFactoryFuncInvalid.GetTableSchemaDefinition(
                         TestHelpers.TestTableNameFullyQualified, 
-                        sqlConnectionFactory: () => sqlConnInvalidWithTransaction
+                        TableSchemaDetailLevel.ExtendedDetails,
+                        sqlConnection: sqlConnInvalidWithTransaction
                     );
                     Assert.IsNotNull(tableDefinition);
                 }
@@ -122,7 +123,8 @@ namespace SqlBulkHelpers.IntegrationTests
 
             var validTableDefinition = dbSchemaLoaderFromFactoryFuncInvalid.GetTableSchemaDefinition(
                 TestHelpers.TestTableNameFullyQualified,
-                sqlConnectionFactory: () => sqlConnOkNewConnection
+                TableSchemaDetailLevel.ExtendedDetails,
+                sqlConnection: sqlConnOkNewConnection
             );
 
             //Initial Call should result in SQL Exception due to Pending Transaction...

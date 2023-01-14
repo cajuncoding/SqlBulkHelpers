@@ -2,30 +2,38 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Serialization;
+using Newtonsoft.Json.Converters;
 using SqlBulkHelpers.CustomExtensions;
 
 namespace SqlBulkHelpers
 {
+    [JsonConverter(typeof(StringEnumConverter))]
     public class SqlBulkHelpersTableDefinition
     {
         protected ILookup<string, TableColumnDefinition> ColumnLookupByNameCaseInsensitive { get; }
 
         public SqlBulkHelpersTableDefinition(
             string tableSchema, 
-            string tableName, 
+            string tableName,
+            TableSchemaDetailLevel schemaDetailLevel,
             List<TableColumnDefinition> tableColumns,
             PrimaryKeyConstraintDefinition primaryKeyConstraint,
             List<ForeignKeyConstraintDefinition> foreignKeyConstraints,
             List<ReferencingForeignKeyConstraintDefinition> referencingForeignKeyConstraints,
             List<ColumnDefaultConstraintDefinition> columnDefaultConstraints,
             List<ColumnCheckConstraintDefinition> columnCheckConstraints,
-            List<TableIndexDefinition> tableIndexes)
+            List<TableIndexDefinition> tableIndexes,
+            FullTextIndexDefinition fullTextIndex
+        )
         {
             //Initialize our Table Name Term properties...
             TableNameTerm = TableNameTerm.From(
                 tableSchema.AssertArgumentIsNotNullOrWhiteSpace(nameof(tableSchema)),
                 tableName.AssertArgumentIsNotNullOrWhiteSpace(nameof(tableName))
             );
+
+            //Table Schema Detail Level (what was included when queried...)
+            SchemaDetailLevel = schemaDetailLevel;
 
             //Ensure that the Columns, Constraints, etc. collections are always NullSafe and is Immutable/ReadOnly!
             TableColumns = (tableColumns ?? new List<TableColumnDefinition>()).AsReadOnly();
@@ -35,6 +43,7 @@ namespace SqlBulkHelpers
             ColumnDefaultConstraints = (columnDefaultConstraints ?? new List<ColumnDefaultConstraintDefinition>()).AsReadOnly();
             ColumnCheckConstraints = (columnCheckConstraints ?? new List<ColumnCheckConstraintDefinition>()).AsReadOnly();
             TableIndexes = (tableIndexes ?? new List<TableIndexDefinition>()).AsReadOnly();
+            FullTextIndex = fullTextIndex;
 
             //Derived Key/Constraint properties for Convenience/Fast Processing
             IdentityColumn = this.TableColumns.FirstOrDefault(c => c.IsIdentityColumn);
@@ -44,6 +53,7 @@ namespace SqlBulkHelpers
         }
 
         public TableNameTerm TableNameTerm { get; }
+        public TableSchemaDetailLevel SchemaDetailLevel { get; }
         public string TableSchema => TableNameTerm.SchemaName;
         public string TableName => TableNameTerm.TableName;
         public string TableFullyQualifiedName => TableNameTerm.FullyQualifiedTableName;
@@ -54,6 +64,10 @@ namespace SqlBulkHelpers
         public IList<ColumnDefaultConstraintDefinition> ColumnDefaultConstraints { get; }
         public IList<ColumnCheckConstraintDefinition> ColumnCheckConstraints { get; }
         public IList<TableIndexDefinition> TableIndexes { get; }
+        
+        //ONLY ONE Full Text Index is optionally allowed per Table:
+        //https://learn.microsoft.com/en-us/sql/t-sql/statements/create-fulltext-index-transact-sql?view=sql-server-ver16
+        public FullTextIndexDefinition FullTextIndex { get; }
 
         //The following are derived references for Convenience...
         public TableColumnDefinition IdentityColumn { get; }
@@ -174,7 +188,7 @@ namespace SqlBulkHelpers
             List<KeyColumnDefinition> keyColumns
         ) : base(sourceTableSchema, sourceTableName, constraintName, constraintType)
         {
-            KeyColumns = keyColumns;
+            KeyColumns = (keyColumns ?? new List<KeyColumnDefinition>()).AsReadOnly();
         }
         public IList<KeyColumnDefinition> KeyColumns { get; }
     }
@@ -214,7 +228,7 @@ namespace SqlBulkHelpers
             ReferenceTableSchema = referenceTableSchema;
             ReferenceTableName = referenceTableName;
             ReferenceTableFullyQualifiedName = $"[{referenceTableSchema}].[{referenceTableName}]";
-            ReferenceColumns = referenceColumns;
+            ReferenceColumns = (referenceColumns ?? new List<KeyColumnDefinition>()).AsReadOnly();
             ReferentialMatchOption = referentialMatchOption;
             ReferentialUpdateRuleClause = referentialUpdateRuleClause;
             ReferentialDeleteRuleClause = referentialDeleteRuleClause;
@@ -303,8 +317,8 @@ namespace SqlBulkHelpers
             IsUnique = isUnique;
             IsUniqueConstraint = isUniqueConstraint;
             FilterDefinition = filterDefinition;
-            KeyColumns = keyColumns;
-            IncludeColumns = includeColumns;
+            KeyColumns = (keyColumns ?? new List<IndexKeyColumnDefinition>()).AsReadOnly();
+            IncludeColumns = (includeColumns ?? new List<IndexIncludeColumnDefinition>()).AsReadOnly();
         }
 
         public int IndexId { get; }
@@ -319,6 +333,57 @@ namespace SqlBulkHelpers
 
         public string MapIndexNameToTargetAndEnsureUniqueness(TableNameTerm targetTable)
             => SqlSchemaUtils.MapNameToTargetAndEnsureUniqueness(IndexName, SourceTableNameTerm, targetTable);
+    }
+
+    public class FullTextIndexDefinition : CommonSourceDefinition
+    {
+        public FullTextIndexDefinition(
+            string sourceTableSchema, 
+            string sourceTableName, 
+            string fullTextCatalogName, 
+            string uniqueIndexName,
+            string changeTrackingStateDescription,
+            string stopListName,
+            string propertyListName,
+            List<FullTextIndexColumnDefinition> indexedColumns
+        ) : base(sourceTableSchema, sourceTableName)
+        {
+            FullTextCatalogName = fullTextCatalogName;
+            UniqueIndexName = uniqueIndexName;
+            ChangeTrackingStateDescription = changeTrackingStateDescription;
+            StopListName = stopListName;
+            PropertyListName = propertyListName;
+            IndexedColumns = (indexedColumns ?? new List<FullTextIndexColumnDefinition>()).AsReadOnly();
+        }
+
+        public string FullTextCatalogName { get; }
+        public string UniqueIndexName { get; }
+        public string ChangeTrackingStateDescription { get; }
+        public string StopListName { get; }
+        public string PropertyListName { get; set; }
+        public IList<FullTextIndexColumnDefinition> IndexedColumns { get; }
+
+        public override string ToString() => $"FULLTEXT INDEX ON {SourceTableNameTerm}({IndexedColumns.Select(c => c.ColumnName).ToCsv()})";
+    }
+
+    public class FullTextIndexColumnDefinition : KeyColumnDefinition
+    {
+        public FullTextIndexColumnDefinition(
+            int ordinalPosition, 
+            string columnName,
+            int languageId,
+            bool statisticalSemanticsEnabled,
+            string typeColumnName
+        ) : base(ordinalPosition, columnName)
+        {
+            LanguageId = languageId;
+            StatisticalSemanticsEnabled = statisticalSemanticsEnabled;
+            TypeColumnName = typeColumnName;
+        }
+
+        public int LanguageId { get; }
+        public bool StatisticalSemanticsEnabled { get; }
+        public string TypeColumnName { get; }
     }
 
     public class IndexKeyColumnDefinition : KeyColumnDefinition

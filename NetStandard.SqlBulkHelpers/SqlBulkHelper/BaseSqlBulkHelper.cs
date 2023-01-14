@@ -6,28 +6,19 @@ using SqlBulkHelpers.Interfaces;
 
 namespace SqlBulkHelpers
 {
-    //BBernard - Base Class for future flexibility...
-    public abstract class BaseSqlBulkHelper<T> : BaseHelper<T> where T : class
+    internal static class TypeCache
     {
-        protected static readonly Type ISqlBulkHelperIdentitySetterType = typeof(ISqlBulkHelperIdentitySetter);
+        public static readonly Type SqlBulkHelperIdentitySetter = typeof(ISqlBulkHelperIdentitySetter);
+    }
 
+    //BBernard - Base Class for future flexibility...
+    internal abstract class BaseSqlBulkHelper<T> : BaseHelper<T> where T : class
+    {
         #region Constructors
 
         /// <inheritdoc/>
-        protected BaseSqlBulkHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader, ISqlBulkHelpersConfig bulkHelpersConfig = null)
-            : base(sqlDbSchemaLoader, bulkHelpersConfig)
-        {
-        }
-
-        /// <inheritdoc/>
-        protected BaseSqlBulkHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider, ISqlBulkHelpersConfig bulkHelpersConfig = null)
-            : base(sqlBulkHelpersConnectionProvider, bulkHelpersConfig)
-        {
-        }
-
-        /// <inheritdoc/>
-        protected BaseSqlBulkHelper(SqlTransaction sqlTransaction, ISqlBulkHelpersConfig bulkHelpersConfig = null)
-            : base(sqlTransaction, bulkHelpersConfig)
+        protected BaseSqlBulkHelper(ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            : base(bulkHelpersConfig)
         {
         }
 
@@ -101,7 +92,7 @@ namespace SqlBulkHelpers
             Type entityType = typeof(T);
             TypeAccessor fastTypeAccessor = TypeAccessor.Create(entityType);
 
-            if (hasIdentityColumn && !ISqlBulkHelperIdentitySetterType.IsAssignableFrom(entityType))
+            if (hasIdentityColumn && !TypeCache.SqlBulkHelperIdentitySetter.IsAssignableFrom(entityType))
             {
                 var processingDefinition = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>(identityColumnDefinition);
                 identityPropertyName = processingDefinition.IdentityPropDefinition?.PropertyName;

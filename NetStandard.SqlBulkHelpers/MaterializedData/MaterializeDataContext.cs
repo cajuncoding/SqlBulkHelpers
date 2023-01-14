@@ -5,7 +5,7 @@ using Microsoft.Data.SqlClient;
 
 namespace SqlBulkHelpers.MaterializedData
 {
-    public class MaterializeDataContext
+    public class MaterializeDataContext : IMaterializeDataContextCompletionSource, IMaterializeDataContext
     {
         protected SqlTransaction SqlTransaction { get; }
         protected ILookup<string, MaterializationTableInfo> TableLookup { get; }

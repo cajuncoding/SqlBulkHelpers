@@ -5,31 +5,19 @@ using System.Threading.Tasks;
 
 namespace SqlBulkHelpers
 {
-    public partial class SqlBulkHelper<T> : BaseSqlBulkHelper<T>, ISqlBulkHelper<T> where T : class
+    internal partial class SqlBulkHelper<T> : BaseSqlBulkHelper<T> where T : class
     {
         #region Constructors
 
         /// <inheritdoc/>
-        public SqlBulkHelper(ISqlBulkHelpersDBSchemaLoader sqlDbSchemaLoader, ISqlBulkHelpersConfig bulkHelpersConfig = null)
-            : base(sqlDbSchemaLoader, bulkHelpersConfig)
-        {
-        }
-
-        /// <inheritdoc/>
-        public SqlBulkHelper(ISqlBulkHelpersConnectionProvider sqlBulkHelpersConnectionProvider, ISqlBulkHelpersConfig bulkHelpersConfig = null)
-            : base(sqlBulkHelpersConnectionProvider, bulkHelpersConfig)
-        {
-        }
-
-        /// <inheritdoc/>
-        public SqlBulkHelper(SqlTransaction sqlTransaction, ISqlBulkHelpersConfig bulkHelpersConfig = null)
-            : base(sqlTransaction, bulkHelpersConfig)
+        public SqlBulkHelper(ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            : base(bulkHelpersConfig)
         {
         }
 
         #endregion
 
-        #region ISqlBulkHelper<T> implementations
+        #region Async ISqlBulkHelper<T> implementations
 
         public virtual async Task<IEnumerable<T>> BulkInsertAsync(
             IEnumerable<T> entityList,
@@ -79,6 +67,37 @@ namespace SqlBulkHelpers
             ).ConfigureAwait(false);
         }
 
+        /// <summary>
+        /// Retrieve the Schema Definition for the specified Table using either an SqlConnection or with an existing SqlTransaction.
+        /// </summary>
+        /// <param name="sqlConnection"></param>
+        /// <param name="sqlTransaction"></param>
+        /// <param name="tableNameOverride"></param>
+        /// <param name="detailLevel"></param>
+        /// <param name="forceCacheReload"></param>
+        /// <returns></returns>
+        public async Task<SqlBulkHelpersTableDefinition> GetTableSchemaDefinitionAsync(
+            SqlConnection sqlConnection,
+            SqlTransaction sqlTransaction = null,
+            string tableNameOverride = null,
+            TableSchemaDetailLevel detailLevel = TableSchemaDetailLevel.ExtendedDetails,
+            bool forceCacheReload = false
+        )
+        {
+            var tableDefinition = await this.GetTableSchemaDefinitionInternalAsync(
+                detailLevel,
+                sqlConnection,
+                sqlTransaction,
+                tableNameOverride,
+                forceCacheReload
+            ).ConfigureAwait(false);
+
+            return tableDefinition;
+        }
+
+        #endregion
+
+        #region Sync ISqlBulkHelper<T> implementations
 
         public virtual IEnumerable<T> BulkInsert(
             IEnumerable<T> entityList,
@@ -128,9 +147,30 @@ namespace SqlBulkHelpers
             );
         }
 
-        public SqlBulkHelpersTableDefinition GetTableSchemaDefinition(SqlTransaction sqlTransaction, string tableName = null)
+        /// <summary>
+        /// Retrieve the Schema Definition for the specified Table using either an SqlConnection or with an existing SqlTransaction.
+        /// </summary>
+        /// <param name="sqlConnection"></param>
+        /// <param name="sqlTransaction"></param>
+        /// <param name="tableNameOverride"></param>
+        /// <param name="detailLevel"></param>
+        /// <param name="forceCacheReload"></param>
+        /// <returns></returns>
+        public SqlBulkHelpersTableDefinition GetTableSchemaDefinition(
+            SqlConnection sqlConnection, 
+            SqlTransaction sqlTransaction = null, 
+            string tableNameOverride = null, 
+            TableSchemaDetailLevel detailLevel = TableSchemaDetailLevel.ExtendedDetails,
+            bool forceCacheReload = false
+        )
         {
-            var tableDefinition = this.GetTableSchemaDefinitionInternal(sqlTransaction, tableName);
+            var tableDefinition = this.GetTableSchemaDefinitionInternal(
+                detailLevel, 
+                sqlConnection, 
+                sqlTransaction, 
+                tableNameOverride, 
+                forceCacheReload
+            );
             return tableDefinition;
         }
 

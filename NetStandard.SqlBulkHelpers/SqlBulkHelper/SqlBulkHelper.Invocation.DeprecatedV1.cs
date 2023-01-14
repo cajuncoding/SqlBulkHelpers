@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace SqlBulkHelpers
 {
-    public partial class SqlBulkHelper<T> : BaseSqlBulkHelper<T>, ISqlBulkHelper<T> where T : class
+    internal partial class SqlBulkHelper<T> : BaseSqlBulkHelper<T> where T : class
     {
         #region Deprecated V1 API Overloads
 

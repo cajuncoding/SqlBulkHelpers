@@ -1,15 +1,29 @@
 ﻿using Microsoft.Data.SqlClient;
 using System;
-using System.Linq;
+using System.Threading.Tasks;
 
 namespace SqlBulkHelpers
 {
     public interface ISqlBulkHelpersDBSchemaLoader
     {
-        SqlBulkHelpersTableDefinition GetTableSchemaDefinition(string tableName, ISqlBulkHelpersConnectionProvider sqlConnectionProvider);
-        SqlBulkHelpersTableDefinition GetTableSchemaDefinition(string tableName, Func<SqlConnection> sqlConnectionFactory);
-        SqlBulkHelpersTableDefinition GetTableSchemaDefinition(string tableName, SqlTransaction sqlTransaction);
+        Task<SqlBulkHelpersTableDefinition> GetTableSchemaDefinitionAsync(
+            string tableName,
+            TableSchemaDetailLevel detailLevel,
+            SqlConnection sqlConnection,
+            SqlTransaction sqlTransaction = null,
+            bool forceCacheReload = false
+        );
 
-        void Reload();
+        ValueTask ClearCacheAsync();
+
+        SqlBulkHelpersTableDefinition GetTableSchemaDefinition(
+            string tableName, 
+            TableSchemaDetailLevel detailLevel,
+            SqlConnection sqlConnection,
+            SqlTransaction sqlTransaction = null,
+            bool forceCacheReload = false
+        );
+
+        void ClearCache();
     }
 }

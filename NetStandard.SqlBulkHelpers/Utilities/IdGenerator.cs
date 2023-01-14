@@ -4,6 +4,14 @@ using System.Text;
 
 namespace SqlBulkHelpers
 {
+    /// <summary>
+    /// BBernard / CajunCoding
+    /// A simple, relatively efficient, class for generating very unique Ids of arbitrary length.
+    /// They are not guaranteed to universally unique but the risk of collisions is of no practical implication for many uses (e.g. temporary names, copied names, etc.).
+    /// With the ability to control the length (longer lengths will be more unique) it becomes suitable for many use cases where a full GUID is simply too long.
+    /// NOTE: Inspired by the Stack Overflow Answer here: https://stackoverflow.com/a/44960751/7293142
+    ///        The Original author claims 0.001% duplicates in 100 million.
+    /// </summary>
     public static class IdGenerator
     {
         private static readonly string[] allCharsArray = Enumerable
@@ -17,9 +25,8 @@ namespace SqlBulkHelpers
 
 
         /// <summary>
-        /// Generates a unique short ID that is much smaller than a GUID while being very unique (but still not 100%; but neither is a GUID).
-        /// The Original author claims 0.001% duplicates in 100 million.
-        /// Inspired by the Stack Overflow Answer here: https://stackoverflow.com/a/44960751/7293142
+        /// Generates a unique short ID that is much smaller than a GUID while being very unique --
+        ///     but still not 100% unique because neither is a GUID.
         /// </summary>
         /// <returns></returns>
         public static string NewId(int length = 10)

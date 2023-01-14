@@ -19,6 +19,13 @@ various levels of help for this kind of functionality, but there are few (if any
 
 **I hope that it helps others on their projects as much as it has helped ours.**
 
+### [Buy me a Coffee ☕](https://www.buymeacoffee.com/cajuncoding)
+*I'm happy to share with the community, but if you find this useful (e.g for professional use), and are so inclinded,
+then I do love-me-some-coffee!*
+
+<a href="https://www.buymeacoffee.com/cajuncoding" target="_blank">
+<img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174">
+</a> 
 
 ## Nuget Package
 To use in your project, add the [SqlBulkHelpers NuGet package](https://www.nuget.org/packages/SqlBulkHelpers/) to your project.
