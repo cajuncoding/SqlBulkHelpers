@@ -365,50 +365,46 @@ namespace SqlBulkHelpers.MaterializedData
         {
             sqlConnection.AssertArgumentIsNotNull(nameof(sqlConnection));
 
-            var tablesWithRemovedFullTextIndexes = new List<SqlBulkHelpersTableDefinition>();
-            try
+            var helpersConfig = bulkHelpersConfig ?? SqlBulkHelpersConfig.DefaultConfig;
+
+            var distinctTableNames = tableNames.Distinct().ToArray();
+
+            //SECOND Execute the Materialized Data process!
+            //TODO: Update this to use BeginTransactionAsync if NetStandard2.1+ support is added...
+            using (var sqlTransaction = sqlConnection.BeginTransaction())
             {
-                var distinctTableNames = tableNames.Distinct().ToArray();
+                var materializeDataContext = await new MaterializeDataHelper<ISkipMappingLookup>(bulkHelpersConfig)
+                    .StartMaterializeDataProcessAsync(sqlTransaction, distinctTableNames)
+                    .ConfigureAwait(false);
 
-                //FIRST Handle things that cannot be done within the Transaction!
-                foreach(var tableName in distinctTableNames )
+                //The Handler is always an Async process so we must await it...
+                await materializeDataHandlerActionAsync.Invoke(materializeDataContext, sqlTransaction).ConfigureAwait(false);
+
+                try
                 {
-                    var tableDef = await sqlConnection.GetTableSchemaDefinitionAsync(tableName, TableSchemaDetailLevel.ExtendedDetails).ConfigureAwait(false);
-                    //REMOVE ALL FullTextIndexes; they will be re-added AFTER
-                    if (tableDef.FullTextIndex != null)
-                    {
-                        await sqlConnection.RemoveFullTextIndexAsync(tableDef.TableFullyQualifiedName, bulkHelpersConfig).ConfigureAwait(false);
-                        lock (tablesWithRemovedFullTextIndexes) tablesWithRemovedFullTextIndexes.Add(tableDef);
-                    }
-                }
+                    //Some tasks MUST be done outside of the Materialized Data Transaction (e.g. handling FullTextIndexes)
+                    //  so we handle those here (as needed and if enabled)...
+                    await materializeDataContext.HandleNonTransactionTasksBeforeMaterialization().ConfigureAwait(false);
 
-                //SECOND Execute the Materialized Data process!
-                //TODO: Update this to use BeginTransactionAsync if NetStandard2.1+ support is added...
-                using (var sqlTransaction = sqlConnection.BeginTransaction())
-                {
-                    var materializeDataContext = await new MaterializeDataHelper<ISkipMappingLookup>(bulkHelpersConfig)
-                        .StartMaterializeDataProcessAsync(sqlTransaction, distinctTableNames)
-                        .ConfigureAwait(false);
-
-                    //The Handler is always an Async process so we must await it...
-                    await materializeDataHandlerActionAsync.Invoke(materializeDataContext, sqlTransaction).ConfigureAwait(false);
-
+                    //***************************************************************************************************
+                    //****HERE We actually Execute the Materialized Data Processing SWITCH and Data Integrity Checks!
+                    //***************************************************************************************************
                     //Once completed without errors we Finish the Materialized Data process...
                     await materializeDataContext.FinishMaterializeDataProcessAsync().ConfigureAwait(false);
 
                     //NOW we must commit our Transaction to save all Changes performed within the Transaction!
                     //TODO: Update this to use BeginTransactionAsync if NetStandard2.1+ support is added...
                     sqlTransaction.Commit();
+
+                }
+                finally
+                {
+                    //Some tasks MUST be handled outside of the Materialized Data Transaction (e.g. handling FullTextIndexes)
+                    //  so we handle those here (as needed and if enabled)...
+                    await materializeDataContext.HandleNonTransactionTasksAfterMaterialization().ConfigureAwait(false);
                 }
             }
-            finally
-            {
-                //FINALLY we need to recover any FullTextIndexes that were removed...
-                foreach (var tableDef in tablesWithRemovedFullTextIndexes)
-                    await sqlConnection.AddFullTextIndexAsync(tableDef.TableFullyQualifiedName, tableDef.FullTextIndex).ConfigureAwait(false);
-            }
         }
-
 
         public static Task<IMaterializeDataContextCompletionSource> StartMaterializeDataProcessAsync<T>(
             this SqlTransaction sqlTransaction,

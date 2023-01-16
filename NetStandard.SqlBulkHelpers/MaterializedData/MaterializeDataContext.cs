@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
+using SqlBulkHelpers.CustomExtensions;
 
 namespace SqlBulkHelpers.MaterializedData
 {
@@ -12,6 +14,8 @@ namespace SqlBulkHelpers.MaterializedData
         protected ILookup<string, MaterializationTableInfo> TableLookupByOriginalName { get; }
         protected ISqlBulkHelpersConfig BulkHelpersConfig { get; }
         protected bool IsDisposed { get; set; } = false;
+
+        protected List<SqlBulkHelpersTableDefinition> TablesWithFullTextIndexesRemoved { get; set; } = new List<SqlBulkHelpersTableDefinition>();
 
         public MaterializationTableInfo[] Tables { get; }
 
@@ -56,6 +60,52 @@ namespace SqlBulkHelpers.MaterializedData
             TableLookupByFullyQualifiedName = Tables.ToLookup(t => t.LiveTable.FullyQualifiedTableName, StringComparer.OrdinalIgnoreCase);
             TableLookupByOriginalName = Tables.ToLookup(t => t.OriginalTableName, StringComparer.OrdinalIgnoreCase);
         }
+
+        internal async Task HandleNonTransactionTasksBeforeMaterialization()
+        {
+            //NOW JUST PRIOR to Executing the Materialized Data Switch we must handle any actions required outside of the Materialized Data Transaction (e.g. FullTextIndexes, etc.)
+            //NOTE: We do this here so that our live tables have the absolute minimum impact; meaning things like Full Text Indexes are Dropped for ONLY the amount of time it takes to execute our Switch
+            //      and all associated data integrity validations... but the bulk loading process (likely the Slowest process of all) has already completed!
+            if (BulkHelpersConfig.IsFullTextIndexHandlingEnabled && BulkHelpersConfig.IsConcurrentConnectionProcessingEnabled)
+            {
+                var tablesWithFullTextIndexes = this.Tables
+                    .Select(t => t.LiveTableDefinition)
+                    .Where(d => d.FullTextIndex != null);
+
+                await tablesWithFullTextIndexes.ForEachAsync(BulkHelpersConfig.MaxConcurrentConnections, async tableDef =>
+                {
+                    using (var sqlConcurrentConnection = await BulkHelpersConfig.ConcurrentConnectionFactory.NewConnectionAsync().ConfigureAwait(false))
+                    {
+                        //REMOVE ALL FullTextIndexes; they will be re-added AFTER
+                        await sqlConcurrentConnection.RemoveFullTextIndexAsync(tableDef.TableFullyQualifiedName, BulkHelpersConfig).ConfigureAwait(false);
+                        lock (TablesWithFullTextIndexesRemoved) TablesWithFullTextIndexesRemoved.Add(tableDef);
+                    }
+                }).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// Handle all cleanup/post-processing of elements that must be handled outside of the Materialized Data Transaction;
+        /// NOTE: This method must be safe to call within a Finally block to ensure that all cleanup is always handled even if an exception
+        ///         occurs during the Finish Materialization process!!!
+        /// </summary>
+        /// <returns></returns>
+        internal async Task HandleNonTransactionTasksAfterMaterialization()
+        {
+            if (TablesWithFullTextIndexesRemoved.Any())
+            {
+                //FINALLY we need to recover any FullTextIndexes that were removed...
+                await TablesWithFullTextIndexesRemoved.ForEachAsync(BulkHelpersConfig.MaxConcurrentConnections, async tableDef =>
+                {
+                    using (var sqlConcurrentConnection = await BulkHelpersConfig.ConcurrentConnectionFactory.NewConnectionAsync().ConfigureAwait(false))
+                    {
+                        //REMOVE ALL FullTextIndexes; they will be re-added AFTER
+                        await sqlConcurrentConnection.AddFullTextIndexAsync(tableDef.TableFullyQualifiedName, tableDef.FullTextIndex, BulkHelpersConfig).ConfigureAwait(false);
+                    }
+                }).ConfigureAwait(false);
+            }
+        }
+
 
         public async Task FinishMaterializeDataProcessAsync()
         {

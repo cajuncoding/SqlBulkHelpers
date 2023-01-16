@@ -145,6 +145,9 @@ namespace SqlBulkHelpers.IntegrationTests
             var sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
             var timer = Stopwatch.StartNew();
 
+            //Update our Configuration to provide a Connection Factory which Enables Concurrent Connection Processing...
+            SqlBulkHelpersConfig.ConfigureDefaults(config => config.EnableConcurrentSqlConnectionProcessing(sqlConnectionProvider));
+
             //NOW Materialize Data into the Tables!
             await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
             {

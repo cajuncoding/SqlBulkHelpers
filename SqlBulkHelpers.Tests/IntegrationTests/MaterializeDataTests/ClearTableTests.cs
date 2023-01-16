@@ -141,6 +141,9 @@ namespace SqlBulkHelpers.IntegrationTests
         {
             var sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
 
+            //Update our Configuration to provide a Connection Factory which Enables Concurrent Connection Processing for Performance...
+            SqlBulkHelpersConfig.ConfigureDefaults(config => config.EnableConcurrentSqlConnectionProcessing(sqlConnectionProvider));
+
             await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
             await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
             {

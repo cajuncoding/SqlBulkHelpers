@@ -29,7 +29,7 @@ namespace SqlBulkHelpers
         /// Uses the specified unique identifier parameter for caching (e.g. DB Schema caching) elements unique to this DB Connection.
         /// Initializes connections using hte provided SqlConnection Factory specified.
         /// </summary>
-        /// <param name="sqlDbConnectionUniqueIdentifier"></param>
+        /// <param name="sqlDbConnectionUniqueIdentifier">Most likely the Connection String!</param>
         /// <param name="sqlConnectionFactory"></param>
         /// <exception cref="ArgumentException"></exception>
         public SqlBulkHelpersConnectionProvider(string sqlDbConnectionUniqueIdentifier, Func<SqlConnection> sqlConnectionFactory)
@@ -39,6 +39,21 @@ namespace SqlBulkHelpers
 
             SqlDbConnectionUniqueIdentifier = sqlDbConnectionUniqueIdentifier;
             NewSqlConnectionFactory = sqlConnectionFactory.AssertArgumentIsNotNull(nameof(sqlConnectionFactory));
+        }
+
+        /// <summary>
+        /// Uses the specified unique identifier parameter for caching (e.g. DB Schema caching) elements unique to this DB Connection.
+        /// Initializes connections using hte provided SqlConnection Factory specified.
+        /// </summary>
+        /// <param name="sqlConnectionFactory"></param>
+        /// <exception cref="ArgumentException"></exception>
+        public SqlBulkHelpersConnectionProvider(Func<SqlConnection> sqlConnectionFactory)
+        {
+            NewSqlConnectionFactory = sqlConnectionFactory.AssertArgumentIsNotNull(nameof(sqlConnectionFactory));
+            using (var sqlTempConnection = sqlConnectionFactory.Invoke())
+            {
+                SqlDbConnectionUniqueIdentifier = sqlTempConnection.ConnectionString;
+            }
         }
 
         /// <summary>
@@ -61,9 +76,10 @@ namespace SqlBulkHelpers
 
         public virtual async Task<SqlConnection> NewConnectionAsync()
         {
-            var sqlConn = NewSqlConnectionFactory.Invoke();
-            if (sqlConn.State != ConnectionState.Open)
-                await sqlConn.OpenAsync();
+            var sqlConn = await NewSqlConnectionFactory
+                .Invoke()
+                .EnsureSqlConnectionIsOpenAsync()
+                .ConfigureAwait(false);
 
             return sqlConn;
         }

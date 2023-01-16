@@ -26,6 +26,9 @@ namespace SqlBulkHelpers.CustomExtensions
             if (asyncFunc == null) throw new ArgumentNullException(nameof(asyncFunc));
             if (maxDegreesOfConcurrency <= 0) throw new ArgumentException($"{nameof(maxDegreesOfConcurrency)} must be an integer value greater than zero.");
 
+            //Short Circuit if there is nothing to process...
+            if (!source.Any()) return;
+
             #if NET6_0
             
             //BBernard - Implemented optimization now in .NET6 using the new OOTB support now with Parallel.ForEachAsync()!

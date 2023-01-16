@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.Data.SqlClient;
 
 namespace SqlBulkHelpers
 {
@@ -16,6 +19,15 @@ namespace SqlBulkHelpers
         {
             if (string.IsNullOrWhiteSpace(arg)) throw new ArgumentNullException(argName);
             return arg;
+        }
+
+        public static async Task<SqlConnection> EnsureSqlConnectionIsOpenAsync(this SqlConnection sqlConnection)
+        {
+            sqlConnection.AssertArgumentIsNotNull(nameof(sqlConnection));
+            if (sqlConnection.State != ConnectionState.Open)
+                await sqlConnection.OpenAsync().ConfigureAwait(false);
+
+            return sqlConnection;
         }
 
         public static TableNameTerm GetSqlBulkHelpersMappedTableNameTerm(this Type type, string tableNameOverride = null)

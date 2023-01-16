@@ -70,6 +70,10 @@ namespace SqlBulkHelpers.MaterializedData
             var discardingTablesSchema = discardingSchemaName.TrimTableNameTerm() ?? BulkHelpersConfig.MaterializedDataDiscardingSchema;
             discardingTablesSchema.AssertArgumentIsNotNullOrWhiteSpace(nameof(discardingTablesSchema));
 
+            //Optional Perf. Optimization: If ConcurrentConnections are enabled we can optimize performance by asynchronously pre-loading Table Schemas with concurrent Sql Connections...
+            if (BulkHelpersConfig.IsConcurrentConnectionProcessingEnabled)
+                await PreCacheTableSchemaDefinitionsForMaterialization(tableNameTermsList).ConfigureAwait(false);
+
             //1) First compute all table cloning instructions, and Materialization table info./details to generate the Loading Tables and the Discard Tables for every table to be cloned...
             foreach (var originalTableNameTerm in tableNameTermsList)
             {
@@ -93,7 +97,16 @@ namespace SqlBulkHelpers.MaterializedData
                 cloneInfoToExecuteList.Add(discardingCloneInfo);
 
                 //Finally aggregate the Live/Original, Loading, and Discarding tables into the MaterializationTableInfo
-                var originalTableDef = await GetTableSchemaDefinitionInternalAsync(TableSchemaDetailLevel.ExtendedDetails, sqlTransaction.Connection, sqlTransaction, originalTableNameTerm);
+                var originalTableDef = await GetTableSchemaDefinitionInternalAsync(
+                    TableSchemaDetailLevel.ExtendedDetails, 
+                    sqlTransaction.Connection, 
+                    sqlTransaction, 
+                    originalTableNameTerm
+                ).ConfigureAwait(false);
+
+                //VALIDATE That FullTextIndex Processing can be handled if enabled, and throw a helpful error if not
+                //NOTE: This only applies IF a table has a Full Text Index, otherwise we can process all other scenarios as expected (within our Transaction)...
+                AssertTableSchemaDefinitionAndConfigurationIsValidForMaterialization(originalTableDef);
 
                 var materializationTableInfo = new MaterializationTableInfo(originalTableNameTerm, originalTableDef, loadingCloneInfo.TargetTable, discardingCloneInfo.TargetTable);
                 materializationTableInfoList.Add(materializationTableInfo);
@@ -113,8 +126,61 @@ namespace SqlBulkHelpers.MaterializedData
             return materializationTableInfoList.AsArray();
         }
 
+        /// <summary>
+        /// VALIDATE that various aspects of the Table and the Configuration are set correctly for Materialization processing.
+        /// For Example: If any table has a FullTextIndex then we must also have concurrent connection factory enabled so that it can be processed outside
+        ///     of the current Transaction (this is a limitation of Sql Server for FullTextIndexes).
+        /// </summary>
+        /// <param name="tableDefinition"></param>
+        protected void AssertTableSchemaDefinitionAndConfigurationIsValidForMaterialization(SqlBulkHelpersTableDefinition tableDefinition)
+        {
+            if (tableDefinition.FullTextIndex != null && BulkHelpersConfig.IsFullTextIndexHandlingEnabled && !BulkHelpersConfig.IsConcurrentConnectionProcessingEnabled)
+            {
+                throw new InvalidOperationException(
+            $"The table {tableDefinition.TableFullyQualifiedName} contains a Full Text Index and which cannot be processed unless concurrent connections are enabled in the {nameof(SqlBulkHelpersConfig)}. " +
+                    $"The the materialized data helpers are configured to automatically handle this (via [{nameof(SqlBulkHelpersConfig)}.{nameof(ISqlBulkHelpersConfig.IsFullTextIndexHandlingEnabled)}]) however " +
+                    $"no Sql Connection Factory or {nameof(ISqlBulkHelpersConnectionProvider)} was specified. You need correctly configure these via " +
+                    $"[{nameof(SqlBulkHelpersConfig)}.{nameof(SqlBulkHelpersConfig.EnableConcurrentSqlConnectionProcessing)}()] or [{nameof(SqlBulkHelpersConfig)}.{nameof(SqlBulkHelpersConfig.ConfigureDefaults)}()] " +
+                    $"for the materialized data processing to proceed."
+                );
+            }
+        }
+
+        /// <summary>
+        /// If ConcurrentConnections are enabled we can optimize performance by asynchronously pre-loading Table Schemas with concurrent Sql Connections...
+        /// </summary>
+        /// <param name="tableNameTerms"></param>
+        /// <returns></returns>
+        protected async Task<List<SqlBulkHelpersTableDefinition>> PreCacheTableSchemaDefinitionsForMaterialization(IEnumerable<TableNameTerm> tableNameTerms)
+        {
+            var tableDefinitionResults = new List<SqlBulkHelpersTableDefinition>();
+
+            //OPTIMIZE the retrieval of Table Schema definitions for the Materialized Data processing...
+            //NOTE: If the Concurrent Connection processing is enabled we can retrieve schemas via parallel Async connections,
+            //      otherwise we fall-back to serially retrieving them all...
+            if (BulkHelpersConfig.IsConcurrentConnectionProcessingEnabled)
+            {
+                await tableNameTerms.ForEachAsync(BulkHelpersConfig.MaxConcurrentConnections, async tableNameTerm =>
+                {
+                    using (var sqlConcurrentConnection = await BulkHelpersConfig.ConcurrentConnectionFactory.NewConnectionAsync().ConfigureAwait(false))
+                    {
+                        var tableDef = await GetTableSchemaDefinitionInternalAsync(
+                            TableSchemaDetailLevel.ExtendedDetails, 
+                            sqlConcurrentConnection, 
+                            sqlTransaction: null, 
+                            tableNameTerm
+                        ).ConfigureAwait(false);
+
+                        lock (tableDefinitionResults) tableDefinitionResults.Add(tableDef);
+                    }
+                }).ConfigureAwait(false);
+            }
+
+            return tableDefinitionResults;
+        }
+
         #endregion
-        
+
         #region Clone Table API Methods
 
         public async Task<CloneTableInfo> CloneTableAsync(
