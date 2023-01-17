@@ -46,6 +46,16 @@ namespace SqlBulkHelpers
         public static void ConfigureDefaults(Action<SqlBulkHelpersConfig> configAction)
         {
             DefaultConfig = Create(configAction);
+            
+            //Validate tje Configuration!
+            if (DefaultConfig.IsFullTextIndexHandlingEnabled && !DefaultConfig.IsConcurrentConnectionProcessingEnabled)
+                throw new InvalidOperationException(
+                $"Full Text Index Handling is currently enabled however Concurrent Connections are disabled and/or " +
+                        $"no {nameof(SqlBulkHelpersConfig.ConcurrentConnectionFactory)} or {nameof(ISqlBulkHelpersConnectionProvider)} instance was provided. " +
+                        $"Concurrent connection support is required due to Sql Server limitations that do not allow Full Text Indexes " +
+                        $"on tables being Switched, and also prohibit Full Text Indexes from being disabled/dropped within a user transaction; " +
+                        $"therefore a separate concurrent connection must be used."
+                );
         }
 
         /// <summary>
@@ -111,6 +121,10 @@ namespace SqlBulkHelpers
         public ISqlBulkHelpersConnectionProvider ConcurrentConnectionFactory { get; set; } = null;
 
         private int _maxConcurrentConnections = SqlBulkHelpersConfigConstants.DefaultMaxConcurrentConnections;
+        /// <summary>
+        /// Determines the maximum number of Concurrent Sql Connections that can be used (to boost performance) when
+        /// Concurrent Connections are enabled and a valid ConcurrentConnectionFactory or ISqlBulkHelpersConnectionProvider is configured.
+        /// </summary>
         public int MaxConcurrentConnections
         {
             get => _maxConcurrentConnections;
@@ -121,6 +135,14 @@ namespace SqlBulkHelpers
             }
         }
         public bool IsConcurrentConnectionProcessingEnabled => ConcurrentConnectionFactory != null;
-        public bool IsFullTextIndexHandlingEnabled { get; set; } = true;
+
+        /// <summary>
+        /// The Materialized Data api can automatically handle Full Text Indexes if enabled, however
+        /// Concurrent Connection support is also required and therefore a ConcurrentConnectionFactory
+        /// or ISqlBulkHelpersConnectionProvider must also be provided.
+        ///
+        /// Recommended to use the EnableConcurrentSqlConnectionProcessing() convenience method(s) to enable this more easily!
+        /// </summary>
+        public bool IsFullTextIndexHandlingEnabled { get; set; } = false;
     }
 }
