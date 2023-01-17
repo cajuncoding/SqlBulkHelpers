@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
     <RootNamespace>SqlBulkHelpers</RootNamespace>
     <AssemblyName>SqlBulkHelpers</AssemblyName>
 	<Copyright>Copyright © 2019</Copyright>
@@ -38,7 +38,7 @@
 		- Added more Integration Tests for Constructors and Connections, as well as the new DB Schema Loader caching implementation.
 		- Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances that automtically load the connection string from the application configuration setting.
 	</PackageReleaseNotes>
-    <Version>2.0-beta7.1</Version>
+    <Version>2.0-beta7.2</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -59,7 +59,7 @@
     <PackageReference Include="FastMember" Version="1.5.0" />
     <PackageReference Include="LazyCacheHelpers" Version="1.3.2" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.0.1" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
   </ItemGroup>
 
 </Project>

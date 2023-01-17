@@ -104,7 +104,7 @@ Usage is very simple if you use a lightweigth Model (e.g. ORM model via Dapper) 
     //  2) Instantiate the SqlBulkIdentityHelper class with ORM Model Type...
     //  3) Execute the insert/update (e.g. Convenience method allows InsertOrUpdate in one execution!)
     using (SqlConnection conn = await sqlConnectionProvider.NewConnectionAsync())
-    using (SqlTransaction transaction = conn.BeginTransaction())
+    using (SqlTransaction transaction = (SqlTransaction)await conn.BeginTransactionAsync())
     {
         //The SqlBulkIdentityHelper may be initialized in multiple ways for convenience, though the recommended
         //  way is to provide the ISqlBulkHelpersConnectionProvider for deferred/lazy initialization of the DB Schema Loader.
@@ -116,8 +116,8 @@ Usage is very simple if you use a lightweigth Model (e.g. ORM model via Dapper) 
         ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(sqlConnectionProvider);
 
         await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(testData, "TestTableName", transaction);
-
-        transaction.Commit();
+        
+        await transaction.CommitAsync();
     }
 
 ```
@@ -188,7 +188,7 @@ disabled by setting the flag on the `SqlMergeMatchQualifierExpression` class as 
 
 
     using (var conn = await sqlConnectionProvider.NewConnectionAsync())
-    using (SqlTransaction transaction = conn.BeginTransaction())
+    using (SqlTransaction transaction = (SqlTransaction)await conn.BeginTransactionAsync())
     {     
         ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(conn, transaction);
 
@@ -205,6 +205,8 @@ disabled by setting the flag on the `SqlMergeMatchQualifierExpression` class as 
             transaction,
             explicitMatchQualifiers
         )
+
+        await transaction.CommitAsync();
     }
 
 ```

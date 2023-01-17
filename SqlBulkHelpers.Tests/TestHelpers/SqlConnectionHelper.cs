@@ -23,5 +23,11 @@ namespace SqlBulkHelpers.Tests
             sqlConn.Open();
             return sqlConn;
         }
+
+        public static Task<SqlConnection> NewConnectionAsync()
+        {
+            var sqlConnectionProvider = GetConnectionProvider();
+            return sqlConnectionProvider.NewConnectionAsync();
+        }
     }
 }

@@ -72,14 +72,14 @@ namespace SqlBulkHelpers.IntegrationTests
         }
 
         [TestMethod]
-        public void TestSchemaLoaderCacheWithBadConnectionDueToPendingTransactionFor_v1_2()
+        public async Task TestSchemaLoaderCacheWithBadConnectionDueToPendingTransactionFor_v1_2()
         {
             //****************************************************************************************************
             // Check that Invalid Connection Fails as expected and Lazy continues to re-throw the Exception!!!
             //****************************************************************************************************
-            using var sqlConnInvalidWithTransaction = SqlConnectionHelper.NewConnection();
+            await using var sqlConnInvalidWithTransaction = await SqlConnectionHelper.NewConnectionAsync().ConfigureAwait(false);
             //START a Pending Transaction which will NOT be available to the DBSchemaLoader (as of v1.2)!
-            using var sqlTrans = sqlConnInvalidWithTransaction.BeginTransaction();
+            await using var sqlTrans = await sqlConnInvalidWithTransaction.BeginTransactionAsync().ConfigureAwait(false);
 
             var dbSchemaLoaderFromFactoryFuncInvalid = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader($"SQL_INVALID_CONNECTION_CACHE_KEY::{Guid.NewGuid()}");
 
@@ -117,7 +117,7 @@ namespace SqlBulkHelpers.IntegrationTests
             // Check that New Connection works even with Old in Scope!
             //****************************************************************************************************
             //Create a NEW Connection now that is Valid without the Transaction (but the originals are STILL IN SCOPE...
-            using var sqlConnOkNewConnection = SqlConnectionHelper.NewConnection();
+            await using var sqlConnOkNewConnection = await SqlConnectionHelper.NewConnectionAsync().ConfigureAwait(false);
 
             var dbSchemaLoaderFromFactoryFuncOk = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader($"SQL_VALID_CONNECTION_CUSTOM_CACHE_KEY::{Guid.NewGuid()}");
 

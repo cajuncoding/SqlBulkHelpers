@@ -9,7 +9,7 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
     public class SchemaLoaderTests : BaseTest
     {
         [TestMethod]
-        public void TestTableDefinitionLoadingBasicDetailsWithTransaction()
+        public void TestTableDefinitionLoadingBasicDetailsWithTransactionSyncMethod()
         {
             using var sqlConn = SqlConnectionHelper.NewConnection();
             using var sqlTransaction = sqlConn.BeginTransaction();
@@ -23,7 +23,7 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
         }
 
         [TestMethod]
-        public void TestTableDefinitionLoadingExtendedDetails()
+        public void TestTableDefinitionLoadingExtendedDetailsSyncMethods()
         {
             using var sqlConn = SqlConnectionHelper.NewConnection();
             var tableDefinition = sqlConn.GetTableSchemaDefinition(
@@ -86,7 +86,7 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
         }
 
         [TestMethod]
-        public void TestTableDefinitionLoadingAndCaching()
+        public void TestTableDefinitionLoadingAndCachingSyncMethods()
         {
             const int TestCount = 5;
 

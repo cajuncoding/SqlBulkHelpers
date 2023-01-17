@@ -1,7 +1,6 @@
 ﻿using Microsoft.Data.SqlClient;
 using System;
 using System.Collections.Generic;
-using System.Data.Common;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -370,8 +369,11 @@ namespace SqlBulkHelpers.MaterializedData
             var distinctTableNames = tableNames.Distinct().ToArray();
 
             //SECOND Execute the Materialized Data process!
-            //TODO: Update this to use BeginTransactionAsync if NetStandard2.1+ support is added...
+            #if NETSTANDARD2_0
             using (var sqlTransaction = sqlConnection.BeginTransaction())
+            #else
+            await using (var sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false))
+            #endif
             {
                 var materializeDataContext = await new MaterializeDataHelper<ISkipMappingLookup>(bulkHelpersConfig)
                     .StartMaterializeDataProcessAsync(sqlTransaction, distinctTableNames)
@@ -393,8 +395,11 @@ namespace SqlBulkHelpers.MaterializedData
                     await materializeDataContext.FinishMaterializeDataProcessAsync().ConfigureAwait(false);
 
                     //NOW we must commit our Transaction to save all Changes performed within the Transaction!
-                    //TODO: Update this to use BeginTransactionAsync if NetStandard2.1+ support is added...
+                    #if NETSTANDARD2_0
                     sqlTransaction.Commit();
+                    #else
+                    await sqlTransaction.CommitAsync().ConfigureAwait(false);
+                    #endif
 
                 }
                 finally

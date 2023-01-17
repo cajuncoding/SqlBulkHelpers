@@ -81,7 +81,7 @@ namespace SqlBulkHelpers.IntegrationTests
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
 
             await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
-            await using (SqlTransaction sqlTrans = sqlConn.BeginTransaction())
+            await using (SqlTransaction sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
             {
                 ////Must clear all Data and Related Data to maintain Data Integrity...
                 ////NOTE: If we don't clear the related table then the FKey Constraint Check on the Related data (Child table) will FAIL!
@@ -98,7 +98,7 @@ namespace SqlBulkHelpers.IntegrationTests
                 var childTestData = TestHelpers.CreateChildTestData(results.Cast<TestElement>().ToList());
                 var childResults = await sqlTrans.BulkInsertOrUpdateAsync(childTestData).ConfigureAwait(false);
 
-                sqlTrans.Commit();
+                await sqlTrans.CommitAsync().ConfigureAwait(false);
 
                 //ASSERT Results are Valid...
                 Assert.IsNotNull(results);
