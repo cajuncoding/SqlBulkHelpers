@@ -37,7 +37,13 @@ namespace SqlBulkHelpers
         //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
         //      we eliminate risk of Sql Injection.
         //NOTE: All other parameters are Strongly typed (vs raw Strings) thus eliminating risk of Sql Injection
-        protected virtual SqlBulkHelpersTableDefinition GetTableSchemaDefinitionInternal(TableSchemaDetailLevel detailLevel, SqlConnection sqlConnection, SqlTransaction sqlTransaction = null, string tableNameOverride = null, bool forceCacheReload = false)
+        protected virtual SqlBulkHelpersTableDefinition GetTableSchemaDefinitionInternal(
+            TableSchemaDetailLevel detailLevel, 
+            SqlConnection sqlConnection, 
+            SqlTransaction sqlTransaction = null, 
+            string tableNameOverride = null, 
+            bool forceCacheReload = false
+        )
         {
             //Initialize the DB Schema loader (if specified, or from our Cache)...
             var dbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnection.ConnectionString);
@@ -59,7 +65,13 @@ namespace SqlBulkHelpers
         //NOTE: Prevent SqlInjection - by validating that the TableName must be a valid value (as retrieved from the DB Schema) 
         //      we eliminate risk of Sql Injection.
         //NOTE: All other parameters are Strongly typed (vs raw Strings) thus eliminating risk of Sql Injection
-        protected virtual async Task<SqlBulkHelpersTableDefinition> GetTableSchemaDefinitionInternalAsync(TableSchemaDetailLevel detailLevel, SqlConnection sqlConnection, SqlTransaction sqlTransaction = null, string tableNameOverride = null, bool forceCacheReload = false)
+        protected virtual async Task<SqlBulkHelpersTableDefinition> GetTableSchemaDefinitionInternalAsync(
+            TableSchemaDetailLevel detailLevel, 
+            SqlConnection sqlConnection, 
+            SqlTransaction sqlTransaction = null, 
+            string tableNameOverride = null, 
+            bool forceCacheReload = false
+        )
         {
             //Initialize the DB Schema loader (if specified, or from our Cache)...
             var dbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnection.ConnectionString);

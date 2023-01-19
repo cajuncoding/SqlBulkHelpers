@@ -13,6 +13,7 @@
     <Description>A library for easy, efficient and high performance bulk insert and update of data, into a Sql Database, from .Net applications. By leveraging the power of the SqlBulkCopy classes with added support for Identity primary key table columns this library provides a greatly simplified interface to process Identity based Entities with Bulk Performance with the wide compatibility of .NetStandard 2.0.</Description>
 	<PackageTags>sql server database table bulk insert update identity column sqlbulkcopy orm dapper fast data load loading performance</PackageTags>
     <PackageReleaseNotes>
+		- Improve configuration of Timeouts and add support for Default DB Schema Loader timeout setting.
 		- v2.0 provides a simplified and easier to access API as Extension Methods of the SqlTransaction class; this is a breaking change for Sql Bulk Insert/Update/etc, but shoudl be easy to migrate to!
 		- v2.0 release also includes the NEW MaterializeData Helpers to make it significantly easier to implement highly efficient loading and publishing of materialized data via Sql Server much easier via an easy C# API.
 		- The concept of Materializing data is to enable easy aysnc (background) bulk loading of data with, no impact to Live tables, until the data is switched out extremely quickly accomplishing a refresh of Live data in milliseconds.
@@ -38,7 +39,7 @@
 		- Added more Integration Tests for Constructors and Connections, as well as the new DB Schema Loader caching implementation.
 		- Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances that automtically load the connection string from the application configuration setting.
 	</PackageReleaseNotes>
-    <Version>2.0-beta7.2</Version>
+    <Version>2.0-beta7.3</Version>
   </PropertyGroup>
 
   <ItemGroup>

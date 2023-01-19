@@ -59,6 +59,10 @@ namespace SqlBulkHelpers
         {
             var tableSchemaQuerySql = GetTableSchemaSqlQuery(detailLevel);
             var sqlCmd = new SqlCommand(tableSchemaQuerySql, sqlConnection, sqlTransaction);
+            
+            //Configure the timeout for retrieving the Schema details...
+            sqlCmd.CommandTimeout = SqlBulkHelpersConfig.DefaultConfig.DbSchemaLoaderQueryTimeoutSeconds;
+
             //Add the Parameter to get only Details for the requested table...
             var sqlParams = sqlCmd.Parameters;
             sqlParams.Add(new SqlParameter("@TableSchema", tableNameTerm.SchemaName));

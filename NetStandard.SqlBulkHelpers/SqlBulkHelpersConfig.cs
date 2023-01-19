@@ -15,6 +15,8 @@ namespace SqlBulkHelpers
         bool IsSqlBulkTableLockEnabled { get; }
         SqlBulkCopyOptions SqlBulkCopyOptions { get; }
 
+        int DbSchemaLoaderQueryTimeoutSeconds { get; }
+
         int MaterializeDataStructureProcessingTimeoutSeconds { get; }
         string MaterializedDataLoadingSchema { get; }
         string MaterializedDataDiscardingSchema { get; }
@@ -113,7 +115,9 @@ namespace SqlBulkHelpers
 
         //NOTE: Default to TableLock to be enabled since our process always Writes to the Temp Table!
         public SqlBulkCopyOptions SqlBulkCopyOptions { get; set; } = SqlBulkCopyOptions.Default | SqlBulkCopyOptions.TableLock;
-        
+
+        public int DbSchemaLoaderQueryTimeoutSeconds { get; set; } = 30;
+
         public int MaterializeDataStructureProcessingTimeoutSeconds { get; set; } = 30;
         public string MaterializedDataLoadingSchema { get; set; } = "materializing_load";
         public string MaterializedDataDiscardingSchema { get; set; } = "materializing_discard";
