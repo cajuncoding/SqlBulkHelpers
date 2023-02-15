@@ -1,23 +1,13 @@
-﻿# SqlBulkHelpers
-A library for efficient and high performance bulk insert and update of data, into a Sql Database, from C# applications. 
-This library leverages the power of the C# SqlBulkCopy classes, while augmenting with the following key benefits:
+﻿# SqlBulkHelpers & MaterializedData
+A library for efficient and high performance bulk processing of data with SQL Server in .NET. It greatly simplifies the ordinarily very complex process
+of bulk loading data into SQL Server from C# for high performance inserts/updates, and for implementing materialized data patterns with SQL Server from .NET.
 
-- Provides a simplified facade for interacting with the SqlBulkCopy API.
-  - The Performance improvements have been DRAMATIC!
-- Provides enhanced support for ORM (e.g. Dapper) based inserts/updates with the SqlBulkCopy API.
-  - It's obviously easy to bulk load data from the DB into model/objects via optimized queries (e.g. Dapper), but inserting and updating is a whole different story).
-- Provides support for Database Tables that utilize an Identity Id column as the Primary Key.
-  - It dynamically retrieves the new Identity column value and populates them back into the Objects provided so your update will result in your models `automagically` having their PKey (Identity) populated!
+SqlBulkHelpers allow loading of thousands (or tens of thousands) of records in seconds. 
 
-The SqlBulkCopy API provides **fantastic performance benefits**, but retrieving the Identity values for Primary Keys that are auto-generated is not a default capability.  And as it turns out, this is not a trivial
-task despite the significant benefits it provides for developers.  
+The Materialized data pattern enables easy loading of *offline* staging tables with data and then switching them out to 
+replace/publish to Live tables extremely efficiently (milliseconds) so that the Live tables are not blocked during the background data loading process.
 
-Providing support for a table with an Identity Column as the Primary Key is the critical reason for developing this library.  There is alot of good information on Stack Overflow and other web resources that provide
-various levels of help for this kind of functionality, but there are few (if any) fully developed solutions to really help others find an efficient way to do this end-to-end.
-
-**So, that was the goal of this library, to provide and end-to-end solution to either a) leverage directly if it fits your use-cases, or b) use as a model to adapt to your use case!**
-
-**I hope that it helps others on their projects as much as it has helped ours.**
+This package includes both `SqlBulkdHelpers` and `SqlBulkHelperse.MaterializedData` and can be used in conjunction with other popular SQL Server ORMs such as `Dapper`, `Linq2Sql`, `RepoDB`, etc.
 
 ### [Buy me a Coffee ☕](https://www.buymeacoffee.com/cajuncoding)
 *I'm happy to share with the community, but if you find this useful (e.g for professional use), and are so inclinded,
@@ -27,27 +17,430 @@ then I do love-me-some-coffee!*
 <img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174">
 </a> 
 
+## SqlBulkHelpers
+
+The `SqlBulkHelpers` component of the library provides the capability to insert and update data with fantastic performance, operating on thousands or tens of thousands of records per second.
+This library leverages the power of the C# SqlBulkCopy classes, while augmenting and automating the orchestration, model mapping, etc. with the following key benefits:
+
+- Provides much more simplified facade for interacting with the SqlBulkCopy API now exposed as simple extension methods of the `SqlConnection`/`SqlTransaction` classes.
+  - It's obviously easy to bulk query data from the DB into model/objects via optimized queries (e.g. Dapper or RepoDB), but inserting and updating is a whole different story.
+  - The Performance improvements are DRAMATIC!
+- Provides enhanced support for ORM (e.g. Dapper, LINQ, etc.) based inserts/updates with the SqlBulkCopy API by automatically mapping to/from your data model.
+  - Includees support for annotation/attribute mappings from Dapper, LINQ, RepoDB, or the `SqlBulkColumn` & `SqlBulkTable` attributes provided by the library.
+- Provides support for Database Tables that utilize an Identity Id column as the Primary Key;.
+  - SQL Server Identity columns are populated on the server and retrieving the values has always been complex, but is now trivialized.
+  - It dynamically retrieves the new Identity column value and populates them back into the data Models/Objects provided so your insert will result in your models `automagically` having their PKey (Identity) populated!
+
+The `SqlBulkCopy API`, provided by Microsoft, offers **fantastic performance benefits**, but retrieving the Identity values for Primary Keys that are auto-generated is not a default capability.  And as it turns out, this is not a trivial
+task despite the significant benefits it provides for developers.  
+
+However, a critical reason for developing this library was to oroviding support for tables with `Identity` column` as the Primary Key is .  There is alot of good information on Stack Overflow and other web resources that provide
+various levels of help for this kind of functionality, but there are few (if any) fully developed solutions to really help others find an efficient way to do this end-to-end. To my knowledge RepoDB
+is the only ORM that provides this, so if you are using any other ORM such as Dapper, then this library can be used in combination!
+
+### Example Usage for Bulk Insert or Update:
+```csharp
+public class TestDataService
+{
+    private ISqlBulkHelpersConnectionProvider _sqlConnectionProvider
+    public TestDataService(ISqlBulkHelpersConnectionProvider sqlConnectionProvider)
+    {
+        _sqlConnectionProvider = sqlConnectionProvider 
+            ?? throw new ArgumentNullException(nameof(sqlConnectionProvider))
+    }
+
+    public async Task<IList<TestDataModel>> BulkInsertOrUpdateAsync(IList<TestDataModel> testData)
+    {
+        await using (var sqlConn = await _sqlConnectionProvider.NewConnectionAsync())
+        await using (var sqlTransaction = (SqlTransaction)await sqlConn.BeginTransactionAsync())
+        {
+            var bulkResults = await sqlTransaction.BulkInsertOrUpdateAsync(testData);
+            await sqlTransactionv.CommitAsync();
+
+            //Return the data that will have updated Identity values (if used).
+            return bulkResults;
+        }
+    }
+}
+```
+
+## SqlBulkHelpers.MaterializedData
+
+The [*Materialized View pattern*](https://en.wikipedia.org/wiki/Materialized_view) (or Materialized Data) pattern within the context of 
+relational databases, such as SQL Server, is often implemented as a readonly replica of remote data in local tables. This can enable massive
+performance improvements via highly efficient SQL queries, while at the same time making your application more resilient via [Eventual Consistency](https://en.wikipedia.org/wiki/Eventual_consistency).
+
+This is not a `data sync` per se, because it's only a one-way replication and conceptually the data should be treated as read-only. Though locally
+the data may be augmented and extended, however any new data is owned by your system while the original materialized data is conceptually owned
+by an external system.
+
+The primary benefit of this pattern is to improve performance and resiliency. For example, if the data is not local then the power of SQL queries
+is dramatically hindered because the database is unable to join across data. This means that all data correllation/joining/filtering/etc.
+must occur within the application layer. Regardless of whether the data is retrieved by an API (should be the case) or from multiple 
+database connections (stop doing this please!), the responsibility must lie in the application layer. 
+
+For most business applications this introduces several major problems:
+ - Significant performance impacts due to retrieval of (potentially large) sets of data into application memory and crunching the results via code.
+    - Server load is higher, server resource utilization is higher, etc.
+ - There is a runtime dependency on the external data source. 
+   - Whether it's and API or separate database connection the data must be retrieved to be processed and if there are any issues with the external data source(s) (e.g. connectivity, errors, etc.)
+   then your application will fail. 
+  - To be fair, this isn't a new problem however the Materialized Data/View pattern is one solution to the problem because it provides
+  a local replica of the data that is refreshed periodically so if there are errors in the refresh process your live data is unaffected making your application significantly more resilient.
+  - The process of periodic or event based updating of the materialized data creates an [*Eventually Consistent*](https://en.wikipedia.org/wiki/Eventual_consistency) architectural model for your data.
+ - Additional developer impact as much more effort is required to implement data processing in the application layer than can be done with SQL queries.
+
+### The simple & naive approach...
+A simplistic approach to this would be to have a set of tables in your database, and a .NET applicaiton that runs int he background on a schedule or event based trigger
+that refreshed the data in the tables.  You would then have the local data in your database for which you could join into, filter, etc. 
+And your performance would be greatly improved! 
+
+For small data sets of a couple dozen to a couple hundred records this likely will work without much issue. But if the data set to be materialized is larger
+thousands, tens-of-thousands, or millions then you will quickly encounter several problems:
+- Clearing the tables via `DELETE FROM [TableName]` is slow as all records are processed individually and the transaction log will grow commensurately -- this is SLOW!!!
+- At this point in your Transaction (*you absolutely should be using a Transaction!*) the table is Locked and any/all queries that need this data will be blocked -- this makes them SLOW!!!
+- Your not yet done, you still need to re-populate the table.
+- Even if you do a Bulk Update (vs delete and re-load) the Updates will still lock the table blocking other queries making the process slow.
+
+### The robust, performant, & resilient approach...
+Soo, what's the solution? 
+1. Don't load into your Live table at all. 
+2. Load into an offline staging table... 
+3. Then publish (aka switch in SQL Server terminology) that tableout wholistically/atomically, nearly instantly.
+
+Now, there are multiple ways to do this in SQL Server but only one is really recommended: [Partition Switching](https://learn.microsoft.com/en-us/sql/t-sql/statements/alter-table-transact-sql?view=sql-server-ver16#switch--partition-source_partition_number_expression--to--schema_name--target_table--partition-target_partition_number_expression-)
+- The legacy approach was to swap stagint/live tables out via a renaming process using `sp_rename()` but this encouters a table lock that cannot be circumvented.
+- Then the `SCHEMA TRANSFER` approach became an option but it has even worse blocking issues as it takes a SCHEMA LOCK blocking EVERRRRRYTHING.
+- As of SQL Server 2016 though we now have `SWITCH PARTITION` which provides control over the blocking/locking and gives flexible implementation.
+
+However doing this often requires lots of complexity, duplication of table schemas, etc. This is where the .NET library comes into play
+by automating the orchestration of the table shell game we have to play in SQL Server -- making it easy to use from our applications.
+
+The way this is implemented is that the .NET code dynamically loads the complete/fullt able Schema via `GetTableSchemaDefinitionAsync()` that
+it then uses to clone the talbe. The clone includes all Primary Keys, Indexes, Computed Columns, Identity Columns, and even Full Text Indexes.
+
+With this exact clone the api returns the metadata you need to process with the staging table via the dynamically generated table name exposed by `MaterializationTableInfo.LoadingTable`.
+
+You also have a `MaterializeDataContext` that provides other information about the process that can be used for loading the tables. This allows
+you to handle many tables in a single batch because you will likely have multiple related data-sets that need to be loaded at the same time for data integrity
+and relational integrity. However, it is 100% the responsibility to ensure that you sanitize and validate the data integrity of all tables being loaded in 
+the materialization context. 
+
+NOTE: During this process normal referential integrity constraints such as FKeys are disabled because they may
+refer to other live tables, and vice versa, making it impossible to load your tables. These elements will be re-enabled and validated when
+the final switch occurs. This is the most significatn impact to switching the live table out -- the data integrity must be validated which may take some time (seconds) depending on your data.
+
+That's why it's recommended to keep materialized data somewhat separated from your own data; and possibly even minimize the FKey references also. 
+But this is a design decision for your schema and use case. There is no magic way to eliminate the need to validate referential integrity in the 
+world of relational databases ]-- unless you just don't care; in which case just delete your FKeys ;-)
+
+
+#### Example Usage for Materializing Data:
+NOTE: Use the [Configuration](#example-configuration-of-defaults) above to improve performance -- particularly when initially loading table schemas for multiple tables (which are cached after initial load);
+
+The easiest implementation (for most use cases) is to call the `SqlConnection.ExecuteMaterializeDataProcessAsync()` extension method providing a lambda function
+that process all data; likley useing the [SqlBulkHelpers](#SqlBulkHelpers) to bulk insert into the loading tables.
+
+Once the Lambda function is finished then the Materialization data process will automatically complete the following:
+  - Switching out all laoding tables for live tables.
+  - Executing all necessary data integrity checks and enabling FKey constraints, etc.
+  - Clean up all tables leaving only the Live tables ready to be used.
+
+```csharp
+public class TestDataService
+{
+    private ISqlBulkHelpersConnectionProvider _sqlConnectionProvider
+    public TestDataService(ISqlBulkHelpersConnectionProvider sqlConnectionProvider)
+    {
+        _sqlConnectionProvider = sqlConnectionProvider 
+            ?? throw new ArgumentNullException(nameof(sqlConnectionProvider))
+    }
+
+    public Task ExecuteMaterializeDataProcessAsync(IList<TestDataModel> parentTestData, IList<TestChildDataModel> childTestData)
+    {
+        var tableNames = new[]
+        {
+            "TestDataModelsTable",
+            "TestChildRelatedDataModelsTable"
+        };
+
+        //We need a valid SqlConnection
+        await using (var sqlConn = await _sqlConnectionProvider.NewConnectionAsync())
+        {
+            //Now we can initialize the Materialized Data context with clones of all tables ready for loading...
+            //This takes in an async Lambda ` Func<IMaterializeDataContext, SqlTransaction, Task>` that handles all data processing..
+            await sqlConn.ExecuteMaterializeDataProcessAsync(tableNames, async (materializeDataContext, sqlTransaction) =>
+            {
+                //Note: We must override the table name to sure we Bulk Insert/Update into our Loading table and not the Live table...
+                //Note: The cloned loading tables will be empty, so we only need to Bulk Insert our new data...
+                var parentLoadingTableName = materializeDataContext.GetLoadingTableName("TestDataModelsTable");
+                var parentResults = await sqlTransaction.BulkInsertAsync(parentTestData, tableName: loadingTableTerm);
+
+                var childLoadingTableName = materializeDataContext.GetLoadingTableName("TestChildRelatedDataModelsTable");
+                var childResults = await sqlTransaction.BulkInsertAsync(childTestData, tableName: loadingTableTerm);
+            });
+
+            //Once the Lambda function is finished then the Materialization data process will automatically complete 
+            //  the table switching, re-enabling of referential integrity, and cleanup...
+        }
+    }
+}
+
+```
+
+
 ## Nuget Package
 To use in your project, add the [SqlBulkHelpers NuGet package](https://www.nuget.org/packages/SqlBulkHelpers/) to your project.
 
-## v1.4 Release Notes:
+## v2.0 Release Notes:
+- v2.0 release includes the NEW `MaterializeData` Helpers to make it significantly easier to implement highly efficient loading and publishing of materialized data with SQL Server.
+  - The concept of Materializing data (design pattern) here is to provide easy aysnc (background) bulk loading of data with, no impact to Live tables, until the data is switched out extremely quickly accomplishing a refresh of Live data in milliseconds.
+  - The all new APIs include (but are not limited to): `ExecuteMaterializeDataProcessAsync()`, `GetTableSchemaDefinition()`, `ClearTablesAsync()`, `CloneTablesAsync()`, `DropTablesAsync()`, etc.
+- v2.0 provides a simplified and easier to access API via extension methods of the `SqlTransaction` class
+  - This is a breaking change for Sql Bulk Insert/Update/etc, but should be very easy to migrate to!
+- v2.0 Now includes support for Model mapping attributes for Table/Columns with support for RepoDB (`[Map]`), Linq2Sql (`[Table]/[Column]`), Dapper (`[Table]/[Column])`, or the built in `[SqlBulkTable]/[SqlBulkColumn]`.
+  - This means you don't have to change existing model annotations if your using Dapper/Linq/RepoDB, but otherwise have the flexibility to add using hte built in attributes.
+- Many performance improvements to further mitigate any reflection performance impacts, as well as minimized memory footprint.
+- Improved configuration capabilities and support for Timeouts and add support for Default DB Schema Loader timeout setting.
+- v2.0 now works with all tables, regardless if `Identity` Column is used or not. 
+    - If no Identity Column is used then the configured PKey columns are dynamically resolved and used for uniqueness unless overridden by providing your own `SqlMergeMatchQualifierExpression` to the method.
+
+NOTE: [Prior Release Notes are below...](#prior-release-notes)
+
+### Additional Examples:
+
+### Simple Example for Sql Bulk Insert or Update :
+Usage is very simple if you use a lightweigth Model (e.g. ORM model via Dapper) to load data from your tables...
+
+```csharp
+    //Initialize the Sql Connection Provider from the Sql Connection string -- Usually provided by Dependency Injection...
+    //NOTE: The ISqlBulkHelpersConnectionProvider interface provides a great abstraction that most projects don't
+    //          take the time to do, so it is provided here for convenience (e.g. extremely helpful with DI).
+    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
+
+    //Initialize large list of Data to Insert or Update in a Table
+    List<TestDataModel> testData = SqlBulkHelpersSample.CreateTestData(1000);
+
+    //Bulk Inserting is now as easy as:
+    //  1) Initialize the DB Connection & Transaction (IDisposable)
+    //  3) Execute the insert/update (e.g. Convenience method allows InsertOrUpdate in one execution!)
+    using (SqlConnection sqlConnection = await sqlConnectionProvider.NewConnectionAsync())
+    using (SqlTransaction sqlTransaction = (SqlTransaction)await conn.BeginTransactionAsync())
+    {
+        //Uses the class name or it's annotated/attribute mapped name...
+        var results = await sqlTransaction.BulkInsertOrUpdateAsync(testData);
+
+        //Or insert into a different table by overriding the table name...
+        var secondResults = await sqlTransaction.BulkInsertOrUpdateAsync(testData, "SecondTestTableName");
+        
+        //Don't forget to commit the changes...
+        await transaction.CommitAsync();
+    }
+
+```
+
+### Example Data Model Table/Column name mapping via Annotations
+NOTE: The fully qualified format isn't strictly required, but is encouraged; the `[dbo]` schema will be used as default if not specified.
+
+*WARNING: Do NOT use `.` in your Schema or Table Names... this is not only a really bad sql code smell, it will break the parsing logic.*
+
+```csharp
+    [SqlBulkTable("[dbo].[TestDataModelMappedTableName]")] //Built-in
+    //[Table("[dbo].[TestDataModelMappedTableName]")] -- Dapper/Linq2Sql
+    //[Map("[dbo].[TestDataModelMappedTableName]")] -- RepoDB
+    public class TestDataModel
+    {
+        [SqlBulkColumn("MyColumnMappedName")] //Built-in
+        //[Column(""MyColumnMappedName"")] -- Dapper/Linq2Sql
+        //[Map("MyColumnMappedName")] -- RepoDB
+        public string Column1 { get; set; }
+        
+        public int Column2 { get; set; }
+    }
+
+```
+
+
+### Configuration of Defaults:
+
+You can pass in the SqlBulkHelpersConfig to all api methods, however to simplify the applicaiton you can also configure the defaults
+globally in your application startup.
+
+```csharp
+    //Normally would be provided by Dependency Injection...
+    //This is a DI friendly connection factory/provider pattern that can be used...
+    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
+
+    //Update the Default configuration for SqlBulkHelpers
+    SqlBulkHelpersConfig.ConfigureDefaults(config =>  {
+        
+        //Configure the default behavior so that SqlBulkHelpersConfig doesn't have to be passed to every method call...
+        config.MaterializeDataStructureProcessingTimeoutSeconds = 60;
+        config.DbSchemaLoaderQueryTimeoutSeconds = 100;
+        config.IsSqlBulkTableLockEnabled = true;
+        config.SqlBulkCopyOptions = SqlBulkCopyOptions.Default;
+        config.SqlBulkBatchSize = 5000;
+        // ...etc...
+        
+        //One new optimization (mainly for Materialized Data) is to enable support for concurrent connections...
+        //  via a Connection Factory which Enables Concurrent Connection Processing for Performance...
+        config.EnableConcurrentSqlConnectionProcessing(sqlConnectionProvider, maxConcurrentConnections: 5);
+    });
+```
+
+### Retrieve Table Schema Definitions:
+
+The Table Schema definition can be used directly and is extremely helpful for for sanitizing Table Names, mitigating Sql injection, etc.
+It offers ability to retrieve basic or extended details; both of which are internally cached.
+ - Basic schema details includes table, columns & their data types, etc. 
+ - Extended details includes FKey constraintes, Indexes, relationship details, etc.
+
+*NOTE: The internal schema caching can be invalidated using the `forceCacheReload` method parameter.*
+
+```csharp
+    public string GetSanitizedTableName(string tableNameToValidate)
+    {
+        //Initialize the Sql Connection Provider from the Sql Connection string -- Usually provided by Dependency Injection...
+        //NOTE: The ISqlBulkHelpersConnectionProvider interface provides a great abstraction that most projects don't
+        //          take the time to do, so it is provided here for convenience (e.g. extremely helpful with DI).
+        ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
+
+        //We can get the basic or extended (slower query) schema details for the table (both types are cached)...
+        //NOTE: Basic details includes table, columns, data types, etc. while Extended details includes FKey constraintes, 
+        //      Indexes, relationship details, etc.
+        var tableDefinition = sqlConn.GetTableSchemaDefinition(tablNameToValidate, TableSchemaDetailLevel.BasicDetails)
+
+        if (tableDefinition == null)
+            throw new NullReferenceException($"The Table Definition is null and could not be found for the table name specified [{tableNameToValidate}].");
+
+        return tableDefinition.TableFullyQualifiedName;
+    }
+```
+
+### Explicitly controlling Match Qualifiers for the internal Merge Action:
+
+The default behavior is to use the Identity column or PKey column(s) as the default fields for identifying/resolving a match
+during the execution of the internal Sql Server merge query. However, there are advanced use cases where explicit  control over the matching may be needed.
+
+Custom field qualifiers can be specified for explicit control over the record matching during the execution of the internal merge query.
+This helps address some very advanced use cases such as when data is being synchronized from multiple sources and an Identity Column is used
+in the destination, but is not the column by which unique matches should occur since data is coming from different systems and unique fields 
+from the source system(s) needs to be used instead (e.g. the Identity ID value from the source database not the target).  
+In this case a different field (or set of fields can be manually specified.
+
+Warnging:  If the custom specified fields do not result in unique matches then multiple rows may be updated resulting in unexpected data changes. 
+This also means that the retrieval of Identity values to populate in the Data models may not work as expected. Therefore as a default behavior,
+an exception will be thrown if non-unique matches occur (which will allow a transaction to be rolled back) to maintain data integrity.
+
+However, in cases where this is an intentional/expected (and understood) result then this behaviour may be controlled and
+disabled by setting the `SqlMergeMatchQualifierExpression.ThrowExceptionIfNonUniqueMatchesOccur = false` flag as noted in commented code.
+
+```csharp
+    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+
+    using (var sqlConnection = await sqlConnectionProvider.NewConnectionAsync())
+    using (SqlTransaction sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync())
+    {     
+        //Initialize a Match Qualifier Expression field set with one or more Field names that identify
+        //  how a match between Model and Table data should be resolved.
+        var explicitMatchQualifiers = new SqlMergeMatchQualifierExpression("ColumnName1", "ColumnName2");
+        //{
+        //    ThrowExceptionIfNonUniqueMatchesOccur = false
+        //};
+
+        var results = await sqlTransaction.BulkInsertOrUpdateAsync(testData, matchQualifierExpressionParam: explicitMatchQualifiers);
+        await transaction.CommitAsync();
+    }
+
+```
+
+### Clearing Tables (Truncate even when you have FKey constraints!)
+Normally if your table has FKey constraints you cannot Truncate it... by leveraging the Materialized data api we can efficiently clear
+the table even with these constraints by simply switching it out for an empty table! And, this is still fully transactionally safe!
+
+Data integrity will still be enforced after the tables are cleared so it's the responsibility of the caller to ensure that all appropriate tables
+get cleared in the batch so that FKey failure don't occcur when the materialization process completes. The value here is that you don't
+have to remove and re-add your FKeys manually, the process is fully automated and simplified and no tables outside of the batch are altered in any way.
+
+NOTE: These methods can also be used with data models that have mapped table names via annotations using the Generic overloads `ClearTableAsync<TestDataModel>()`.
+
+```csharp
+    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+
+    using (var sqlConnection = await sqlConnectionProvider.NewConnectionAsync())
+    using (SqlTransaction sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync())
+    {     
+        //Clear the table and force bypassing of constraints...
+        var clearTableResult = await sqlTransaction.ClearTableAsync("Table1", forceOverrideOfConstraints: true);
+
+        //OR We can clear a series of table in one batch with ability to force override of table constraints...
+        var clearTableResults = await sqlTransaction.ClearTablesAsync(
+            new string[] { "Table1", "Table2", "Table3" }, 
+            forceOverrideOfConstraints: true
+        );
+        
+        //Don't forgot to commit the changes!
+        await transaction.CommitAsync();
+    }
+```
+
+### Cloning Tables
+As a core feature of the materialized data process we must be able to clone tables, and you can leverage this api directly for
+other advanced functionality.
+
+NOTE: These methods can also be used with data models that have mapped table names via annotations using the Generic overloads `CloneTableAsync<TestDataModel>()`.
+
+```csharp
+    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+
+    using (var sqlConnection = await sqlConnectionProvider.NewConnectionAsync())
+    using (SqlTransaction sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync())
+    {     
+        //Clone any table you like... 
+        //NOTE: TargetTableName is optional and a unique name will be dynamically used if not specified.
+        var resultCloneInfo = await sqlTrans.CloneTableAsync(
+            sourceTableName: "TableName", 
+            targetTableName: "NewTableName", 
+            recreateIfExists: true
+        )
+
+        //OR we can clone many tables at once in a single batch...
+        //NOTE: The TargetTableName params are optional and a unique names will be dynamically used if not specified.
+        var batchCloneResults = await sqlTrans.CloneTableAsync(
+            new[] { 
+                CloneTableInfo.From("TableName1", "NewTableName1"),
+                CloneTableInfo.From("TableName2", "NewTableName2") 
+            }, 
+            recreateIfExists: true
+        )
+        
+        //Don't forgot to commit the changes!
+        await transaction.CommitAsync();
+    }
+```
+
+_**NOTE: More Sample code is provided in the Sample App and in the Tests Project Integration Tests...**__
+
+## Prior Release Notes
+
+### v1.4 Release Notes:
 - Add improved reliability now with use of [LazyCacheHelpers](https://github.com/cajuncoding/LazyCacheHelpers) library for the in-memory caching of DB Schema Loaders.
   - This now fixes an edge case issue where an Exception could be cached, re-thrown constantly, and re-initialization was ever attempted; exceptions are no longer cached.
   - Due to a documented issue in dependency resolution for netstandard20 projects, such as this, there may now be a dependency breaking issue for some projects that are using the older packages.config approach. You will need to either explicitly reference `LazyCacheHelpers` or update to use the go-forward approach of PackageReferences.
     - See this GitHub Issue from Microsoft for more details: https://github.com/dotnet/standard/issues/481
 - Added support to now clear the DB Schema cache via SqlBulkHelpersSchemaLoaderCache.ClearCache() to enable dynamic re-initialization when needed (vs applicaiton restart).
 
-## v1.3 Release Notes:
+### v1.3 Release Notes:
 - Add improved support for use of `SqlBulkHelpersDbSchemaCache` with new SqlConnection factory func to greatly simplifying its use with optimized deferral of Sql Connection creation (if and only when needed) without having to implement the full Interface.
 
-## v1.2 Release Notes:
+### v1.2 Release Notes:
 - [Merge PR](https://github.com/cajuncoding/SqlBulkHelpers/pull/5) to enable support Fully Qualified Table Names - Thanks to @simelis: 
 
-## v1.1 Release Notes:
+### v1.1 Release Notes:
 - Migrated the library to use `Microsoft.Data.SqlClient` vs legacy `System.Data.SqlClient` which is no longer being 
 updated with most improvements, especially performance and edge case bugs. From v1.1 onward we will only use `Microsoft.Data.SqlClient`.
 
-## v1.0.7 Release Notes:
+### v1.0.7 Release Notes:
 - Added support to optimize Identity value updates with native performance (no reflection) simply by implementing 
 `ISqlBulkHelperIdentitySetter` on the model classes.
 
@@ -75,143 +468,13 @@ so now the use of existing Sql Connection & Transaction is encapsulated and can 
 but this may not be the case, therefore this is now greatly simplified with an (encapsulated) caching implementation that is now provided out-of-the-box.
 - Added more Integration Tests for Constructors and Connections, as well as the new DB Schema Loader caching implementation.
 
-### Prior Release Notes:
+### Older Release Notes:
  - Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances 
 that automtically load the connection string from the application configuration setting.
  - Fixed bug in SqlBulk copy and OUTPUT query whereby Sql Server does not return results in the same order of the data
 inserted/updated. This will result in erroneous Identity Values being populated after Merge queries are completed.
 The OUTPUTS are now intentionally and always sorted in the same order as the input data for data integrity.
 
-
-
-### Usage:
-
-### Simple Example:
-Usage is very simple if you use a lightweigth Model (e.g. ORM model via Dapper) to load data from your tables...
-
-```csharp
-    //Initialize the Sql Connection Provider from the Sql Connection string
-    //NOTE: The ISqlBulkHelpersConnectionProvider interface provides a great abstraction that most projects don't
-    //          take the time to do, so it is provided here for convenience (e.g. extremely helpful with DI).
-    var sqlConnectionString = ConfigurationManager.AppSettings[SqlBulkHelpersConnectionProvider.SqlConnectionStringConfigKey];
-    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
-
-    //Initialize large list of Data to Insert or Update in a Table
-    List<TestElement> testData = SqlBulkHelpersSample.CreateTestData(1000);
-
-    //Bulk Inserting is now as easy as:
-    //  1) Initialize the DB Connection & Transaction (IDisposable)
-    //  2) Instantiate the SqlBulkIdentityHelper class with ORM Model Type...
-    //  3) Execute the insert/update (e.g. Convenience method allows InsertOrUpdate in one execution!)
-    using (SqlConnection conn = await sqlConnectionProvider.NewConnectionAsync())
-    using (SqlTransaction transaction = (SqlTransaction)await conn.BeginTransactionAsync())
-    {
-        //The SqlBulkIdentityHelper may be initialized in multiple ways for convenience, though the recommended
-        //  way is to provide the ISqlBulkHelpersConnectionProvider for deferred/lazy initialization of the DB Schema Loader.
-        //However, if needed an existing Connection (and optional Transaction) may also be used as shown in the 
-        //  commented line; in which case if a sql transaction exists then it must be provided to avoid possible 
-        //  errors on initial run while initializing the DB Schema Loader internally (which is cached and will occur only once).
-        //ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(conn, transaction);
-        //ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(sqlBulkHelpersDbSchemaLoader);
-        ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(sqlConnectionProvider);
-
-        await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(testData, "TestTableName", transaction);
-        
-        await transaction.CommitAsync();
-    }
-
-```
-
-### Initialize the DB Schema Loader and manually manage caching of it:
-
-Alternatively the SqlBulkIdentityHelper may be initalized directly with the DB Schema Loader (which may be managed as a static reference):
-
-```csharp
-    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
-
-    var sqlBulkDbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(sqlConnectionProvider);
-
-    ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(sqlBulkHelpersDbSchemaLoader);
-```
-
-### Leverage the cached DB Schema info. (e.g. Helpful for Sanitizing Table Names, mitigating Sql injection, etc.)
-
-The `SqlBulkHelpersSchemaLoaderCache` may be utilized directly for advanced processing with the provided DB Schema
-with internal static caching already provided
-
-*NOTE: Currently the internal DB Schema caching assumes that there are no dynamic DB Schema changes without an application restart.*
-
-```csharp
-    public string GetSanitizedTableName(string tableNameToValidate)
-    {
-        //Your own implementation to retrieve your connection string or other mechanism for creating new Sql DB Connections...
-        //NOTE: The ConnectionString or DB Name make good Unique Identifiers to use.
-        var sqlConnectionString = this.GetConnectionStringFromConfiguration();
-    
-        //The use of the Sql Connection factory func constructor will ensure that there is no Sql Connection created
-        //  unless it is required; which is only for the initial load, and once loaded and cached then there is 
-        //  no overhead because no connection is needed.
-        var dbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader(
-            sqlConnectionString, 
-            () => new SqlConnection(sqlConnectionString)
-        );
-
-        var tableDefinition = dbSchemaLoader.GetTableSchemaDefinition(tableNameToValidate);
-        if (tableDefinition == null)
-            throw new NullReferenceException($"The Table Definition is null and could not be found for the table name specified [{tableNameToValidate}].");
-
-        return tableDefinition.TableFullyQualifiedName;
-    }
-```
-
-
-### Explicitly controlling Match Qualifiers for the internal Merge Action:
-
-The default behavior is to use the Identity column as the default field for identifying/resolving a match
-during the execution of the internal Sql Server merge query. HOwever, there are advanced use cases where explicit 
-control over the matching is needed.
-
-Now custom field qualifiers can be specified for explicit control over the field matching during the execution of the internal merge query.
-This helps address some very advanced use cases such as when data is being synchronized from multiple sources and an Identity Column is used
-but is not the column by which unique matches should occur, because unique fields from the source system needs to be used instead 
-(e.g. the Identity ID value from the source database).  In this case a different field (or set of fields can be manually specified.
-
-Warnging:  If the custom specified fields do not result in unique matches then many rows may be updated as a result.  This also means
-that the population of Identity values on the entity models may no longer be as expected. Therefore as a default behavior,
-an exception will be thrown if non-unique matches occur (which will allow a transaction to be rolled back).
-
-However, in cases where this is an intentional/expectec (and understood) result then this behaviour may be controlled and
-disabled by setting the flag on the `SqlMergeMatchQualifierExpression` class as noted in commented code.
-
-```csharp
-    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
-
-
-    using (var conn = await sqlConnectionProvider.NewConnectionAsync())
-    using (SqlTransaction transaction = (SqlTransaction)await conn.BeginTransactionAsync())
-    {     
-        ISqlBulkHelper<TestElement> sqlBulkIdentityHelper = new SqlBulkIdentityHelper<TestElement>(conn, transaction);
-
-        //Initialize a Match Qualifier Expression field set with one or more Field names that identify
-        //  how a match between Model and Table data should be resolved.
-        var explicitMatchQualifiers = new SqlMergeMatchQualifierExpression(nameof(TestElement.Key), nameof(TestElement.Value))
-        //{
-        //    ThrowExceptionIfNonUniqueMatchesOccur = false
-        //}
-
-        var results = await sqlBulkIdentityHelper.BulkInsertOrUpdateAsync(
-            testData, 
-            TestHelpers.TestTableName, 
-            transaction,
-            explicitMatchQualifiers
-        )
-
-        await transaction.CommitAsync();
-    }
-
-```
-
-_**NOTE: More Sample code is provided in the Sample App and in the Tests Project (as Integration Tests)...**__
 
 ```
   
