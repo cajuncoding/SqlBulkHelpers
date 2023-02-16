@@ -146,6 +146,10 @@ Once the Lambda function is finished then the Materialization data process will 
   - Executing all necessary data integrity checks and enabling FKey constraints, etc.
   - Clean up all tables leaving only the Live tables ready to be used.
 
+_**IMPORTANT NOTE:** In the data processing lambda function the SqlTransaction is provided to you (not created by you), so it's critical
+that you DO NOT Commit the Transaction yourself or else the rest of the Materialization Process cannot complete; this would be similar 
+to pre-disposing of a resource the higher level code expectes to remain valid._
+
 ```csharp
 public class TestDataService
 {
@@ -178,6 +182,10 @@ public class TestDataService
 
                 var childLoadingTableName = materializeDataContext.GetLoadingTableName("TestChildRelatedDataModelsTable");
                 var childResults = await sqlTransaction.BulkInsertAsync(childTestData, tableName: loadingTableTerm);
+
+                //IMPORTANT NOTE: DO NOT Commit the Transaction here or else the rest of the Materialization Process cannot complete...
+                //  Since it was provided to you (not created by you) it will automatically be committed for you at the conclusion 
+                //  of the Materialized Data process!
             });
 
             //Once the Lambda function is finished then the Materialization data process will automatically complete 
@@ -234,7 +242,7 @@ Usage is very simple if you use a lightweigth Model (e.g. ORM model via Dapper) 
         var secondResults = await sqlTransaction.BulkInsertOrUpdateAsync(testData, "SecondTestTableName");
         
         //Don't forget to commit the changes...
-        await transaction.CommitAsync();
+        await sqlTransaction.CommitAsync();
     }
 
 ```
@@ -298,22 +306,25 @@ It offers ability to retrieve basic or extended details; both of which are inter
 *NOTE: The internal schema caching can be invalidated using the `forceCacheReload` method parameter.*
 
 ```csharp
-    public string GetSanitizedTableName(string tableNameToValidate)
+    public async Task<string> GetSanitizedTableName(string tableNameToValidate)
     {
         //Initialize the Sql Connection Provider from the Sql Connection string -- Usually provided by Dependency Injection...
         //NOTE: The ISqlBulkHelpersConnectionProvider interface provides a great abstraction that most projects don't
         //          take the time to do, so it is provided here for convenience (e.g. extremely helpful with DI).
         ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
 
-        //We can get the basic or extended (slower query) schema details for the table (both types are cached)...
-        //NOTE: Basic details includes table, columns, data types, etc. while Extended details includes FKey constraintes, 
-        //      Indexes, relationship details, etc.
-        var tableDefinition = sqlConn.GetTableSchemaDefinition(tablNameToValidate, TableSchemaDetailLevel.BasicDetails)
+        using (SqlConnection sqlConnection = await sqlConnectionProvider.NewConnectionAsync())
+        {
+            //We can get the basic or extended (slower query) schema details for the table (both types are cached)...
+            //NOTE: Basic details includes table, columns, data types, etc. while Extended details includes FKey constraintes, 
+            //      Indexes, relationship details, etc.
+            var tableDefinition = await sqlConnection.GetTableSchemaDefinitionAsync(tablNameToValidate, TableSchemaDetailLevel.BasicDetails)
 
-        if (tableDefinition == null)
-            throw new NullReferenceException($"The Table Definition is null and could not be found for the table name specified [{tableNameToValidate}].");
+            if (tableDefinition == null)
+                throw new NullReferenceException($"The Table Definition is null and could not be found for the table name specified [{tableNameToValidate}].");
 
-        return tableDefinition.TableFullyQualifiedName;
+            return tableDefinition.TableFullyQualifiedName;
+        }
     }
 ```
 
@@ -349,7 +360,7 @@ disabled by setting the `SqlMergeMatchQualifierExpression.ThrowExceptionIfNonUni
         //};
 
         var results = await sqlTransaction.BulkInsertOrUpdateAsync(testData, matchQualifierExpressionParam: explicitMatchQualifiers);
-        await transaction.CommitAsync();
+        await sqlTransaction.CommitAsync();
     }
 
 ```
@@ -380,7 +391,7 @@ NOTE: These methods can also be used with data models that have mapped table nam
         );
         
         //Don't forgot to commit the changes!
-        await transaction.CommitAsync();
+        await sqlTransaction.CommitAsync();
     }
 ```
 
@@ -415,7 +426,7 @@ NOTE: These methods can also be used with data models that have mapped table nam
         )
         
         //Don't forgot to commit the changes!
-        await transaction.CommitAsync();
+        await sqlTransaction.CommitAsync();
     }
 ```
 

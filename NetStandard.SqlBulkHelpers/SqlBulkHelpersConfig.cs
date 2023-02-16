@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.Data.SqlClient;
+using SqlBulkHelpers.MaterializedData;
 
 namespace SqlBulkHelpers
 {
@@ -18,6 +19,8 @@ namespace SqlBulkHelpers
         int DbSchemaLoaderQueryTimeoutSeconds { get; }
 
         int MaterializeDataStructureProcessingTimeoutSeconds { get; }
+        int MaterializedDataSwitchTableWaitTimeoutMinutes { get; }
+        SwitchWaitTimeoutAction MaterializedDataSwitchTimeoutAction { get; }
         string MaterializedDataLoadingSchema { get; }
         string MaterializedDataDiscardingSchema { get; }
         bool IsCloningIdentitySeedValueEnabled { get; }
@@ -119,6 +122,8 @@ namespace SqlBulkHelpers
         public int DbSchemaLoaderQueryTimeoutSeconds { get; set; } = 30;
 
         public int MaterializeDataStructureProcessingTimeoutSeconds { get; set; } = 30;
+        public int MaterializedDataSwitchTableWaitTimeoutMinutes { get; set; } = 1;
+        public SwitchWaitTimeoutAction MaterializedDataSwitchTimeoutAction { get; } = SwitchWaitTimeoutAction.Abort;
         public string MaterializedDataLoadingSchema { get; set; } = "materializing_load";
         public string MaterializedDataDiscardingSchema { get; set; } = "materializing_discard";
         public bool IsCloningIdentitySeedValueEnabled { get; set; } = true;

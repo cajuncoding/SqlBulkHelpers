@@ -13,6 +13,13 @@ namespace SqlBulkHelpers.MaterializedData
         ContinueProcessing
     }
 
+    public enum SwitchWaitTimeoutAction
+    {
+        Abort,
+        KillBlockers,
+        ContinueWaiting
+    }
+
     public class MaterializedDataScriptBuilder : ISqlScriptBuilder
     {
         public bool IsSqlScriptFinished { get; protected set; } = false;
@@ -165,15 +172,31 @@ namespace SqlBulkHelpers.MaterializedData
             return this;
         }
 
-        public MaterializedDataScriptBuilder SwitchTables(TableNameTerm sourceTable, TableNameTerm targetTable)
+        public MaterializedDataScriptBuilder SwitchTables(TableNameTerm sourceTable, TableNameTerm targetTable, SwitchWaitTimeoutAction? waitTimeoutAction = null, int? maxSwitchWaitDurationMinutes = null)
         {
             sourceTable.AssertArgumentIsNotNull(nameof(targetTable));
             targetTable.AssertArgumentIsNotNull(nameof(targetTable));
 
+            var waitTimeoutMinutes = maxSwitchWaitDurationMinutes ?? 1;
+
+            string abortAfterWait;
+            switch (waitTimeoutAction)
+            {
+                case SwitchWaitTimeoutAction.Abort: abortAfterWait = "SELF"; break;
+                case SwitchWaitTimeoutAction.KillBlockers: abortAfterWait = "BLOCKERS"; break;
+                //case SwitchWaitTimeoutAction.ContinueWaiting:
+                default: abortAfterWait = "NONE"; break;
+            }
+
+            //As outlined clearly in these recommendations we leverage the WAIT_AT_LOW_PRIORITY as default wait hanlding to mminimize risk of full blown SCHEMA blocking...
+            //More Info here: https://sqlperformance.com/2021/09/sql-performance/refreshing-tables-partition-switching
+            //      and here: https://littlekendra.com/2017/01/19/why-you-should-switch-in-staging-tables-instead-of-renaming/
             ScriptBuilder.Append($@"
 	            --Switch/Swap the Tables (with ALL Data) instantaneously
-                ALTER TABLE {sourceTable.FullyQualifiedTableName} SWITCH TO {targetTable.FullyQualifiedTableName};
+                ALTER TABLE {sourceTable.FullyQualifiedTableName} SWITCH TO {targetTable.FullyQualifiedTableName}
+                    WITH (WAIT_AT_LOW_PRIORITY (MAX_DURATION = {waitTimeoutMinutes} MINUTES, ABORT_AFTER_WAIT = {abortAfterWait}));
             ");
+
             return this;
         }
 

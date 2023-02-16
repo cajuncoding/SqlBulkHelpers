@@ -142,13 +142,25 @@ namespace SqlBulkHelpers.MaterializedData
                     .DisableAllTableConstraintChecks(materializationTableInfo.DiscardingTable);
             }
 
+            var timeoutConvertedToMinutes = Math.Max(1, (int)Math.Ceiling((decimal)BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds / 60));
+
             //2) Then we can switch all existing Live tables to the Discarding Schema -- this Frees the Live table up to be updated in the next step!
             foreach (var materializationTableInfo in materializationTables)
-                switchScriptBuilder.SwitchTables(materializationTableInfo.LiveTable, materializationTableInfo.DiscardingTable);
+                switchScriptBuilder.SwitchTables(
+                    materializationTableInfo.LiveTable, 
+                    materializationTableInfo.DiscardingTable, 
+                    BulkHelpersConfig.MaterializedDataSwitchTimeoutAction, 
+                    BulkHelpersConfig.MaterializedDataSwitchTableWaitTimeoutMinutes
+                );
 
             //3) Now we are able to switch all existing Loading tables to Live (which were freed up above) -- this will update the Live Data!
             foreach (var materializationTableInfo in materializationTables)
-                switchScriptBuilder.SwitchTables(materializationTableInfo.LoadingTable, materializationTableInfo.LiveTable);
+                switchScriptBuilder.SwitchTables(
+                    materializationTableInfo.LoadingTable, 
+                    materializationTableInfo.LiveTable,
+                    BulkHelpersConfig.MaterializedDataSwitchTimeoutAction,
+                    BulkHelpersConfig.MaterializedDataSwitchTableWaitTimeoutMinutes
+                );
 
             //4) Third we re-enable all Foreign Key Checks that were disabled!
             //5) Finally we explicitly clean up all Loading/Discarding Tables (contains old data) to free resources -- this leaves us with only the (new) Live Table in place!
