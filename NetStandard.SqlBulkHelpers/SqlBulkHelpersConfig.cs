@@ -72,8 +72,8 @@ namespace SqlBulkHelpers
         /// <param name="enableFullTextIndexHandling"></param>
         public void EnableConcurrentSqlConnectionProcessing(
             Func<SqlConnection> sqlConnectionFactory, 
-            int maxConcurrentConnections = SqlBulkHelpersConfigConstants.DefaultMaxConcurrentConnections, 
-            bool enableFullTextIndexHandling = true
+            int maxConcurrentConnections = SqlBulkHelpersConfigConstants.DefaultMaxConcurrentConnections,
+            bool enableFullTextIndexHandling = false
         )
         {
             sqlConnectionFactory.AssertArgumentIsNotNull(nameof(sqlConnectionFactory));
@@ -91,8 +91,8 @@ namespace SqlBulkHelpers
         /// <param name="enableFullTextIndexHandling"></param>
         public void EnableConcurrentSqlConnectionProcessing(
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider, 
-            int maxConcurrentConnections = SqlBulkHelpersConfigConstants.DefaultMaxConcurrentConnections, 
-            bool enableFullTextIndexHandling = true
+            int maxConcurrentConnections = SqlBulkHelpersConfigConstants.DefaultMaxConcurrentConnections,
+            bool enableFullTextIndexHandling = false
         )
         {
             this.ConcurrentConnectionFactory = sqlConnectionProvider.AssertArgumentIsNotNull(nameof(sqlConnectionProvider));
@@ -150,7 +150,7 @@ namespace SqlBulkHelpers
         /// Concurrent Connection support is also required and therefore a ConcurrentConnectionFactory
         /// or ISqlBulkHelpersConnectionProvider must also be provided.
         ///
-        /// Recommended to use the EnableConcurrentSqlConnectionProcessing() convenience method(s) to enable this more easily!
+        /// Recommended to use the SqlBulkHelpersConfig.EnableConcurrentSqlConnectionProcessing() convenience method(s) to enable this more easily!
         /// </summary>
         public bool IsFullTextIndexHandlingEnabled { get; set; } = false;
     }

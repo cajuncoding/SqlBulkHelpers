@@ -5,6 +5,7 @@ using SqlBulkHelpers.MaterializedData;
 using Microsoft.Data.SqlClient;
 using RepoDb;
 using SqlBulkHelpers.SqlBulkHelpers;
+using SqlBulkHelpers.Utilities;
 
 namespace SqlBulkHelpers.IntegrationTests
 {
@@ -146,13 +147,24 @@ namespace SqlBulkHelpers.IntegrationTests
             var timer = Stopwatch.StartNew();
 
             //Update our Configuration to provide a Connection Factory which Enables Concurrent Connection Processing...
-            SqlBulkHelpersConfig.ConfigureDefaults(config => config.EnableConcurrentSqlConnectionProcessing(sqlConnectionProvider));
+            SqlBulkHelpersConfig.ConfigureDefaults(config =>
+            {
+                //Enable FullTextIndexHandling as it's disabled by default since it cannot be handled within a SQL Transaction and is instead managed by Code (with error handling).
+                config.IsFullTextIndexHandlingEnabled = true;
+                //As an optimization we enable Concurrent Processing which can improve performance when re-enabling FullTextIndexes, etc.
+                config.EnableConcurrentSqlConnectionProcessing(sqlConnectionProvider);
+            });
 
             //NOW Materialize Data into the Tables!
             await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
             {
-                var initialCount = (int)await sqlConn.CountAllAsync(TestHelpers.TestTableWithFullTextIndexFullyQualified);
-                var testDataCount = Math.Max(initialCount * 2, 500);
+                await using (var sqlClearTransaction = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+                {
+                    await sqlClearTransaction.ClearTableAsync(TestHelpers.TestTableWithFullTextIndexFullyQualified);
+                    await sqlClearTransaction.CommitAsync().ConfigureAwait(false);
+                }
+
+                var testDataCount = 1500;
 
                 //******************************************************************************************
                 //START the Materialize Data Process...
@@ -179,11 +191,14 @@ namespace SqlBulkHelpers.IntegrationTests
                 var finalCount = (int)await sqlConn.CountAllAsync(TestHelpers.TestTableWithFullTextIndexFullyQualified);
                 Assert.AreEqual(testDataCount, finalCount);
 
-                var tableSchema = await sqlConn.GetTableSchemaDefinitionAsync(
-                    TestHelpers.TestTableWithFullTextIndexFullyQualified, 
-                    TableSchemaDetailLevel.ExtendedDetails, 
+                //NOTE: FOR large tables (500,000+) records it takes time for the Full Text Index to re-build so this Schema query is blocked
+                //      therefore we implement a Retry to stabilize this test...
+                var tableSchema = await Retry.WithExponentialBackoffAsync(20, 
+                    async () => await sqlConn.GetTableSchemaDefinitionAsync(
+                    TestHelpers.TestTableWithFullTextIndexFullyQualified,
+                    TableSchemaDetailLevel.ExtendedDetails,
                     forceCacheReload: true
-                );
+                )).ConfigureAwait(false);
 
                 Assert.IsNotNull(tableSchema);
                 Assert.IsNotNull(tableSchema.FullTextIndex);

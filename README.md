@@ -126,9 +126,16 @@ you to handle many tables in a single batch because you will likely have multipl
 and relational integrity. However, it is 100% the responsibility to ensure that you sanitize and validate the data integrity of all tables being loaded in 
 the materialization context. 
 
-NOTE: During this process normal referential integrity constraints such as FKeys are disabled because they may
+_**NOTE:** During this process normal referential integrity constraints such as FKeys are disabled because they may
 refer to other live tables, and vice versa, making it impossible to load your tables. These elements will be re-enabled and validated when
-the final switch occurs. This is the most significatn impact to switching the live table out -- the data integrity must be validated which may take some time (seconds) depending on your data.
+the final switch occurs. This is the most significatn impact to switching the live table out -- the data integrity must be validated which may take some time (seconds) depending on your data._
+
+_**WARNING:** Full Text Indexes cannot be disabled, dropped, or re-created within a SQL Transaction and therefore must be managed outside of the Transaction
+that contains all other schema changes, data loading, and table switching process. The library can automate this for you with error handling
+to drop the Full Text Index immediately before the table switch (on a separate isolated Connection to the DB), and then restore it immediately after.
+However this functionality is disabled by default and must be enabled via `SqlBulkHelpersConfig.EnableConcurrentSqlConnectionProcessing(...,enableFullTextIndexHandling: true)`.
+To minimize the risk of issues dropping/re-creating the FullTextIndex, it is done on a separate connection so that it can be recovered in the case of
+any issues, therefore it requires the use of Concurrent Sql Connections via a `Func<SqlConnection>` connection factory or `ISqlBulkHelpersConnectionProvider` implementation._
 
 That's why it's recommended to keep materialized data somewhat separated from your own data; and possibly even minimize the FKey references also. 
 But this is a design decision for your schema and use case. There is no magic way to eliminate the need to validate referential integrity in the 
