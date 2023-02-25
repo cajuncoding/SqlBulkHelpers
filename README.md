@@ -76,8 +76,7 @@ by an external system.
 
 The primary benefit of this pattern is to improve performance and resiliency. For example, if the data is not local then the power of SQL queries
 is dramatically hindered because the database is unable to join across data. This means that all data correllation/joining/filtering/etc.
-must occur within the application layer. Regardless of whether the data is retrieved by an API (should be the case) or from multiple 
-database connections (stop doing this please!), the responsibility must lie in the application layer. 
+must occur within the application layer -- in-memory processing of the data from disparate sources. Therefore, regardless of whether the data is retrieved by an API (should be the case) or from multiple direct database connections (stop doing this please!), the responsibility to correllate/join/filter/etc. must lie in the application layer for processing and is by definition less efficient and likely poses (ususally signficant) negative implications as follows. 
 
 For most business applications this introduces several major problems:
  - Significant performance impacts due to retrieval of (potentially large) sets of data into application memory and crunching the results via code.
