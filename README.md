@@ -27,16 +27,16 @@ This library leverages the power of the C# SqlBulkCopy classes, while augmenting
   - The Performance improvements are DRAMATIC!
 - Provides enhanced support for ORM (e.g. Dapper, LINQ, etc.) based inserts/updates with the SqlBulkCopy API by automatically mapping to/from your data model.
   - Includees support for annotation/attribute mappings from Dapper, LINQ, RepoDB, or the `SqlBulkColumn` & `SqlBulkTable` attributes provided by the library.
-- Provides support for Database Tables that utilize an Identity Id column as the Primary Key;.
-  - SQL Server Identity columns are populated on the server and retrieving the values has always been complex, but is now trivialized.
-  - It dynamically retrieves the new Identity column value and populates them back into the data Models/Objects provided so your insert will result in your models `automagically` having their PKey (Identity) populated!
+- Provides support for Database Tables that utilize an Identity Id column (often used as the Primary Key).
+  - SQL Server Identity column values are populated on the server and retrieving the values has always been complex, but is now trivialized.
+  - The library dynamically retrieves the new Identity column value and populates them back into the data Models/Objects provided so your insert will result in your models `automagically` having the Identity value from the SQL Server `insert` populated!
 
-The `SqlBulkCopy API`, provided by Microsoft, offers **fantastic performance benefits**, but retrieving the Identity values for Primary Keys that are auto-generated is not a default capability.  And as it turns out, this is not a trivial
-task despite the significant benefits it provides for developers.  
+The `SqlBulkCopy API`, provided by Microsoft, offers **fantastic performance benefits**, but retrieving the Identity values that are auto-generated from the server is not a default capability.  And as it turns out, this is not a trivial task despite the significant benefits it provides for developers.  
 
-However, a critical reason for developing this library was to oroviding support for tables with `Identity` column` as the Primary Key is .  There is alot of good information on Stack Overflow and other web resources that provide
-various levels of help for this kind of functionality, but there are few (if any) fully developed solutions to really help others find an efficient way to do this end-to-end. To my knowledge RepoDB
-is the only ORM that provides this, so if you are using any other ORM such as Dapper, then this library can be used in combination!
+However, a critical reason for developing this library was to provide support for tables with `Identity` column values. There is alot of good information on Stack
+Overflow and other web resources that provide various levels of help for this kind of functionality, but there are few (if any) fully developed solutions to really
+help others find an efficient way to do this end-to-end. To my knowledge `RepoDB` is the only lightweight/low-level ORM that provides this, so if you are using any other ORM such as Dapper,
+then this library can be used in combination!
 
 ### Example Usage for Bulk Insert or Update:
 ```csharp
