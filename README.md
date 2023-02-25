@@ -80,14 +80,15 @@ must occur within the application layer -- in-memory processing of the data from
 
 For most business applications this introduces several major problems:
  - Significant performance impacts due to retrieval of (potentially large) sets of data into application memory and crunching the results via code.
-    - Server load is higher, server resource utilization is higher, etc.
+   - Server load is higher, server resource utilization is higher, etc.
+   - Code complexity, and ongoing maintenance, is usually much higher than efficient SQL queries would be.
+ - There is additional developer impact as much more effort is required to implement data processing in the application layer than can be done with SQL queries.
  - There is a runtime dependency on the external data source. 
-   - Whether it's and API or separate database connection the data must be retrieved to be processed and if there are any issues with the external data source(s) (e.g. connectivity, errors, etc.)
-   then your application will fail. 
-  - To be fair, this isn't a new problem however the Materialized Data/View pattern is one solution to the problem because it provides
-  a local replica of the data that is refreshed periodically so if there are errors in the refresh process your live data is unaffected making your application significantly more resilient.
-  - The process of periodic or event based updating of the materialized data creates an [*Eventually Consistent*](https://en.wikipedia.org/wiki/Eventual_consistency) architectural model for your data.
- - Additional developer impact as much more effort is required to implement data processing in the application layer than can be done with SQL queries.
+   - Whether it's and API or separate database connection the data must be retrieved to be processed and if there are any issues with the external data source(s) (e.g. 
+connectivity, errors, etc. then your application will fail. 
+ 
+To be fair, this isn't a new problem however the Materialized Data/View pattern is one robust the solution to the problem because it provides
+  a local replica of the data than can be used in optimized and highly efficient SQL quereis. And that is refreshed periodically so if there are errors in the refresh process your live data is unaffected making your application significantly more resilient. This process of periodic (or event based) updating/refreshing of the materialized data creates an [*Eventually Consistent*](https://en.wikipedia.org/wiki/Eventual_consistency) architectural model for your data and helps you attain the benefits therein.
 
 ### The simple & naive approach...
 A simplistic approach to this would be to have a set of tables in your database, and a .NET applicaiton that runs int he background on a schedule or event based trigger
