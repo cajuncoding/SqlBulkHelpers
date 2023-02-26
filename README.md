@@ -87,55 +87,63 @@ For most business applications this introduces several major problems:
    - Whether it's and API or separate database connection the data must be retrieved to be processed and if there are any issues with the external data source(s) (e.g. 
 connectivity, errors, etc. then your application will fail. 
  
-To be fair, this isn't a new problem however the Materialized Data/View pattern is one robust the solution to the problem because it provides
-  a local replica of the data than can be used in optimized and highly efficient SQL quereis. And that is refreshed periodically so if there are errors in the refresh process your live data is unaffected making your application significantly more resilient. This process of periodic (or event based) updating/refreshing of the materialized data creates an [*Eventually Consistent*](https://en.wikipedia.org/wiki/Eventual_consistency) architectural model for your data and helps you attain the benefits therein.
+To be fair, this isn't a new problem however the *Materialized Data/View pattern* is a robust & reliable solution to the problem because it provides a local 
+replica of the data than can be used in optimized, and highly efficient, SQL queries. And that data is refreshed periodically so if there are errors in the refresh 
+process your live data remains unaffected making your application significantly more resilient. This process of periodic (or event based) updating/refreshing of the 
+materialized data creates an [*Eventually Consistent*](https://en.wikipedia.org/wiki/Eventual_consistency) architectural model for this data and helps you attain the benefits therein.
 
 ### The simple & naive approach...
-A simplistic approach to this would be to have a set of tables in your database, and a .NET applicaiton that runs int he background on a schedule or event based trigger
+A simplistic approach to this would be to have a set of tables in your database, and a .NET applicaiton that runs in the background on a schedule or event based trigger
 that refreshed the data in the tables.  You would then have the local data in your database for which you could join into, filter, etc. 
-And your performance would be greatly improved! 
+And your performance would be greatly improved! But as your data grows, there are very notable drawbacks to this simple approach of updating the live tables directly.
 
 For small data sets of a couple dozen to a couple hundred records this likely will work without much issue. But if the data set to be materialized is larger
 thousands, tens-of-thousands, or millions then you will quickly encounter several problems:
-- Clearing the tables via `DELETE FROM [TableName]` is slow as all records are processed individually and the transaction log will grow commensurately -- this is SLOW!!!
-- At this point in your Transaction (*you absolutely should be using a Transaction!*) the table is Locked and any/all queries that need this data will be blocked -- this makes them SLOW!!!
+- Clearing the tables via `DELETE FROM [TableName]` is slow as all records are processed individually and the transaction log will grow commensurately -- this is SLOW!!! 
+  - The alternative is to use `Truncate TABLE [TableName]` but this will **not work** if you have data integrity constraints such as `Foreign Keys` on the table.
+- At the point of initially clearing the table in your Transaction (*you absolutely should be using a Transaction!*) the table is Locked and any/all queries that need this data will be blocked -- this makes them SLOW!!!
 - Your not yet done, you still need to re-populate the table.
-- Even if you do a Bulk Update (vs delete and re-load) the Updates will still lock the table blocking other queries making the process slow.
+- Even if you do a Bulk Update --instead of a delete/truncate and re-load -- the Updates will still lock the table blocking other queries, bog down the transaction log, and result in a process that is very SLOW!!!.
 
 ### The robust, performant, & resilient approach...
 Soo, what's the solution? 
-1. Don't load into your Live table at all. 
-2. Load into an offline staging table... 
-3. Then publish (aka switch in SQL Server terminology) that tableout wholistically/atomically, nearly instantly.
+1. Don't load directly into your Live table(s) at all. 
+2. Instead load into an offline staging table(s)...
+   - Now it doesn't matter if the staging tables are blocked at all as they are offline (copies of live tables) so there is no direct impact to the Live tables other than general database server utilization concerns.
+4. Then publish (aka switch in _SQL Server_ terminology) the staging table out wholistically/atomically, and nearly instantly, with the Live table.
+   - The performance impact is now reduced to two factors: 1) the time it takes to do the switch (nearly instant), and 2) Any additional time needed to validate data integrity of Foreign Key relationships.
 
 Now, there are multiple ways to do this in SQL Server but only one is really recommended: [Partition Switching](https://learn.microsoft.com/en-us/sql/t-sql/statements/alter-table-transact-sql?view=sql-server-ver16#switch--partition-source_partition_number_expression--to--schema_name--target_table--partition-target_partition_number_expression-)
-- The legacy approach was to swap stagint/live tables out via a renaming process using `sp_rename()` but this encouters a table lock that cannot be circumvented.
+- The legacy approach was to swap staging/live tables out via a renaming process using `sp_rename()` but this encouters a table lock that cannot be circumvented.
 - Then the `SCHEMA TRANSFER` approach became an option but it has even worse blocking issues as it takes a SCHEMA LOCK blocking EVERRRRRYTHING.
 - As of SQL Server 2016 though we now have `SWITCH PARTITION` which provides control over the blocking/locking and gives flexible implementation.
+  - The main benefit we gain with table switching is that now we can reduce the switchign lock priority to allow other queries to attain higher priority and finish 
+running before the SWITCH executes -- thereby allowing the SWITCH to occur as a secondard event rather than the other way around (which would block the applications queries).
 
-However doing this often requires lots of complexity, duplication of table schemas, etc. This is where the .NET library comes into play
-by automating the orchestration of the table shell game we have to play in SQL Server -- making it easy to use from our applications.
+However the implementatino of this often requires tremebdiys complexity, duplication of table schemas, etc. This is where the .NET library comes into play
+by automating the orchestration of the table shell game we have to play in SQL Server -- making it massively easier to implement from our applications.
 
-The way this is implemented is that the .NET code dynamically loads the complete/fullt able Schema via `GetTableSchemaDefinitionAsync()` that
-it then uses to clone the talbe. The clone includes all Primary Keys, Indexes, Computed Columns, Identity Columns, and even Full Text Indexes.
+The way this works is that the .NET code dynamically loads the complete/full table Schema via `GetTableSchemaDefinitionAsync()` and
+then uses the schema to clone the table. The cloned table includes all `Primary Keys`, `Foreign Keys`, `Indexes`, `Computed Columns`, `Identity Columns`, `Column Constraints`, and even `Full Text Indexes`.
 
-With this exact clone the api returns the metadata you need to process with the staging table via the dynamically generated table name exposed by `MaterializationTableInfo.LoadingTable`.
+With this exact clone the api returns the metadata you need in the `MaterializeDataContext`, that is used to process the load into the staging table via the dynamically generated table name exposed by `MaterializationTableInfo.LoadingTable`.
 
-You also have a `MaterializeDataContext` that provides other information about the process that can be used for loading the tables. This allows
-you to handle many tables in a single batch because you will likely have multiple related data-sets that need to be loaded at the same time for data integrity
-and relational integrity. However, it is 100% the responsibility to ensure that you sanitize and validate the data integrity of all tables being loaded in 
-the materialization context. 
+The `MaterializeDataContext` also provides other information about the process. This allows you to handle many tables in a single batch because you will likely have 
+multiple related data-sets that need to be loaded at the same time for data integrity and relational integrity. However, it is 100% your responsibility to ensure that
+you sanitize and validate the data integrity of all tables being loaded in the materialization context. You need to ensure the data is valid or the load may fail with exceptions; but your Live table data will remain unaffeced as the entire process is fully transactional (with the exception of _Full Text Indexes_; see below).
 
 _**NOTE:** During this process normal referential integrity constraints such as FKeys are disabled because they may
 refer to other live tables, and vice versa, making it impossible to load your tables. These elements will be re-enabled and validated when
-the final switch occurs. This is the most significatn impact to switching the live table out -- the data integrity must be validated which may take some time (seconds) depending on your data._
+the final switch occurs. This is the most significant impact to switching the live table out -- the data integrity must be validated which may take some time (seconds) depending on your data._
 
 _**WARNING:** Full Text Indexes cannot be disabled, dropped, or re-created within a SQL Transaction and therefore must be managed outside of the Transaction
-that contains all other schema changes, data loading, and table switching process. The library can automate this for you with error handling
-to drop the Full Text Index immediately before the table switch (on a separate isolated Connection to the DB), and then restore it immediately after.
-However this functionality is disabled by default and must be enabled via `SqlBulkHelpersConfig.EnableConcurrentSqlConnectionProcessing(...,enableFullTextIndexHandling: true)`.
+that contains all other schema changes, data loading, and table switching process. The library cant automate this for you but this is disabled by default. If enabled (see below) we implement error handling and then attempt to drop the Full Text Index, as late as possible but, immediately before the table switch (on a separate isolated Connection to the DB), and then restore it immediately after. The error handling ensures that, upon any exception, the Full Text Index will be re-created if it was dropped; but there is a non-zero chance that the attempt to re-create could fail if there are connectivity or other impacting issues with the database server.
+
+Since this functionality is disabled by default it must be enabled via `SqlBulkHelpersConfig.EnableConcurrentSqlConnectionProcessing(...,enableFullTextIndexHandling: true)`.
+
 To minimize the risk of issues dropping/re-creating the FullTextIndex, it is done on a separate connection so that it can be recovered in the case of
-any issues, therefore it requires the use of Concurrent Sql Connections via a `Func<SqlConnection>` connection factory or `ISqlBulkHelpersConnectionProvider` implementation._
+any issues, therefore it requires the use of Concurrent Sql Connections via a `Func<SqlConnection>` connection factory or `ISqlBulkHelpersConnectionProvider` implementation.
+_
 
 That's why it's recommended to keep materialized data somewhat separated from your own data; and possibly even minimize the FKey references also. 
 But this is a design decision for your schema and use case. There is no magic way to eliminate the need to validate referential integrity in the 
