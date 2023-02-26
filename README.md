@@ -100,7 +100,7 @@ And your performance would be greatly improved! But as your data grows, there ar
 For small data sets of a couple dozen to a couple hundred records this likely will work without much issue. But if the data set to be materialized is larger
 thousands, tens-of-thousands, or millions then you will quickly encounter several problems:
 - Clearing the tables via `DELETE FROM [TableName]` is slow as all records are processed individually and the transaction log will grow commensurately -- this is SLOW!!! 
-  - The alternative is to use `Truncate TABLE [TableName]` but this will **not work** if you have data integrity constraints such as `Foreign Keys` on the table.
+  - The alternative is to use `TRUNCATE TABLE [TableName]` but this will **not work** if you have data integrity constraints such as `Foreign Keys` on the table.
 - At the point of initially clearing the table in your Transaction (*you absolutely should be using a Transaction!*) the table is Locked and any/all queries that need this data will be blocked -- this makes them SLOW!!!
 - Your not yet done, you still need to re-populate the table.
 - Even if you do a Bulk Update --instead of a delete/truncate and re-load -- the Updates will still lock the table blocking other queries, bog down the transaction log, and result in a process that is very SLOW!!!.
