@@ -187,16 +187,16 @@ public class TestDataService
         await using (var sqlConn = await _sqlConnectionProvider.NewConnectionAsync())
         {
             //Now we can initialize the Materialized Data context with clones of all tables ready for loading...
-            //This takes in an async Lambda ` Func<IMaterializeDataContext, SqlTransaction, Task>` that handles all data processing..
+            //This takes in an async Lambda Func<IMaterializeDataContext, SqlTransaction, Task> that handles all data processing..
             await sqlConn.ExecuteMaterializeDataProcessAsync(tableNames, async (materializeDataContext, sqlTransaction) =>
             {
                 //Note: We must override the table name to sure we Bulk Insert/Update into our Loading table and not the Live table...
                 //Note: The cloned loading tables will be empty, so we only need to Bulk Insert our new data...
                 var parentLoadingTableName = materializeDataContext.GetLoadingTableName("TestDataModelsTable");
-                var parentResults = await sqlTransaction.BulkInsertAsync(parentTestData, tableName: loadingTableTerm);
+                var parentResults = await sqlTransaction.BulkInsertAsync(parentTestData, tableName: parentLoadingTableName);
 
                 var childLoadingTableName = materializeDataContext.GetLoadingTableName("TestChildRelatedDataModelsTable");
-                var childResults = await sqlTransaction.BulkInsertAsync(childTestData, tableName: loadingTableTerm);
+                var childResults = await sqlTransaction.BulkInsertAsync(childTestData, tableName: childLoadingTableName);
 
                 //IMPORTANT NOTE: DO NOT Commit the Transaction here or else the rest of the Materialization Process cannot complete...
                 //  Since it was provided to you (not created by you) it will automatically be committed for you at the conclusion 
