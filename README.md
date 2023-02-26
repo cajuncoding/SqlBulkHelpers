@@ -149,20 +149,21 @@ _To minimize the risk of issues dropping/re-creating the FullTextIndex, it is do
 any issues, therefore it requires the use of Concurrent Sql Connections via a `Func<SqlConnection>` connection factory or `ISqlBulkHelpersConnectionProvider` implementation._
 
 
-#### Example Usage for Materializing Data:
-NOTE: Use the [Configuration](#example-configuration-of-defaults) above to improve performance -- particularly when initially loading table schemas for multiple tables (which are cached after initial load);
+## Example Usage for Materializing Data:
+NOTE: Use the [Configuration](#example-configuration-of-defaults) above to improve performance -- particularly when initially loading table schemas for multiple tables (which are cached after initial load).
 
 The easiest implementation (for most use cases) is to call the `SqlConnection.ExecuteMaterializeDataProcessAsync()` extension method providing a lambda function
-that process all data; likley useing the [SqlBulkHelpers](#SqlBulkHelpers) to bulk insert into the loading tables.
+that process all data; likely using the [SqlBulkHelpers](#SqlBulkHelpers) to bulk insert the data into the loading tables. This process will create and provide the SQL Transaction for you to use in your lambda function; the internal management of the transaction is what allows the framework to leverage multiple connections, and handle edge cases such as Full Text Indexes (when enabled).
 
 Once the Lambda function is finished then the Materialization data process will automatically complete the following:
-  - Switching out all laoding tables for live tables.
+  - Switching out all loading tables for live tables.
   - Executing all necessary data integrity checks and enabling FKey constraints, etc.
   - Clean up all tables leaving only the Live tables ready to be used.
+  - Committing the Transaction (_NOTE: you cannot do this in your Lambda or the process will fail; see below_).
 
 _**IMPORTANT NOTE:** In the data processing lambda function the SqlTransaction is provided to you (not created by you), so it's critical
-that you DO NOT Commit the Transaction yourself or else the rest of the Materialization Process cannot complete; this would be similar 
-to pre-disposing of a resource the higher level code expectes to remain valid._
+that you **DO NOT** Commit the Transaction yourself or else the rest of the Materialization Process cannot complete; this would be similar 
+to pre-disposing of a resource that higher level code expectes to remain valid._
 
 ```csharp
 public class TestDataService
