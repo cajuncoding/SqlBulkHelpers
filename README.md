@@ -136,17 +136,17 @@ _**NOTE:** During this process normal referential integrity constraints such as 
 refer to other live tables, and vice versa, making it impossible to load your tables. These elements will be re-enabled and validated when
 the final switch occurs. This is the most significant impact to switching the live table out -- the data integrity must be validated which may take some time (seconds) depending on your data._
 
-_**WARNING:** Full Text Indexes cannot be disabled, dropped, or re-created within a SQL Transaction and therefore must be managed outside of the Transaction
+_That's why it's recommended to keep materialized data somewhat separated from your own data, and possibly minimize the FKey references where possible --
+but this is a design decision for your schema and use case. There is no magic way to eliminate the need to validate referential integrity in the 
+world of relational databases... unless you just don't care; in which case just delete your FKeys._ 😜
+
+_**WARNING:** **Full Text Indexes** cannot be disabled, dropped, or re-created within a SQL Transaction and therefore must be managed outside of the Transaction
 that contains all other schema changes, data loading, and table switching process. The library cant automate this for you but this is disabled by default. If enabled (see below) we implement error handling and then attempt to drop the Full Text Index, as late as possible but, immediately before the table switch (on a separate isolated Connection to the DB), and then restore it immediately after. The error handling ensures that, upon any exception, the Full Text Index will be re-created if it was dropped; but there is a non-zero chance that the attempt to re-create could fail if there are connectivity or other impacting issues with the database server._
 
 _Since this functionality is disabled by default it must be enabled via `SqlBulkHelpersConfig.EnableConcurrentSqlConnectionProcessing(...,enableFullTextIndexHandling: true)`._
 
 _To minimize the risk of issues dropping/re-creating the FullTextIndex, it is done on a separate connection so that it can be recovered in the case of
 any issues, therefore it requires the use of Concurrent Sql Connections via a `Func<SqlConnection>` connection factory or `ISqlBulkHelpersConnectionProvider` implementation._
-
-That's why it's recommended to keep materialized data somewhat separated from your own data; and possibly even minimize the FKey references also. 
-But this is a design decision for your schema and use case. There is no magic way to eliminate the need to validate referential integrity in the 
-world of relational databases ]-- unless you just don't care; in which case just delete your FKeys ;-)
 
 
 #### Example Usage for Materializing Data:
