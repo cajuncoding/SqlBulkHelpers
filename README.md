@@ -315,7 +315,7 @@ globally in your application startup.
 
 The Table Schema definition can be used directly and is extremely helpful for for sanitizing Table Names, mitigating Sql injection, etc.
 It offers ability to retrieve basic or extended details; both of which are internally cached.
- - Basic schema details includes table, columns & their data types, etc. 
+ - Basic schema details includes table name, columns & their data types, etc. 
  - Extended details includes FKey constraintes, Indexes, relationship details, etc.
 
 *NOTE: The internal schema caching can be invalidated using the `forceCacheReload` method parameter.*
@@ -323,16 +323,16 @@ It offers ability to retrieve basic or extended details; both of which are inter
 ```csharp
     public async Task<string> GetSanitizedTableName(string tableNameToValidate)
     {
-        //Initialize the Sql Connection Provider from the Sql Connection string -- Usually provided by Dependency Injection...
-        //NOTE: The ISqlBulkHelpersConnectionProvider interface provides a great abstraction that most projects don't
-        //          take the time to do, so it is provided here for convenience (e.g. extremely helpful with DI).
+        //Normally would be provided by Dependency Injection...
+        //This is a DI friendly connection factory/provider pattern that can be used...
         ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
 
         using (SqlConnection sqlConnection = await sqlConnectionProvider.NewConnectionAsync())
         {
             //We can get the basic or extended (slower query) schema details for the table (both types are cached)...
-            //NOTE: Basic details includes table, columns, data types, etc. while Extended details includes FKey constraintes, 
+            //NOTE: Basic details includes table name, columns, data types, etc. while Extended details includes FKey constraintes, 
             //      Indexes, relationship details, etc.
+            //NOTE: This is cached, so no DB call is made if it's already been loaded and the forceCacheReload flag is not set to true.
             var tableDefinition = await sqlConnection.GetTableSchemaDefinitionAsync(tablNameToValidate, TableSchemaDetailLevel.BasicDetails)
 
             if (tableDefinition == null)
@@ -345,8 +345,8 @@ It offers ability to retrieve basic or extended details; both of which are inter
 
 ### Explicitly controlling Match Qualifiers for the internal Merge Action:
 
-The default behavior is to use the Identity column or PKey column(s) as the default fields for identifying/resolving a match
-during the execution of the internal Sql Server merge query. However, there are advanced use cases where explicit  control over the matching may be needed.
+The default behavior is to use the PKey column(s) (often an Identity column) as the default fields for identifying/resolving a unique matches
+during the execution of the internal SQL Server merge query. However, there are advanced use cases where explicit  control over the matching may be needed.
 
 Custom field qualifiers can be specified for explicit control over the record matching during the execution of the internal merge query.
 This helps address some very advanced use cases such as when data is being synchronized from multiple sources and an Identity Column is used
@@ -354,21 +354,23 @@ in the destination, but is not the column by which unique matches should occur s
 from the source system(s) needs to be used instead (e.g. the Identity ID value from the source database not the target).  
 In this case a different field (or set of fields can be manually specified.
 
-Warnging:  If the custom specified fields do not result in unique matches then multiple rows may be updated resulting in unexpected data changes. 
+**Warnging:**  _If the custom specified fields do not result in unique matches then multiple rows may be updated resulting in unexpected data changes. 
 This also means that the retrieval of Identity values to populate in the Data models may not work as expected. Therefore as a default behavior,
-an exception will be thrown if non-unique matches occur (which will allow a transaction to be rolled back) to maintain data integrity.
+an exception will be thrown if non-unique matches occur (which will allow a transaction to be rolled back) to maintain data integrity._
 
-However, in cases where this is an intentional/expected (and understood) result then this behaviour may be controlled and
-disabled by setting the `SqlMergeMatchQualifierExpression.ThrowExceptionIfNonUniqueMatchesOccur = false` flag as noted in commented code.
+_However, in cases where this is an intentional/expected (and understood) result then this behaviour may be controlled and
+disabled by setting the `SqlMergeMatchQualifierExpression.ThrowExceptionIfNonUniqueMatchesOccur = false` flag as noted in commented code._
 
 ```csharp
-    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+    //Normally would be provided by Dependency Injection...
+    //This is a DI friendly connection factory/provider pattern that can be used...
+    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
 
     using (var sqlConnection = await sqlConnectionProvider.NewConnectionAsync())
     using (SqlTransaction sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync())
     {     
-        //Initialize a Match Qualifier Expression field set with one or more Field names that identify
-        //  how a match between Model and Table data should be resolved.
+        //Initialize a Match Qualifier Expression field set with one or more Column names that identify how a match 
+        //  between Model and Table data should be resolved during the internal merge query for Inserts, updates, or both...
         var explicitMatchQualifiers = new SqlMergeMatchQualifierExpression("ColumnName1", "ColumnName2");
         //{
         //    ThrowExceptionIfNonUniqueMatchesOccur = false
@@ -381,17 +383,20 @@ disabled by setting the `SqlMergeMatchQualifierExpression.ThrowExceptionIfNonUni
 ```
 
 ### Clearing Tables (Truncate even when you have FKey constraints!)
-Normally if your table has FKey constraints you cannot Truncate it... by leveraging the Materialized data api we can efficiently clear
+Normally if your table has FKey constraints you cannot Truncate it... by leveraging the materialized data api we can efficiently clear
 the table even with these constraints by simply switching it out for an empty table! And, this is still fully transactionally safe!
 
 Data integrity will still be enforced after the tables are cleared so it's the responsibility of the caller to ensure that all appropriate tables
-get cleared in the batch so that FKey failure don't occcur when the materialization process completes. The value here is that you don't
-have to remove and re-add your FKeys manually, the process is fully automated and simplified and no tables outside of the batch are altered in any way.
+get cleared in the same transactional batch so that data integrity is maintained; otherwise FKey failures could occcur when the materialization process completes. 
+The value here is that you don't have to remove and re-add your FKeys (manually or otherwise), the process is fully automated and simplified and no tables outside of
+the batch are altered in any way.
 
 NOTE: These methods can also be used with data models that have mapped table names via annotations using the Generic overloads `ClearTableAsync<TestDataModel>()`.
 
 ```csharp
-    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+    //Normally would be provided by Dependency Injection...
+    //This is a DI friendly connection factory/provider pattern that can be used...
+    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
 
     using (var sqlConnection = await sqlConnectionProvider.NewConnectionAsync())
     using (SqlTransaction sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync())
@@ -417,7 +422,9 @@ other advanced functionality.
 NOTE: These methods can also be used with data models that have mapped table names via annotations using the Generic overloads `CloneTableAsync<TestDataModel>()`.
 
 ```csharp
-    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = SqlBulkHelpersConnectionProvider.Default;
+    //Normally would be provided by Dependency Injection...
+    //This is a DI friendly connection factory/provider pattern that can be used...
+    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
 
     using (var sqlConnection = await sqlConnectionProvider.NewConnectionAsync())
     using (SqlTransaction sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync())
