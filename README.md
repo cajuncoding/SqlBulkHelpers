@@ -2,7 +2,7 @@
 A library for efficient and high performance bulk processing of data with SQL Server in .NET. It greatly simplifies the ordinarily very complex process
 of bulk loading data into SQL Server from C# for high performance inserts/updates, and for implementing materialized data patterns with SQL Server from .NET.
 
-_SqlBulkHelpers_ allow loading of thousands (or tens of thousands) of records in seconds. 
+_SqlBulkHelpers_ allow the loading of thousands (or tens of thousands) of records in seconds. 
 
 The _Materialized Data_ pattern enables easy loading of *offline* staging tables with data and then switching them out to 
 replace/publish to Live tables extremely efficiently (milliseconds) so that the Live tables are not blocked during the background data loading process.
