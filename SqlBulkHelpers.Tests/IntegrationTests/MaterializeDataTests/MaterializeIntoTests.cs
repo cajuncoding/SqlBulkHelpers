@@ -207,6 +207,44 @@ namespace SqlBulkHelpers.IntegrationTests
         }
 
         [TestMethod]
+        public async Task TestMaterializeDataContextRetrieveTableInfoAsync()
+        {
+            var sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
+            var timer = Stopwatch.StartNew();
+
+            //NOW Materialize Data into the Tables!
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            {
+                var testDataCount = 1;
+
+                //******************************************************************************************
+                //START the Materialize Data Process...
+                //******************************************************************************************
+                await sqlConn.ExecuteMaterializeDataProcessAsync(new[] { typeof(TestElementWithMappedNames) }, async (materializeDataContext, sqlTransaction) =>
+                {
+                    var tableInfoByIndex = materializeDataContext[0];
+                    Assert.IsNotNull(tableInfoByIndex);
+                    TestContext.WriteLine($"Retrieve Loading Table By Index [0]: [{tableInfoByIndex.LoadingTable}]");
+
+                    var tableInfoByName = materializeDataContext[TestHelpers.TestTableName];
+                    Assert.IsNotNull(tableInfoByName);
+                    TestContext.WriteLine($"Retrieve Loading Table By Name [{TestHelpers.TestTableName}]: [{tableInfoByName.LoadingTable}]");
+
+                    var tableInfoByType = materializeDataContext[typeof(TestElementWithMappedNames)];
+                    Assert.IsNotNull(tableInfoByType);
+                    TestContext.WriteLine($"Retrieve Loading Table By Model Type [{nameof(TestElementWithMappedNames)}]: [{tableInfoByType.LoadingTable}]");
+
+                    //TEST Passive Cancellation process (no need to throw an exception in this advanced use case)...
+                    materializeDataContext.CancelMaterializationProcess();
+                }).ConfigureAwait(false);
+
+
+                timer.Stop();
+                TestContext.WriteLine($"Materialization Test Completed/Finished in [{timer.ElapsedMilliseconds}] millis...");
+            }
+        }
+
+        [TestMethod]
         public async Task TestMaterializeDataWithFKeyConstraintFailedValidationAsync()
         {
             Exception sqlException = null;

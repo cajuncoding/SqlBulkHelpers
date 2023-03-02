@@ -364,7 +364,7 @@ namespace SqlBulkHelpers.MaterializedData
         {
             sqlConnection.AssertArgumentIsNotNull(nameof(sqlConnection));
 
-            var helpersConfig = bulkHelpersConfig ?? SqlBulkHelpersConfig.DefaultConfig;
+            var sqlBulkHelpersConfig = bulkHelpersConfig ?? SqlBulkHelpersConfig.DefaultConfig;
 
             var distinctTableNames = tableNames.Distinct().ToArray();
 
@@ -375,38 +375,50 @@ namespace SqlBulkHelpers.MaterializedData
             await using (var sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false))
             #endif
             {
-                var materializeDataContext = await new MaterializeDataHelper<ISkipMappingLookup>(bulkHelpersConfig)
+                var materializeDataContext = await new MaterializeDataHelper<ISkipMappingLookup>(sqlBulkHelpersConfig)
                     .StartMaterializeDataProcessAsync(sqlTransaction, distinctTableNames)
                     .ConfigureAwait(false);
 
                 //The Handler is always an Async process so we must await it...
                 await materializeDataHandlerActionAsync.Invoke(materializeDataContext, sqlTransaction).ConfigureAwait(false);
 
-                try
+                //Enable Passive cancellation vs throwing an Exception for advanced use cases...
+                if (materializeDataContext.IsCancelled)
                 {
-                    //Some tasks MUST be done outside of the Materialized Data Transaction (e.g. handling FullTextIndexes)
-                    //  so we handle those here (as needed and if enabled)...
-                    await materializeDataContext.HandleNonTransactionTasksBeforeMaterialization().ConfigureAwait(false);
-
-                    //***************************************************************************************************
-                    //****HERE We actually Execute the Materialized Data Processing SWITCH and Data Integrity Checks!
-                    //***************************************************************************************************
-                    //Once completed without errors we Finish the Materialized Data process...
-                    await materializeDataContext.FinishMaterializeDataProcessAsync().ConfigureAwait(false);
-
                     //NOW we must commit our Transaction to save all Changes performed within the Transaction!
                     #if NETSTANDARD2_0
-                    sqlTransaction.Commit();
+                    sqlTransaction.Rollback();
                     #else
-                    await sqlTransaction.CommitAsync().ConfigureAwait(false);
+                    await sqlTransaction.RollbackAsync().ConfigureAwait(false);
                     #endif
-
                 }
-                finally
+                else
                 {
-                    //Some tasks MUST be handled outside of the Materialized Data Transaction (e.g. handling FullTextIndexes)
-                    //  so we handle those here (as needed and if enabled)...
-                    await materializeDataContext.HandleNonTransactionTasksAfterMaterialization().ConfigureAwait(false);
+                    try
+                    {
+                        //Some tasks MUST be done outside of the Materialized Data Transaction (e.g. handling FullTextIndexes)
+                        //  so we handle those here (as needed and if enabled)...
+                        await materializeDataContext.HandleNonTransactionTasksBeforeMaterialization().ConfigureAwait(false);
+
+                        //***************************************************************************************************
+                        //****HERE We actually Execute the Materialized Data Processing SWITCH and Data Integrity Checks!
+                        //***************************************************************************************************
+                        //Once completed without errors we Finish the Materialized Data process...
+                        await materializeDataContext.FinishMaterializeDataProcessAsync().ConfigureAwait(false);
+
+                        //NOW we must commit our Transaction to save all Changes performed within the Transaction!
+                        #if NETSTANDARD2_0
+                        sqlTransaction.Commit();
+                        #else
+                        await sqlTransaction.CommitAsync().ConfigureAwait(false);
+                        #endif
+                    }
+                    finally
+                    {
+                        //Some tasks MUST be handled outside of the Materialized Data Transaction (e.g. handling FullTextIndexes)
+                        //  so we handle those here (as needed and if enabled)...
+                        await materializeDataContext.HandleNonTransactionTasksAfterMaterialization().ConfigureAwait(false);
+                    }
                 }
             }
         }

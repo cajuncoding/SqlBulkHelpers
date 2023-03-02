@@ -213,6 +213,13 @@ public class TestDataService
 ## Nuget Package
 To use in your project, add the [SqlBulkHelpers NuGet package](https://www.nuget.org/packages/SqlBulkHelpers/) to your project.
 
+## v2.1 Release Notes:
+- Added additional convenience methods to the `MaterializationContext` to retreive loading table info for models mapped via annotations (ModelType; vs only ordinal or string name).
+- Added support to cancel the materialization process via new `MaterializationContext.CancelMaterializationProcess()` method; allows passive cancelling without the need to throw an exception to safely stop the process.
+- Fixed small configuration initialization bugs when manually setting the `IsFullTextIndexHandlingEnabled` flag.
+- Fixed small bug where default configuration was not being used as the fallback.
+
+
 ## v2.0 Release Notes:
 - v2.0 release includes the NEW `MaterializeData` Helpers to make it significantly easier to implement highly efficient loading and publishing of materialized data with SQL Server.
   - The concept of Materializing data (design pattern) here is to provide easy aysnc (background) bulk loading of data with, no impact to Live tables, until the data is switched out extremely quickly accomplishing a refresh of Live data in milliseconds.

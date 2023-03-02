@@ -13,14 +13,18 @@
     <Description>A library for easy, efficient and high performance bulk insert and update of data, into a Sql Database, from .Net applications. By leveraging the power of the SqlBulkCopy classes with added support for Identity primary key table columns this library provides a greatly simplified interface to process Identity based Entities with Bulk Performance with the wide compatibility of .NetStandard 2.0.</Description>
 	<PackageTags>sql server database table bulk insert update identity column sqlbulkcopy orm dapper linq2sql materialization materialized data view materialized-data materialized-view sync replication replica readonly</PackageTags>
     <PackageReleaseNotes>
+		- Added additional convenience methods to the `MaterializationContext` to retreive loading table info for models mapped via annotations (ModelType; vs only ordinal or string name).
+		- Added support to cancel the materialization process via new `MaterializationContext.CancelMaterializationProcess()` method; allows passive cancelling without the need to throw an exception to safely stop the process.
+		- Fixed small configuration initialization bugs when manually setting the `IsFullTextIndexHandlingEnabled` flag.
+		- Fixed small bug where default configuration was not being used as the fallback.
+
+		Prior Relese Notes:
 		- Improve configuration of Timeouts and add support for Default DB Schema Loader timeout setting.
 		- v2.0 provides a simplified and easier to access API as Extension Methods of the SqlTransaction class; this is a breaking change for Sql Bulk Insert/Update/etc, but shoudl be easy to migrate to!
 		- v2.0 release also includes the NEW MaterializeData Helpers to make it significantly easier to implement highly efficient loading and publishing of materialized data via Sql Server much easier via an easy C# API.
 		- The concept of Materializing data is to enable easy aysnc (background) bulk loading of data with, no impact to Live tables, until the data is switched out extremely quickly accomplishing a refresh of Live data in milliseconds.
 		- The all new APIs include (but not limited to): ExecuteMaterializeDataProcessAsync(), ClearTablesAsync(), CloneTablesAsync(), DropTablesAsync(), RemoveFullTextIndexAsync(), &amp; GetTableSchemaDefinition().
 		- v2.0 Now includes support for Model mapping attributes for Class and Properties with support for RepoDb ([Map]), Linq2Sql ([Table]/[Column]), and Dapper ([Table]/[Column]); and others that use the same Attribute notations.
-
-		Prior Relese Notes:
 		- Add improved reliability now with use of LazyCacheHelpers for the in-memory caching of DB Schema Loaders; this now fixes an edge case issue where an Exception could be cached and re-initialization was never attempted.
 		- Added support to now clear the DB Schema cache via SqlBulkHelpersSchemaLoaderCache.ClearCache() to enable dynamic re-initialization when needed (vs applicaiton restart).
 		- Add improved support for use of SqlBulkHelpersDbSchemaCache with new SqlConnection factory func to greatly simplifying its use with optimized deferral of Sql Connection creation (if and only when needed) without having to implement the full Interface.
@@ -39,7 +43,7 @@
 		- Added more Integration Tests for Constructors and Connections, as well as the new DB Schema Loader caching implementation.
 		- Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances that automtically load the connection string from the application configuration setting.
 	</PackageReleaseNotes>
-    <Version>2.0</Version>
+    <Version>2.1</Version>
   </PropertyGroup>
 
   <ItemGroup>

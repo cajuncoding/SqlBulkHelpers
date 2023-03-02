@@ -1,4 +1,6 @@
-﻿namespace SqlBulkHelpers.MaterializedData
+﻿using System;
+
+namespace SqlBulkHelpers.MaterializedData
 {
     public interface IMaterializeDataContext
     {
@@ -17,7 +19,14 @@
 
         MaterializationTableInfo this[int index] { get; }
         MaterializationTableInfo this[string tableName] { get; }
+        MaterializationTableInfo this[Type modelType] { get; }
         MaterializationTableInfo FindMaterializationTableInfoCaseInsensitive(string tableName);
+        MaterializationTableInfo FindMaterializationTableInfoCaseInsensitive<TModel>();
+        MaterializationTableInfo FindMaterializationTableInfoCaseInsensitive(Type modelType);
         TableNameTerm GetLoadingTableName(string tableName);
+        TableNameTerm GetLoadingTableName<TModel>();
+        TableNameTerm GetLoadingTableName(Type modelType);
+        void CancelMaterializationProcess();
+        bool IsCancelled { get; }
     }
 }

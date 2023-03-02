@@ -14,6 +14,7 @@ namespace SqlBulkHelpers.MaterializedData
         protected ILookup<string, MaterializationTableInfo> TableLookupByOriginalName { get; }
         protected ISqlBulkHelpersConfig BulkHelpersConfig { get; }
         protected bool IsDisposed { get; set; } = false;
+        public bool IsCancelled { get; protected set; } = false;
 
         protected List<SqlBulkHelpersTableDefinition> TablesWithFullTextIndexesRemoved { get; set; } = new List<SqlBulkHelpersTableDefinition>();
 
@@ -23,11 +24,27 @@ namespace SqlBulkHelpers.MaterializedData
 
         public MaterializationTableInfo this[string tableName] => FindMaterializationTableInfoCaseInsensitive(tableName);
 
+        public MaterializationTableInfo this[Type modelType] => FindMaterializationTableInfoCaseInsensitive(modelType);
+
+        public void CancelMaterializationProcess() => IsCancelled = true;
+
         public TableNameTerm GetLoadingTableName(string tableName)
         {
-            var materializationTableInfo = FindMaterializationTableInfoCaseInsensitive(tableName);
+            var materializationTableInfo = this[tableName];
             if (materializationTableInfo == null) 
                 throw new ArgumentOutOfRangeException(nameof(tableName), $"No materialization table info could be found for the term specified [{tableName}].");
+
+            return materializationTableInfo.LoadingTable;
+        }
+
+        public TableNameTerm GetLoadingTableName<TModel>()
+            => GetLoadingTableName(typeof(TModel));
+
+        public TableNameTerm GetLoadingTableName(Type modelType)
+        {
+            var materializationTableInfo = this[modelType];
+            if (materializationTableInfo == null)
+                throw new ArgumentOutOfRangeException(modelType.Name, $"No materialization table info could be found for the Model Type specified [{modelType.Name}].");
 
             return materializationTableInfo.LoadingTable;
         }
@@ -41,6 +58,17 @@ namespace SqlBulkHelpers.MaterializedData
             
             return tableInfo;
         }
+
+        public MaterializationTableInfo FindMaterializationTableInfoCaseInsensitive<TModel>()
+            => FindMaterializationTableInfoCaseInsensitive(typeof(TModel));
+
+        public MaterializationTableInfo FindMaterializationTableInfoCaseInsensitive(Type modelType)
+        {
+            var processingDef = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition(modelType);
+            var tableInfo = FindMaterializationTableInfoCaseInsensitive(processingDef.MappedDbTableName);
+            return tableInfo;
+        }
+
         /// <summary>
         /// Allows disabling of data validation during materialization, but may put data integrity at risk.
         /// This will improve performance for large data loads, but if disabled then the implementor is responsible
@@ -105,7 +133,6 @@ namespace SqlBulkHelpers.MaterializedData
                 }).ConfigureAwait(false);
             }
         }
-
 
         public async Task FinishMaterializeDataProcessAsync()
         {

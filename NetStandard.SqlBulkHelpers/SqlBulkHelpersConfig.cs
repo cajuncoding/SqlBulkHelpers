@@ -79,7 +79,8 @@ namespace SqlBulkHelpers
             sqlConnectionFactory.AssertArgumentIsNotNull(nameof(sqlConnectionFactory));
             this.ConcurrentConnectionFactory = new SqlBulkHelpersConnectionProvider(sqlConnectionFactory);
             this.MaxConcurrentConnections = maxConcurrentConnections;
-            this.IsFullTextIndexHandlingEnabled = enableFullTextIndexHandling;
+            //NOTE: Full text index handling may have been enabled already so we preserve it or turn it on if specified to this convenience method!
+            this.IsFullTextIndexHandlingEnabled = IsFullTextIndexHandlingEnabled || enableFullTextIndexHandling;
         }
 
         /// <summary>
@@ -97,7 +98,8 @@ namespace SqlBulkHelpers
         {
             this.ConcurrentConnectionFactory = sqlConnectionProvider.AssertArgumentIsNotNull(nameof(sqlConnectionProvider));
             this.MaxConcurrentConnections = maxConcurrentConnections;
-            this.IsFullTextIndexHandlingEnabled = enableFullTextIndexHandling;
+            //NOTE: Full text index handling may have been enabled already so we preserve it or turn it on if specified to this convenience method!
+            this.IsFullTextIndexHandlingEnabled = IsFullTextIndexHandlingEnabled || enableFullTextIndexHandling;
         }
 
         public int SqlBulkBatchSize { get; set; } = 2000; //General guidance is that 2000-5000 is efficient enough.
