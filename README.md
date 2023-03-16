@@ -47,13 +47,13 @@ public class TestDataService
             ?? throw new ArgumentNullException(nameof(sqlConnectionProvider))
     }
 
-    public async Task<IList<TestDataModel>> BulkInsertOrUpdateAsync(IList<TestDataModel> testData)
+    public async Task<IList<TestDataModel>> BulkInsertOrUpdateAsync(IEnumerable<TestDataModel> testData)
     {
         await using (var sqlConn = await _sqlConnectionProvider.NewConnectionAsync())
         await using (var sqlTransaction = (SqlTransaction)await sqlConn.BeginTransactionAsync())
         {
             var bulkResults = await sqlTransaction.BulkInsertOrUpdateAsync(testData);
-            await sqlTransactionv.CommitAsync();
+            await sqlTransaction.CommitAsync();
 
             //Return the data that will have updated Identity values (if used).
             return bulkResults;
