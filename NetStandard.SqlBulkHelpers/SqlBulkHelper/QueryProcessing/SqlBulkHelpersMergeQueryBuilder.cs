@@ -6,6 +6,8 @@ namespace SqlBulkHelpers
 {
     public class SqlBulkHelpersMergeScriptBuilder
     {
+        protected const string DefaultIdentityColumnDataType = "INT";
+
         public virtual SqlMergeScriptResults BuildSqlMergeScripts(
             SqlBulkHelpersTableDefinition tableDefinition,
             SqlBulkHelpersProcessingDefinition processingDefinition,
@@ -19,7 +21,6 @@ namespace SqlBulkHelpers
             var tempStagingTableName = $"#SqlBulkHelpers_STAGING_TABLE_{Guid.NewGuid()}";
             var tempOutputIdentityTableName = $"#SqlBulkHelpers_OUTPUT_IDENTITY_TABLE_{Guid.NewGuid()}";
             var hasIdentityColumn = tableDefinition.IdentityColumn != null;
-            var identityColumnName = tableDefinition.IdentityColumn?.ColumnName ?? string.Empty;
 
             //Validate the MatchQualifiers that may be specified, and limit to ONLY valid fields of the Table Definition...
             //NOTE: We use the parameter argument for Match Qualifier if specified, otherwise we fall-back to to use the Identity Column.
@@ -93,18 +94,22 @@ namespace SqlBulkHelpers
             string mergeTempTablesSql, mergeOutputSql;
             if (hasIdentityColumn)
             {
+                var identityColumn = tableDefinition.IdentityColumn;
+                var identityColumnName = identityColumn.ColumnName;
+                var identityColumnDataType = identityColumn.DataType;
+
                 mergeTempTablesSql = $@"
                     SELECT TOP(0)
-                        -1 as [{identityColumnName}],
+                        [{identityColumnName}] = CONVERT({identityColumnDataType}, -1),
                         {columnNamesWithoutIdentityCSV},
-                        -1 as [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] 
+                        [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] = CONVERT({identityColumnDataType}, -1)
                     INTO [{tempStagingTableName}] 
                     FROM {tableDefinition.TableFullyQualifiedName};
 
                     SELECT TOP(0)
-                        CAST(-1 AS int) [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}],
-                        CAST(-1 AS int) as [IDENTITY_ID],
-                        CAST('' AS nvarchar(10)) as [MERGE_ACTION]
+                        [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] = CONVERT({identityColumnDataType}, -1),
+                        [IDENTITY_ID] = CONVERT({identityColumnDataType}, -1),
+                        [MERGE_ACTION] = CONVERT(VARCHAR(10), '')
                     INTO [{tempOutputIdentityTableName}];
                 ";
 
@@ -126,13 +131,13 @@ namespace SqlBulkHelpers
                 mergeTempTablesSql = $@"
                     SELECT TOP(0)
                         {columnNamesWithoutIdentityCSV},
-                        -1 as [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] 
+                        [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] = CONVERT(BIGINT, -1)
                     INTO [{tempStagingTableName}] 
                     FROM {tableDefinition.TableFullyQualifiedName};
                     
                     SELECT TOP(0)
-                        CAST(-1 AS int) [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}],
-                        CAST('' AS nvarchar(10)) as [MERGE_ACTION]
+                        [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] = CONVERT(BIGINT, -1),
+                        [MERGE_ACTION] = CONVERT(VARCHAR(10), '')
                     INTO [{tempOutputIdentityTableName}];
                 ";
 

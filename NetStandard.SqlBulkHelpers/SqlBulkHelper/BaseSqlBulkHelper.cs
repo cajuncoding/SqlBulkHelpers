@@ -9,6 +9,7 @@ namespace SqlBulkHelpers
     internal static class TypeCache
     {
         public static readonly Type SqlBulkHelperIdentitySetter = typeof(ISqlBulkHelperIdentitySetter);
+        public static readonly Type SqlBulkHelperBigIntIdentitySetter = typeof(ISqlBulkHelperBigIntIdentitySetter);
     }
 
     //BBernard - Base Class for future flexibility...
@@ -60,7 +61,7 @@ namespace SqlBulkHelpers
         protected class MergeResult
         {
             public int RowNumber { get; set; }
-            public int IdentityId { get; set; }
+            public long IdentityId { get; set; }
             //public SqlBulkHelpersMergeAction MergeAction { get; set; }
         }
 
@@ -141,7 +142,11 @@ namespace SqlBulkHelpers
                     //If the entity supports our interface we can set the value with native performance via the Interface!
                     if (entity is ISqlBulkHelperIdentitySetter identitySetterEntity)
                     {
-                        identitySetterEntity.SetIdentityId(mergeResult.IdentityId);
+                        identitySetterEntity.SetIdentityId((int)mergeResult.IdentityId);
+                    }
+                    else if (entity is ISqlBulkHelperBigIntIdentitySetter identityBigIntSetterEntity)
+                    {
+                        identityBigIntSetterEntity.SetIdentityId(mergeResult.IdentityId);
                     }
                     else
                     {
