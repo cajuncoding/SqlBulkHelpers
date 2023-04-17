@@ -1,4 +1,6 @@
-﻿namespace SqlBulkHelpers.Interfaces
+﻿using System;
+
+namespace SqlBulkHelpers.Interfaces
 {
     public interface ISqlBulkHelperIdentitySetter
     {

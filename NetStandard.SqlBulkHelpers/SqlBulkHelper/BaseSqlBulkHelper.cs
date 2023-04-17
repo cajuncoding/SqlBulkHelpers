@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Data.SqlClient;
 using FastMember;
 using SqlBulkHelpers.Interfaces;
@@ -15,6 +16,8 @@ namespace SqlBulkHelpers
     //BBernard - Base Class for future flexibility...
     internal abstract class BaseSqlBulkHelper<T> : BaseHelper<T> where T : class
     {
+        protected static Type CachedEntityType { get; } = typeof(T);
+
         #region Constructors
 
         /// <inheritdoc/>
@@ -77,6 +80,11 @@ namespace SqlBulkHelpers
 
             bool uniqueMatchValidationEnabled = sqlMatchQualifierExpression.AssertArgumentIsNotNull(nameof(sqlMatchQualifierExpression)).ThrowExceptionIfNonUniqueMatchesOccur;
             bool hasIdentityColumn = identityColumnDefinition != null;
+            //Small performance improvement here by pre-determine which if any identity setters may be implemented;
+            //  since this isn't the most often use case it's helpful to see if we are able to more efficiently skip the type checks...
+            bool implementsIntIdentitySetter = TypeCache.SqlBulkHelperIdentitySetter.IsAssignableFrom(CachedEntityType);
+            bool implementsBigIntIdentitySetter = TypeCache.SqlBulkHelperBigIntIdentitySetter.IsAssignableFrom(CachedEntityType);
+            bool identitySetterInterfaceSupported = implementsIntIdentitySetter || implementsBigIntIdentitySetter;
 
             //If there was no Identity Column or the validation of Unique Merge actions was disabled then we can
             //  short circuit the post-processing of results as there is nothing to do...
@@ -90,10 +98,7 @@ namespace SqlBulkHelpers
             //  we attempt to use Reflection to set the value...
             string identityPropertyName = null;
 
-            Type entityType = typeof(T);
-            TypeAccessor fastTypeAccessor = TypeAccessor.Create(entityType);
-
-            if (hasIdentityColumn && !TypeCache.SqlBulkHelperIdentitySetter.IsAssignableFrom(entityType))
+            if (hasIdentityColumn && !identitySetterInterfaceSupported)
             {
                 var processingDefinition = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>(identityColumnDefinition);
                 identityPropertyName = processingDefinition.IdentityPropDefinition?.PropertyName;
@@ -109,9 +114,11 @@ namespace SqlBulkHelpers
             //      so there's no reason to filter the merge results anymore; this is more performant.
             var uniqueMatchesHashSet = new HashSet<int>();
 
-            var entityResultsList = new List<T>();
+            var identitySetterAction = hasIdentityColumn
+                ? ResolveIdentitySetterAction(entityList, identityPropertyName)
+                : null;
 
-            //foreach (var mergeResult in mergeResultsList.Where(r => r.MergeAction.HasFlag(SqlBulkHelpersMergeAction.Insert)))
+            var entityResultsList = new List<T>();
             foreach (var mergeResult in mergeResultsList)
             {
                 //ONLY Process uniqueness validation if necessary... otherwise skip the logic altogether.
@@ -136,24 +143,7 @@ namespace SqlBulkHelpers
                 //ONLY Process Identity value updates if appropriate... otherwise skip the logic altogether.
                 //NOTE: List is 0 (zero) based, but our RowNumber is 1 (one) based.
                 var entity = entityList[mergeResult.RowNumber - 1];
-                if (hasIdentityColumn)
-                {
-                    //BBernard
-                    //If the entity supports our interface we can set the value with native performance via the Interface!
-                    if (entity is ISqlBulkHelperIdentitySetter identitySetterEntity)
-                    {
-                        identitySetterEntity.SetIdentityId((int)mergeResult.IdentityId);
-                    }
-                    else if (entity is ISqlBulkHelperBigIntIdentitySetter identityBigIntSetterEntity)
-                    {
-                        identityBigIntSetterEntity.SetIdentityId(mergeResult.IdentityId);
-                    }
-                    else
-                    {
-                        //GENERICALLY Set the Identity Value to the Int value returned, this eliminates any dependency on a Base Class!
-                        fastTypeAccessor[entity, identityPropertyName] = mergeResult.IdentityId;
-                    }
-                }
+                identitySetterAction?.Invoke(entity, mergeResult);
 
                 entityResultsList.Add(entity);
             }
@@ -161,6 +151,63 @@ namespace SqlBulkHelpers
             //Return the Updated Entities List (for fluent chain-ability) and easier to read code
             //NOTE: even though we have actually mutated the original list by reference this is very intuitive and helps with code readability.
             return entityResultsList;
+        }
+
+        private Action<T, MergeResult> ResolveIdentitySetterAction(List<T> entityList, string identityPropertyName)
+        {
+            var sampleEntity = entityList.FirstOrDefault();
+            if (sampleEntity != null)
+            {
+                switch (sampleEntity)
+                {
+                    //BBernard
+                    //For Performance if the entity type supports our Interfaces then we use those to set the Identity ID delegating all logic to the class to handle.
+                    case ISqlBulkHelperIdentitySetter _:
+                        //Downcast our MergeResult long IdentityId to int...
+                        return (entity, mergeResult) => ((ISqlBulkHelperIdentitySetter)entity).SetIdentityId((int)mergeResult.IdentityId);
+                    case ISqlBulkHelperBigIntIdentitySetter _:
+                        return (entity, mergeResult) => ((ISqlBulkHelperBigIntIdentitySetter)entity).SetIdentityId(mergeResult.IdentityId);
+                    default:
+                    {
+                        //Create our TypeAccessor once here, so it can be captured by scope in our Action but is NOT CREATED on each Action execution!
+                        //NOTE: This also helps encapsulate our use of TypeAccessor in case we choose another approach to setting the property in the future!
+                        var fastTypeAccessor = TypeAccessor.Create(CachedEntityType);
+                        var identityPropType = fastTypeAccessor[sampleEntity, identityPropertyName]?.GetType();
+                        if (identityPropType != null)
+                        {
+                            //BBernard
+                            //For Performance we try to identity the primary Integer types and implement the Setter Action with explicit casting, however
+                            //  as a fallback we will attempt to generically convert the type via Convert.ChangeType() for really strange edge cases where the Model type is
+                            //  something awkward... (Heaven forbid a string), but hey we'll try to make it work.
+                            if (identityPropType == typeof(long)) //BIGINT Sql Type
+                            {
+                                //MergeResult IdentityId is already a Long to support the superset of any other Int property types by down-casting...
+                                return (entity, mergeResult) => fastTypeAccessor[entity, identityPropertyName] = mergeResult.IdentityId;
+                            }
+                            else if (identityPropType == typeof(int)) //INT Sql Type
+                            {
+                                return (entity, mergeResult) => fastTypeAccessor[entity, identityPropertyName] = (int)mergeResult.IdentityId;
+                            }
+                            else if (identityPropType == typeof(short)) //SMALLINT Sql Type
+                            {
+                                return (entity, mergeResult) => fastTypeAccessor[entity, identityPropertyName] = (short)mergeResult.IdentityId;
+                            }
+                            else if (identityPropType == typeof(byte)) //TINYINT Sql Type
+                            {
+                                return (entity, mergeResult) => fastTypeAccessor[entity, identityPropertyName] = (byte)mergeResult.IdentityId;
+                            }
+                            else //For NUMERIC(X, 0) Sql Type or any other, we attempt to generically change the type to match...
+                            {
+                                return (entity, mergeResult) => fastTypeAccessor[entity, identityPropertyName] = Convert.ChangeType(mergeResult.IdentityId, identityPropType);
+                            }
+                        }
+
+                        break;
+                    }
+                }
+            }
+            
+            return (entity, mergeResult) => throw new InvalidOperationException($"Unable to properly map the Identity value result into the entity Property [{identityPropertyName}] of type [{entity.GetType()}].");
         }
 
     }

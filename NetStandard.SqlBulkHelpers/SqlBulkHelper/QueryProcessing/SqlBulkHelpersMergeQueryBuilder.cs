@@ -102,26 +102,33 @@ namespace SqlBulkHelpers
                     SELECT TOP(0)
                         [{identityColumnName}] = CONVERT({identityColumnDataType}, -1),
                         {columnNamesWithoutIdentityCSV},
-                        [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] = CONVERT({identityColumnDataType}, -1)
+                        [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] = CONVERT(INT, -1)
                     INTO [{tempStagingTableName}] 
                     FROM {tableDefinition.TableFullyQualifiedName};
 
                     SELECT TOP(0)
-                        [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] = CONVERT({identityColumnDataType}, -1),
-                        [IDENTITY_ID] = CONVERT({identityColumnDataType}, -1),
-                        [MERGE_ACTION] = CONVERT(VARCHAR(10), '')
+                        [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] = CONVERT(INT, -1),
+                        [IDENTITY_ID] = CONVERT({identityColumnDataType}, -1)
+                        --,[MERGE_ACTION] = CONVERT(VARCHAR(10), '') --Removed as Small Performance Improvement since the Action is not used.
                     INTO [{tempOutputIdentityTableName}];
                 ";
 
                 //All results with Identity Values need to be written to the Output so that we can return them efficiently!
                 mergeOutputSql = $@"
-                    OUTPUT source.[{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}], INSERTED.[{identityColumnName}], $action
-                        INTO [{tempOutputIdentityTableName}] ([{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}], [IDENTITY_ID], [MERGE_ACTION]);
+                    OUTPUT 
+                        source.[{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}], 
+                        INSERTED.[{identityColumnName}]
+                        --, $action --Removed as Small Performance  Improvement since the Action is not used.
+                    INTO [{tempOutputIdentityTableName}] (
+                        [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}], 
+                        [IDENTITY_ID]
+                        --, [MERGE_ACTION] --Removed as Small Performance Improvement since the Action is not used.
+                    );
 
                     SELECT 
-                        [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}], 
-                        [IDENTITY_ID], 
-                        [MERGE_ACTION]
+                        [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}],
+                        [IDENTITY_ID]
+                        --,[MERGE_ACTION] --Removed as Small Performance Improvement since the Action is not used.
                     FROM [{tempOutputIdentityTableName}]
                     ORDER BY [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] ASC, [IDENTITY_ID] ASC;
                 ";
@@ -131,25 +138,30 @@ namespace SqlBulkHelpers
                 mergeTempTablesSql = $@"
                     SELECT TOP(0)
                         {columnNamesWithoutIdentityCSV},
-                        [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] = CONVERT(BIGINT, -1)
+                        [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] = CONVERT(INT, -1)
                     INTO [{tempStagingTableName}] 
                     FROM {tableDefinition.TableFullyQualifiedName};
                     
                     SELECT TOP(0)
-                        [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] = CONVERT(BIGINT, -1),
-                        [MERGE_ACTION] = CONVERT(VARCHAR(10), '')
+                        [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] = CONVERT(INT, -1)
+                        --,[MERGE_ACTION] = CONVERT(VARCHAR(10), '') --Removed as Small Performance  Improvement since the Action is not used.
                     INTO [{tempOutputIdentityTableName}];
                 ";
 
                 //All actions need to be written to the Output so that we can return all Identity values for new inserts, and/or post-process
                 //  only results that have been actually changed...
                 mergeOutputSql = $@"
-                    OUTPUT source.[{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}], $action
-                        INTO [{tempOutputIdentityTableName}] ([{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}], [MERGE_ACTION]);
+                    OUTPUT 
+                        source.[{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}]
+                        --, $action --Removed as Small Performance  Improvement since the Action is not used.
+                    INTO [{tempOutputIdentityTableName}] (
+                        [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}]
+                        --, [MERGE_ACTION] --Removed as Small Performance Improvement since the Action is not used.
+                    );
 
                     SELECT 
-                        [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}], 
-                        [MERGE_ACTION]
+                        [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}]
+                        --,[MERGE_ACTION] --Removed as Small Performance Improvement since the Action is not used.
                     FROM [{tempOutputIdentityTableName}]
                     ORDER BY [{SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME}] ASC;
                 ";

@@ -180,7 +180,7 @@ namespace SqlBulkHelpers
         {
             //So-far all of the calls to SqlDataReader have been asynchronous, but since the data reader is in 
             //non-sequential mode and ReadAsync was used, the column data should be read synchronously.
-            var mergeResult = new MergeResult() { RowNumber = sqlReader.GetInt64(0) };
+            var mergeResult = new MergeResult() { RowNumber = sqlReader.GetInt32(0) };
 
             if (hasIdentityColumn)
             {

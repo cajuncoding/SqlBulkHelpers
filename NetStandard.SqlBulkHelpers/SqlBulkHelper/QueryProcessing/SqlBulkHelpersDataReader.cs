@@ -14,7 +14,7 @@ namespace SqlBulkHelpers
         
         private IEnumerator<T> _dataEnumerator;
         private Dictionary<string, int> _processingDefinitionOrdinalDictionary;
-        private long _entityCounter = 0;
+        private int _entityCounter = 0;
 
         public SqlBulkHelpersDataReader(IEnumerable<T> entityData, SqlBulkHelpersProcessingDefinition processingDefinition, SqlBulkHelpersTableDefinition tableDefinition)
         {
