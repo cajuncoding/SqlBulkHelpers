@@ -7,6 +7,8 @@ This package includes both `SqlBulkdHelpers` and `SqlBulkHelperse.MaterializedDa
  - The _Materialized Data_ pattern enables easy loading of *offline* staging tables with data and then switching them out to 
 replace/publish to Live tables extremely efficiently (milliseconds) so that the Live tables are not blocked during the background data loading process.
 
+**If you like this project and/or use it the please give it a Star 🌟 (c'mon it's free, and it'll help others find the project)!**
+
 ### [Buy me a Coffee ☕](https://www.buymeacoffee.com/cajuncoding)
 *I'm happy to share with the community, but if you find this useful (e.g for professional use), and are so inclinded,
 then I do love-me-some-coffee!*
