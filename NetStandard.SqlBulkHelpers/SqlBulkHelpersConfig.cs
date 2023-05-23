@@ -111,10 +111,8 @@ namespace SqlBulkHelpers
             get => SqlBulkCopyOptions.HasFlag(SqlBulkCopyOptions.TableLock);
             set
             {
-                if(value)
-                    SqlBulkCopyOptions |= SqlBulkCopyOptions.TableLock;
-                else
-                    SqlBulkCopyOptions &= ~SqlBulkCopyOptions.TableLock;
+                if(value) SqlBulkCopyOptions |= SqlBulkCopyOptions.TableLock;
+                else SqlBulkCopyOptions &= ~SqlBulkCopyOptions.TableLock;
             }
         }
 
