@@ -6,8 +6,6 @@ namespace SqlBulkHelpers
 {
     public class SqlBulkHelpersMergeScriptBuilder
     {
-        protected const string DefaultIdentityColumnDataType = "INT";
-
         public virtual SqlMergeScriptResults BuildSqlMergeScripts(
             SqlBulkHelpersTableDefinition tableDefinition,
             SqlBulkHelpersProcessingDefinition processingDefinition,

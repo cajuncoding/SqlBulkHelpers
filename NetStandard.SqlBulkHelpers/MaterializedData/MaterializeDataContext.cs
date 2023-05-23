@@ -147,7 +147,7 @@ namespace SqlBulkHelpers.MaterializedData
             //      are valid based on newly materialized data populated in the respective loading tables (for each Live table)!
             //1) First Add & Sync all missing FKey constraints (intentionally not added during initial cloning) that will prevent us from being able to switch -- this is still safe within our Transaction!
             //   NOTE: We could not add FKey constraints at initial load because the links will result in Transaction locks on the Live Tables which we must avoid!!!
-            //   NOTE: WE also disable all FKey constraints on the Live Table so taht ALL FKeys across live/loading/temp are all disabled so that Switching can Occur -- this is still safe within our Transaction!
+            //   NOTE: WE also disable all FKey constraints on the Live Table so that ALL FKeys across live/loading/temp are all disabled so that Switching can Occur -- this is still safe within our Transaction!
             foreach (var materializationTableInfo in materializationTables)
             {
                 var fkeyConstraints = materializationTableInfo.LiveTableDefinition.ForeignKeyConstraints.AsArray();
@@ -168,8 +168,6 @@ namespace SqlBulkHelpers.MaterializedData
                     .AddForeignKeyConstraints(materializationTableInfo.DiscardingTable, executeConstraintValidation: false, fkeyConstraints)
                     .DisableAllTableConstraintChecks(materializationTableInfo.DiscardingTable);
             }
-
-            var timeoutConvertedToMinutes = Math.Max(1, (int)Math.Ceiling((decimal)BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds / 60));
 
             //2) Then we can switch all existing Live tables to the Discarding Schema -- this Frees the Live table up to be updated in the next step!
             foreach (var materializationTableInfo in materializationTables)
@@ -208,6 +206,8 @@ namespace SqlBulkHelpers.MaterializedData
                     .DropTable(materializationTableInfo.LoadingTable)
                     .DropTable(materializationTableInfo.DiscardingTable);
             }
+
+            //var timeoutConvertedToMinutes = Math.Max(1, (int)Math.Ceiling((decimal)BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds / 60));
 
             await SqlTransaction.ExecuteMaterializedDataSqlScriptAsync(
                 switchScriptBuilder,
