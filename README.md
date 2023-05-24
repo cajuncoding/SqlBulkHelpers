@@ -215,6 +215,13 @@ public class TestDataService
 ## Nuget Package
 To use in your project, add the [SqlBulkHelpers NuGet package](https://www.nuget.org/packages/SqlBulkHelpers/) to your project.
 
+## v2.2 Release Notes:
+- Added support for other Identity column data types including (INT, BIGINT, SMALLINT, & TINYINT); per [feature request here](https://github.com/cajuncoding/SqlBulkHelpers/issues/10).
+- Added support to explicitly set Identity Values (aka SET IDENTITY_INSERT ON) via new `enableIdentityInsert` api parameter. 
+- Added support to retreive and re-seed (aka set) the current Identity Value on a given table via new apis in the MaterializedData helpers.
+- Additional small bug fixes and optimiaztions.
+
+
 ## v2.1 Release Notes:
 - Added additional convenience methods to the `MaterializationContext` to retreive loading table info for models mapped via annotations (ModelType; vs only ordinal or string name).
 - Added support to cancel the materialization process via new `MaterializationContext.CancelMaterializationProcess()` method; allows passive cancelling without the need to throw an exception to safely stop the process.
@@ -389,6 +396,33 @@ disabled by setting the `SqlMergeMatchQualifierExpression.ThrowExceptionIfNonUni
 
 ```
 
+### Explicitly setting Identity Values (aka SET IDENTITY_INSERT ON):
+The normal process is for Identity values to be incrmented & set by SQL Server. However there are edge cases where you may need
+to explicitly specify the Identity values and have those be set. An example of this may be if data was archived/backed-up elsewhere and
+now needs to be restored; it's original Identity value may still be valid and need to be used for referential integrity.
+
+This can now be done by simply specifying `enableIdentityInsert = true` parameter on the Bulk API calls as shown below...
+
+**Warnging:**  _It is your responsibility to test and validate your Identity values are valid on the Model; SQL Server may enforce
+uniqueness if they are the PKey, etc. however bad data like default int value of Zero, or negative values may be saved with this feature._
+
+```csharp
+    //Normally would be provided by Dependency Injection...
+    //This is a DI friendly connection factory/provider pattern that can be used...
+    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
+
+    using (var sqlConnection = await sqlConnectionProvider.NewConnectionAsync())
+    using (SqlTransaction sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync())
+    {     
+        //Will send the actual value of Identity ID property to be stored in the Database because enableIdentityInsert is true!
+        var results = await sqlTransaction.BulkInsertOrUpdateAsync(testData, enableIdentityInsert: true);
+
+        //Don't forget to commit the changes...
+        await sqlTransaction.CommitAsync();
+    }
+
+```
+
 ### Clearing Tables (Truncate even when you have FKey constraints!)
 Normally if your table has FKey constraints you cannot Truncate it... by leveraging the materialized data api we can efficiently clear
 the table even with these constraints by simply switching it out for an empty table! And, this is still fully transactionally safe!
@@ -460,6 +494,36 @@ NOTE: These methods can also be used with data models that have mapped table nam
 ```
 
 _**NOTE: More Sample code is provided in the Sample App and in the Tests Project Integration Tests...**__
+
+### Retrieve & Set the Current Identity ID Valud (Seed value)...
+For edge cases it may be very helpful to both retrieve and/or set/re-seed the current Identity Value of a table. This can be done
+easily with the helper apis as shown:
+
+```csharp
+    //Normally would be provided by Dependency Injection...
+    //This is a DI friendly connection factory/provider pattern that can be used...
+    ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
+
+    using (var sqlConnection = await sqlConnectionProvider.NewConnectionAsync())
+    using (SqlTransaction sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync())
+    {     
+        //Clear the table and force bypassing of constraints...
+        var currentIdentityValue = await sqlTrans.GetTableCurrentIdentityValueAsync("Table1");
+
+        //OR using Model with Table Mapping Annotations...
+        var currentIdentityValueForModel = await sqlTrans.GetTableCurrentIdentityValueAsync<Table1Model>();
+        
+        //Now we can explicitly re-seed the value in Sql Server similarly...
+        int newIdentitySeedValue = 12345;
+        await sqlTrans.ReSeedTableIdentityValueAsync("Table1", newIdentitySeedValue);
+
+        //OR similarly using a Model with Table Mapping Annotations...
+        await sqlTrans.ReSeedTableIdentityValueAsync<Table1Model>(newIdentitySeedValue);
+
+        //Don't forgot to commit the changes!
+        await sqlTransaction.CommitAsync();
+    }
+```
 
 ## Prior Release Notes
 

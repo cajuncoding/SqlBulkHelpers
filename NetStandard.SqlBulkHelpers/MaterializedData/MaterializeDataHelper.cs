@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Data.SqlTypes;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
@@ -353,6 +355,104 @@ namespace SqlBulkHelpers.MaterializedData
 
             return tableNameTermsList.AsArray();
         }
+
+        #endregion
+
+        #region Table Identity Column API Methods
+
+        /// <summary>
+        /// Retrieve the Current Identity Value for the specified Table
+        /// </summary>
+        /// <param name="sqlConnection"></param>
+        /// <param name="sqlTransaction"></param>
+        /// <param name="tableNameOverride"></param>
+        /// <returns></returns>
+        public async Task<long> GetTableCurrentIdentityValueAsync(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null, string tableNameOverride = null)
+        {
+            using (var sqlCmd = CreateGetTableIdentityValueSqlCommand(sqlConnection, sqlTransaction, tableNameOverride))
+            {
+                var identityResult = await sqlCmd.ExecuteScalarAsync().ConfigureAwait(false);
+                
+                if (identityResult == null)
+                    throw new ArgumentException($"The table specified [{GetMappedTableNameTerm(tableNameOverride).FullyQualifiedTableName}] does not contain an Identity column; current identity value is null.");
+
+                var currentIdentityValue = Convert.ToInt64(identityResult);
+                return currentIdentityValue;
+            }
+        }
+
+        /// <summary>
+        /// Retrieve the Current Identity Value for the specified Table
+        /// </summary>
+        /// <param name="sqlConnection"></param>
+        /// <param name="sqlTransaction"></param>
+        /// <param name="tableNameOverride"></param>
+        /// <returns></returns>
+        public long GetTableCurrentIdentityValue(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null, string tableNameOverride = null)
+        {
+            using (var sqlCmd = CreateGetTableIdentityValueSqlCommand(sqlConnection, sqlTransaction, tableNameOverride))
+            {
+                var identityResult = sqlCmd.ExecuteScalar();
+
+                if (identityResult == null)
+                    throw new ArgumentException($"The table specified [{GetMappedTableNameTerm(tableNameOverride).FullyQualifiedTableName}] does not contain an Identity column; current identity value is null.");
+
+                var currentIdentityValue = Convert.ToInt64(identityResult);
+                return currentIdentityValue;
+            }
+        }
+
+        private SqlCommand CreateGetTableIdentityValueSqlCommand(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null, string tableNameOverride = null)
+        {
+            var fullyQualifiedTableName = GetMappedTableNameTerm(tableNameOverride).FullyQualifiedTableName;
+            var sqlCmd = new SqlCommand("SELECT CURRENT_IDENTITY_VALUE = IDENT_CURRENT(@TableName)", sqlConnection, sqlTransaction);
+            sqlCmd.CommandTimeout = BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds;
+            sqlCmd.Parameters.Add("@TableName", SqlDbType.NVarChar).Value = fullyQualifiedTableName;
+            return sqlCmd;
+        }
+
+        /// <summary>
+        /// Sets / Re-seeds the Current Identity Value for the specified Table.
+        /// </summary>
+        /// <param name="sqlConnection"></param>
+        /// <param name="newIdentitySeedValue"></param>
+        /// <param name="sqlTransaction"></param>
+        /// <param name="tableNameOverride"></param>
+        /// <returns></returns>
+        public async Task ReSeedTableIdentityValueAsync(SqlConnection sqlConnection, long newIdentitySeedValue, SqlTransaction sqlTransaction = null, string tableNameOverride = null)
+        {
+            using (var sqlCmd = CreateReSeedTableIdentityValueSqlCommand(sqlConnection, newIdentitySeedValue, sqlTransaction, tableNameOverride))
+            {
+                await sqlCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// Sets / Re-seeds the Current Identity Value for the specified Table.
+        /// </summary>
+        /// <param name="sqlConnection"></param>
+        /// <param name="newIdentitySeedValue"></param>
+        /// <param name="sqlTransaction"></param>
+        /// <param name="tableNameOverride"></param>
+        /// <returns></returns>
+        public void ReSeedTableIdentityValue(SqlConnection sqlConnection, long newIdentitySeedValue, SqlTransaction sqlTransaction = null, string tableNameOverride = null)
+        {
+            using (var sqlCmd = CreateReSeedTableIdentityValueSqlCommand(sqlConnection, newIdentitySeedValue, sqlTransaction, tableNameOverride))
+            {
+                sqlCmd.ExecuteNonQuery();
+            }
+        }
+
+        private SqlCommand CreateReSeedTableIdentityValueSqlCommand(SqlConnection sqlConnection, long newIdentitySeedValue, SqlTransaction sqlTransaction = null, string tableNameOverride = null)
+        {
+            var fullyQualifiedTableName = GetMappedTableNameTerm(tableNameOverride).FullyQualifiedTableName;
+            var sqlCmd = new SqlCommand("DBCC CHECKIDENT(@TableName, RESEED, @NewIdentitySeedValue);", sqlConnection, sqlTransaction);
+            sqlCmd.CommandTimeout = BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds;
+            sqlCmd.Parameters.Add("@TableName", SqlDbType.NVarChar).Value = fullyQualifiedTableName;
+            sqlCmd.Parameters.Add("@NewIdentitySeedValue", SqlDbType.BigInt).Value = newIdentitySeedValue;
+            return sqlCmd;
+        }
+
 
         #endregion
 

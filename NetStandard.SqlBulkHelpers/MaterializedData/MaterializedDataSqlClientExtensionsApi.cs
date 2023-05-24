@@ -198,6 +198,119 @@ namespace SqlBulkHelpers.MaterializedData
 
         #endregion
 
+        #region Table Identity Column Helper Methods (e.g. Get/Set Tables Current Identity Value)
+
+        public static Task<long> GetTableCurrentIdentityValueAsync(this SqlTransaction sqlTransaction, string tableName, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            => GetTableCurrentIdentityValueAsync<ISkipMappingLookup>(sqlTransaction, tableName, bulkHelpersConfig);
+
+        public static Task<long> GetTableCurrentIdentityValueAsync<T>(this SqlTransaction sqlTransaction, string tableNameOverride = null, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            where T : class
+        {
+            sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
+            return GetTableCurrentIdentityValueInternalAsync<T>(sqlTransaction.Connection, tableNameOverride, sqlTransaction, bulkHelpersConfig);
+        }
+
+        public static Task<long> GetTableCurrentIdentityValueAsync(this SqlConnection sqlConnection, string tableName, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            => GetTableCurrentIdentityValueInternalAsync<ISkipMappingLookup>(sqlConnection, tableName, bulkHelpersConfig: bulkHelpersConfig);
+
+        private static async Task<long> GetTableCurrentIdentityValueInternalAsync<T>(
+            this SqlConnection sqlConnection,
+            string tableNameOverride = null,
+            SqlTransaction sqlTransaction = null,
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        ) where T : class
+        {
+            sqlConnection.AssertArgumentIsNotNull(nameof(sqlConnection));
+
+            var currentIdentityValue = await new MaterializeDataHelper<T>(bulkHelpersConfig)
+                .GetTableCurrentIdentityValueAsync(sqlConnection, sqlTransaction, tableNameOverride)
+                .ConfigureAwait(false);
+
+            return currentIdentityValue;
+        }
+
+        public static long GetTableCurrentIdentityValue(this SqlTransaction sqlTransaction, string tableName, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            => GetTableCurrentIdentityValue<ISkipMappingLookup>(sqlTransaction, tableName, bulkHelpersConfig);
+
+        public static long GetTableCurrentIdentityValue<T>(this SqlTransaction sqlTransaction, string tableNameOverride = null, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            where T : class
+        {
+            sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
+            return GetTableCurrentIdentityValueInternal<T>(sqlTransaction.Connection, tableNameOverride, sqlTransaction, bulkHelpersConfig);
+        }
+
+        public static long GetTableCurrentIdentityValue(this SqlConnection sqlConnection, string tableName, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            => GetTableCurrentIdentityValueInternal<ISkipMappingLookup>(sqlConnection, tableName, bulkHelpersConfig: bulkHelpersConfig);
+
+        private static long GetTableCurrentIdentityValueInternal<T>(
+            this SqlConnection sqlConnection,
+            string tableNameOverride = null,
+            SqlTransaction sqlTransaction = null, 
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        ) where T : class
+        {
+            sqlConnection.AssertArgumentIsNotNull(nameof(sqlConnection));
+
+            var currentIdentityValue = new MaterializeDataHelper<T>(bulkHelpersConfig).GetTableCurrentIdentityValue(sqlConnection, sqlTransaction, tableNameOverride);
+            return currentIdentityValue;
+        }
+
+        public static Task ReSeedTableIdentityValueAsync(this SqlTransaction sqlTransaction, string tableName, long newIdentitySeedValue, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            => ReSeedTableIdentityValueAsync<ISkipMappingLookup>(sqlTransaction, newIdentitySeedValue, tableName, bulkHelpersConfig);
+
+        public static Task ReSeedTableIdentityValueAsync<T>(this SqlTransaction sqlTransaction, long newIdentitySeedValue, string tableNameOverride = null, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            where T : class
+        {
+            sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
+            return ReSeedTableIdentityValueInternalAsync<T>(sqlTransaction.Connection, newIdentitySeedValue, tableNameOverride, sqlTransaction, bulkHelpersConfig);
+        }
+
+        public static Task ReSeedTableIdentityValueAsync(this SqlConnection sqlConnection, string tableName, long newIdentitySeedValue, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            => ReSeedTableIdentityValueInternalAsync<ISkipMappingLookup>(sqlConnection, newIdentitySeedValue, tableName, bulkHelpersConfig: bulkHelpersConfig);
+
+        private static async Task ReSeedTableIdentityValueInternalAsync<T>(
+            this SqlConnection sqlConnection, 
+            long newIdentitySeedValue,
+            string tableNameOverride = null,
+            SqlTransaction sqlTransaction = null, 
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        ) where T : class
+        {
+            sqlConnection.AssertArgumentIsNotNull(nameof(sqlConnection));
+
+            await new MaterializeDataHelper<T>(bulkHelpersConfig)
+                .ReSeedTableIdentityValueAsync(sqlConnection, newIdentitySeedValue, sqlTransaction, tableNameOverride)
+                .ConfigureAwait(false);
+        }
+
+
+        public static void ReSeedTableIdentityValue(this SqlTransaction sqlTransaction, string tableName, long newIdentitySeedValue, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            => ReSeedTableIdentityValueAsync<ISkipMappingLookup>(sqlTransaction, newIdentitySeedValue, tableName, bulkHelpersConfig);
+
+        public static void ReSeedTableIdentityValue<T>(this SqlTransaction sqlTransaction, long newIdentitySeedValue, string tableNameOverride = null, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            where T : class
+        {
+            sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
+            ReSeedTableIdentityValueInternal<T>(sqlTransaction.Connection, newIdentitySeedValue, tableNameOverride, sqlTransaction, bulkHelpersConfig);
+        }
+
+        public static void ReSeedTableIdentityValue(this SqlConnection sqlConnection, string tableName, long newIdentitySeedValue, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            => ReSeedTableIdentityValueInternal<ISkipMappingLookup>(sqlConnection, newIdentitySeedValue, tableName, bulkHelpersConfig: bulkHelpersConfig);
+
+        private static void ReSeedTableIdentityValueInternal<T>(
+            this SqlConnection sqlConnection,
+            long newIdentitySeedValue,
+            string tableNameOverride = null,
+            SqlTransaction sqlTransaction = null,
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        ) where T : class
+        {
+            sqlConnection.AssertArgumentIsNotNull(nameof(sqlConnection));
+            new MaterializeDataHelper<T>(bulkHelpersConfig).ReSeedTableIdentityValue(sqlConnection, newIdentitySeedValue, sqlTransaction, tableNameOverride);
+        }
+
+        #endregion
+
         #region Full Text Index (cannot be altered within a Transaction)...
 
         /// <summary>

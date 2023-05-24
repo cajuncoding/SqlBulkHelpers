@@ -1,8 +1,9 @@
 ﻿using System;
+using System.ComponentModel.DataAnnotations;
 using SqlBulkHelpers.Tests;
 using Microsoft.Data.SqlClient;
+using RepoDb;
 using SqlBulkHelpers.MaterializedData;
-using SqlBulkHelpers.SqlBulkHelpers;
 
 namespace SqlBulkHelpers.IntegrationTests
 {
@@ -152,11 +153,11 @@ namespace SqlBulkHelpers.IntegrationTests
                 //Must clear all Data and Related Data to maintain Data Integrity...
                 //NOTE: If we don't clear the related table then the FKey Constraint Check on the Related data (Child table) will FAIL!
                 await sqlTrans.ClearTablesAsync(
-                    tableNames: new [] 
-                    { 
+                    tableNames: new[]
+                    {
                         TestHelpers.TestChildTableNameFullyQualified,
                         TestHelpers.TestTableNameFullyQualified
-                    }, 
+                    },
                     forceOverrideOfConstraints: true
                 ).ConfigureAwait(false);
 
@@ -209,6 +210,121 @@ namespace SqlBulkHelpers.IntegrationTests
                     Assert.IsNull(insertedResultsLookupByKey[testItem.Key].FirstOrDefault());
                 }
             }
+        }
+
+        [TestMethod]
+        public async Task TestBulkInsertWithIdentityInsertEnabledAsync()
+        {
+            var sqlConnectionString = SqlConnectionHelper.GetSqlConnectionString();
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
+
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            await using (SqlTransaction sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+            {
+                ////Must clear all Data and Related Data to maintain Data Integrity...
+                ////NOTE: If we don't clear the related table then the FKey Constraint Check on the Related data (Child table) will FAIL!
+                await sqlTrans.ClearTablesAsync(new[]
+                {
+                    TestHelpers.TestChildTableNameFullyQualified,
+                    TestHelpers.TestTableNameFullyQualified
+                }, forceOverrideOfConstraints: true).ConfigureAwait(false);
+
+                var testData = TestHelpers.CreateTestData(100);
+                var idShift = 100;
+                var startingIdentityValue = idShift * 5;
+
+                //Ensure that our Identity is GREATER than the data we are about to Insert to ensure our lower values are the values actually stored!
+                await sqlTrans.ReSeedTableIdentityValueAsync(TestHelpers.TestTableName, startingIdentityValue);
+
+                //MANUALLY Initialize ALL Identity ID Values..
+                int t = 0;
+                foreach (var testItem in testData)
+                    testItem.Id = (t++) + idShift;
+
+                var results = (await sqlTrans.BulkInsertAsync(
+                    testData,
+                    TestHelpers.TestTableName,
+                    enableIdentityValueInsert: true
+                )).ToList();
+
+                //COMMIT our Data so we can then validate it....
+                await sqlTrans.CommitAsync().ConfigureAwait(false);
+
+                //RETRIEVE all the data again and validate!
+                var dbDataArray = (await sqlConn.QueryAllAsync<TestElement>(TestHelpers.TestTableName).ConfigureAwait(false)).OrderBy(r => r.Id).ToArray();
+                var testDataArray = testData.OrderBy(r => r.Id).ToArray();
+
+                Assert.AreEqual(dbDataArray.Length, testDataArray.Length);
+                for (var j = 0; j < testDataArray.Length; j++)
+                {
+                    var dbResult = dbDataArray[j];
+                    var testResult = testDataArray[j];
+                    Assert.AreEqual(testResult.Id, dbResult.Id);
+                    Assert.AreEqual(testResult.Key, dbResult.Key);
+                    Assert.AreEqual(testResult.Value, dbResult.Value);
+                }
+
+                //Validate the Identity Value did not change (since it was GREATER)!
+                var identityValueAfterInsert = await sqlConn.GetTableCurrentIdentityValueAsync(TestHelpers.TestTableName);
+                Assert.AreEqual(startingIdentityValue, identityValueAfterInsert);
+
+                //**********************************************************************************************************************
+                //AFTER INSERTING WITH Identity Insert ON (MANUALly populated Identity Values), we need to ensure that we can
+                //  still Insert without Issues normally!
+                //**********************************************************************************************************************
+                var testDataNoIdentity = TestHelpers.CreateTestData(10);
+                await using (SqlTransaction sqlTrans2 = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+                {
+                    var identityInsertOffResults = (await sqlTrans2.BulkInsertAsync(
+                        testDataNoIdentity,
+                        TestHelpers.TestTableName
+                    )).ToList();
+
+                    await sqlTrans2.CommitAsync().ConfigureAwait(false);
+
+                    //ASSERT Results are Valid...
+                    Assert.IsNotNull(identityInsertOffResults);
+
+                    //NOTE: New data saved will increment from the current Offset so it's one based (not zer based)...
+                    var seedOffset = 1;
+                    foreach (var testResult in identityInsertOffResults)
+                    {
+                        Assert.AreEqual(testResult.Id, startingIdentityValue + (seedOffset++));
+                    }
+                }
+            }
+        }
+
+        [TestMethod]
+        public async Task TestBulkInsertWithIdentityInsertEnabledFailsWhenNoIdentityValuesSpecifiedAsync()
+        {
+            var sqlConnectionString = SqlConnectionHelper.GetSqlConnectionString();
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
+
+            Exception? expectedException = null;
+            try
+            {
+                await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+                await using (SqlTransaction sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+                {
+                    //GENERATE Test data with No Identity Values (all are Zero; default Int value)...
+                    var testDataNoIdentity = TestHelpers.CreateTestData(10);
+
+                    var resultsFromNoIdentityValues = (await sqlTrans.BulkInsertAsync(
+                        testDataNoIdentity,
+                        TestHelpers.TestTableName,
+                        enableIdentityValueInsert: true
+                    )).ToList();
+
+                    await sqlTrans.CommitAsync().ConfigureAwait(false);
+                }
+            }
+            catch (Exception? exc)
+            {
+                expectedException = exc;
+            }
+
+            Assert.IsNotNull(expectedException);
         }
     }
 }

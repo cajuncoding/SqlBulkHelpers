@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using Microsoft.Data.SqlClient;
 using System.Threading.Tasks;
 
@@ -23,7 +24,8 @@ namespace SqlBulkHelpers
             IEnumerable<T> entityList,
             SqlTransaction sqlTransaction,
             string tableNameParam = null,
-            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null,
+            bool enableIdentityValueInsert = false
         )
         {
             return await BulkInsertOrUpdateInternalAsync(
@@ -31,7 +33,8 @@ namespace SqlBulkHelpers
                 SqlBulkHelpersMergeAction.Insert,
                 sqlTransaction,
                 tableNameParam: tableNameParam,
-                matchQualifierExpressionParam: matchQualifierExpression
+                matchQualifierExpressionParam: matchQualifierExpression,
+                enableIdentityInsert: enableIdentityValueInsert
             ).ConfigureAwait(false);
         }
 
@@ -39,7 +42,8 @@ namespace SqlBulkHelpers
             IEnumerable<T> entityList,
             SqlTransaction sqlTransaction,
             string tableNameParam = null,
-            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null,
+            bool enableIdentityValueInsert = false
         )
         {
             return await BulkInsertOrUpdateInternalAsync(
@@ -47,7 +51,8 @@ namespace SqlBulkHelpers
                 SqlBulkHelpersMergeAction.Update,
                 sqlTransaction,
                 tableNameParam: tableNameParam,
-                matchQualifierExpressionParam: matchQualifierExpression
+                matchQualifierExpressionParam: matchQualifierExpression,
+                enableIdentityInsert: enableIdentityValueInsert
             ).ConfigureAwait(false);
         }
 
@@ -55,7 +60,8 @@ namespace SqlBulkHelpers
             IEnumerable<T> entityList,
             SqlTransaction sqlTransaction,
             string tableNameParam = null,
-            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null,
+            bool enableIdentityValueInsert = false
         )
         {
             return await BulkInsertOrUpdateInternalAsync(
@@ -63,7 +69,8 @@ namespace SqlBulkHelpers
                 SqlBulkHelpersMergeAction.InsertOrUpdate,
                 sqlTransaction,
                 tableNameParam: tableNameParam,
-                matchQualifierExpressionParam: matchQualifierExpression
+                matchQualifierExpressionParam: matchQualifierExpression,
+                enableIdentityInsert: enableIdentityValueInsert
             ).ConfigureAwait(false);
         }
 
@@ -95,6 +102,29 @@ namespace SqlBulkHelpers
             return tableDefinition;
         }
 
+
+        /// <summary>
+        /// Retrieve the Current Identity Value for the specified Table or Table mapped by Model (annotation).
+        /// </summary>
+        /// <param name="sqlConnection"></param>
+        /// <param name="sqlTransaction"></param>
+        /// <param name="tableNameOverride"></param>
+        /// <returns></returns>
+        public async Task<long> GetTableCurrentIdentityValueAsync(
+            SqlConnection sqlConnection,
+            SqlTransaction sqlTransaction = null,
+            string tableNameOverride = null
+        )
+        {
+            using (var sqlCmd = new SqlCommand("SELECT CURRENT_IDENTITY_VALUE = IDENT_CURRENT(@TableName)", sqlConnection, sqlTransaction))
+            {
+                var fullyQualifiedTableName = GetMappedTableNameTerm(tableNameOverride).FullyQualifiedTableName;
+                sqlCmd.Parameters.Add("@TableName", SqlDbType.NVarChar).Value = fullyQualifiedTableName;
+                var currentIdentityValue = Convert.ToInt64(await sqlCmd.ExecuteScalarAsync().ConfigureAwait(false));
+                return currentIdentityValue;
+            }
+        }
+
         #endregion
 
         #region Sync ISqlBulkHelper<T> implementations
@@ -103,7 +133,8 @@ namespace SqlBulkHelpers
             IEnumerable<T> entityList,
             SqlTransaction sqlTransaction,
             string tableNameParam = null,
-            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null,
+            bool enableIdentityValueInsert = false
         )
         {
             return BulkInsertOrUpdateInternal(
@@ -111,7 +142,8 @@ namespace SqlBulkHelpers
                 SqlBulkHelpersMergeAction.Insert,
                 sqlTransaction,
                 tableNameParam: tableNameParam,
-                matchQualifierExpressionParam: matchQualifierExpression
+                matchQualifierExpressionParam: matchQualifierExpression,
+                enableIdentityInsert: enableIdentityValueInsert
             );
         }
 
@@ -119,7 +151,8 @@ namespace SqlBulkHelpers
             IEnumerable<T> entityList,
             SqlTransaction sqlTransaction,
             string tableNameParam = null,
-            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null,
+            bool enableIdentityValueInsert = false
         )
         {
             return BulkInsertOrUpdateInternal(
@@ -127,7 +160,8 @@ namespace SqlBulkHelpers
                 SqlBulkHelpersMergeAction.Update,
                 sqlTransaction,
                 tableNameParam: tableNameParam,
-                matchQualifierExpressionParam: matchQualifierExpression
+                matchQualifierExpressionParam: matchQualifierExpression,
+                enableIdentityInsert: enableIdentityValueInsert
             );
         }
 
@@ -135,7 +169,8 @@ namespace SqlBulkHelpers
             IEnumerable<T> entityList,
             SqlTransaction sqlTransaction,
             string tableNameParam = null,
-            SqlMergeMatchQualifierExpression matchQualifierExpression = null
+            SqlMergeMatchQualifierExpression matchQualifierExpression = null,
+            bool enableIdentityValueInsert = false
         )
         {
             return BulkInsertOrUpdateInternal(
@@ -143,7 +178,8 @@ namespace SqlBulkHelpers
                 SqlBulkHelpersMergeAction.InsertOrUpdate,
                 sqlTransaction,
                 tableNameParam: tableNameParam,
-                matchQualifierExpressionParam: matchQualifierExpression
+                matchQualifierExpressionParam: matchQualifierExpression,
+                enableIdentityInsert: enableIdentityValueInsert
             );
         }
 

@@ -14,7 +14,8 @@ namespace SqlBulkHelpers
             IEnumerable<T> entities,
             string tableName = null,
             SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null,
-            ISqlBulkHelpersConfig bulkHelpersConfig = null
+            ISqlBulkHelpersConfig bulkHelpersConfig = null,
+            bool enableIdentityValueInsert = false
         ) where T : class
         {
 
@@ -23,7 +24,8 @@ namespace SqlBulkHelpers
                     entities, 
                     sqlTransaction, 
                     tableNameParam: tableName, 
-                    matchQualifierExpression: matchQualifierExpressionParam
+                    matchQualifierExpression: matchQualifierExpressionParam,
+                    enableIdentityValueInsert: enableIdentityValueInsert
                 )
                 .ConfigureAwait(false);
 
@@ -35,14 +37,16 @@ namespace SqlBulkHelpers
             IEnumerable<T> entities,
             string tableName = null,
             SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null,
-            ISqlBulkHelpersConfig bulkHelpersConfig = null
+            ISqlBulkHelpersConfig bulkHelpersConfig = null,
+            bool enableIdentityValueInsert = false
         ) where T : class
         {
             var results = await new SqlBulkHelper<T>(bulkHelpersConfig)
                 .BulkUpdateAsync(entities,
                     sqlTransaction,
                     tableNameParam: tableName,
-                    matchQualifierExpression: matchQualifierExpressionParam
+                    matchQualifierExpression: matchQualifierExpressionParam,
+                    enableIdentityValueInsert: enableIdentityValueInsert
                 )
                 .ConfigureAwait(false);
 
@@ -54,14 +58,16 @@ namespace SqlBulkHelpers
             IEnumerable<T> entities,
             string tableName = null,
             SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null,
-            ISqlBulkHelpersConfig bulkHelpersConfig = null
+            ISqlBulkHelpersConfig bulkHelpersConfig = null,
+            bool enableIdentityValueInsert = false
         ) where T : class
         {
             var results = await new SqlBulkHelper<T>(bulkHelpersConfig)
                 .BulkInsertOrUpdateAsync(entities,
                     sqlTransaction,
                     tableNameParam: tableName,
-                    matchQualifierExpression: matchQualifierExpressionParam
+                    matchQualifierExpression: matchQualifierExpressionParam,
+                    enableIdentityValueInsert: enableIdentityValueInsert
                 )
                 .ConfigureAwait(false);
 
@@ -73,7 +79,8 @@ namespace SqlBulkHelpers
             IEnumerable<T> entities,
             string tableName = null,
             SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null,
-            ISqlBulkHelpersConfig bulkHelpersConfig = null
+            ISqlBulkHelpersConfig bulkHelpersConfig = null,
+            bool enableIdentityValueInsert = false
         ) where T : class
         {
             var results = new SqlBulkHelper<T>(bulkHelpersConfig)
@@ -81,7 +88,8 @@ namespace SqlBulkHelpers
                     entities,
                     sqlTransaction,
                     tableNameParam: tableName,
-                    matchQualifierExpression: matchQualifierExpressionParam
+                    matchQualifierExpression: matchQualifierExpressionParam,
+                    enableIdentityValueInsert: enableIdentityValueInsert
                 );
 
             return results;
@@ -92,7 +100,8 @@ namespace SqlBulkHelpers
             IEnumerable<T> entities,
             string tableName = null,
             SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null,
-            ISqlBulkHelpersConfig bulkHelpersConfig = null
+            ISqlBulkHelpersConfig bulkHelpersConfig = null,
+            bool enableIdentityValueInsert = false
         ) where T : class
         {
             var results = new SqlBulkHelper<T>(bulkHelpersConfig)
@@ -100,7 +109,8 @@ namespace SqlBulkHelpers
                     entities,
                     sqlTransaction,
                     tableNameParam: tableName,
-                    matchQualifierExpression: matchQualifierExpressionParam
+                    matchQualifierExpression: matchQualifierExpressionParam,
+                    enableIdentityValueInsert: enableIdentityValueInsert
                 );
     
             return results;
@@ -111,7 +121,8 @@ namespace SqlBulkHelpers
             IEnumerable<T> entities,
             string tableName = null,
             SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null,
-            ISqlBulkHelpersConfig bulkHelpersConfig = null
+            ISqlBulkHelpersConfig bulkHelpersConfig = null,
+            bool enableIdentityValueInsert = false
         ) where T : class
         {
             var results = new SqlBulkHelper<T>(bulkHelpersConfig)
@@ -119,7 +130,8 @@ namespace SqlBulkHelpers
                     entities,
                     sqlTransaction,
                     tableNameParam: tableName,
-                    matchQualifierExpression: matchQualifierExpressionParam
+                    matchQualifierExpression: matchQualifierExpressionParam,
+                    enableIdentityValueInsert: enableIdentityValueInsert
                 );
 
             return results;
@@ -231,6 +243,5 @@ namespace SqlBulkHelpers
         }
 
         #endregion
-
     }
 }

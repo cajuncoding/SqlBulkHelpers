@@ -45,7 +45,8 @@ namespace SqlBulkHelpers
             SqlBulkHelpersTableDefinition tableDefinition,
             SqlBulkHelpersProcessingDefinition processingDefinition,
             SqlBulkHelpersMergeAction mergeAction,
-            SqlMergeMatchQualifierExpression matchQualifierExpression
+            SqlMergeMatchQualifierExpression matchQualifierExpression,
+            bool enableIdentityInsert = false
         )
         {
             var mergeScriptBuilder = new SqlBulkHelpersMergeScriptBuilder();
@@ -53,7 +54,8 @@ namespace SqlBulkHelpers
                 tableDefinition,
                 processingDefinition,
                 mergeAction, 
-                matchQualifierExpression
+                matchQualifierExpression,
+                enableIdentityInsert
             );
 
             return sqlMergeScripts;
@@ -72,33 +74,35 @@ namespace SqlBulkHelpers
             List<T> entityList, 
             List<MergeResult> mergeResultsList, 
             TableColumnDefinition identityColumnDefinition, 
-            SqlMergeMatchQualifierExpression sqlMatchQualifierExpression
+            SqlMergeMatchQualifierExpression sqlMatchQualifierExpression,
+            bool enableIdentityInsert
         )
         {
             entityList.AssertArgumentIsNotNull(nameof(entityList));
             mergeResultsList.AssertArgumentIsNotNull(nameof(mergeResultsList));
 
             bool uniqueMatchValidationEnabled = sqlMatchQualifierExpression.AssertArgumentIsNotNull(nameof(sqlMatchQualifierExpression)).ThrowExceptionIfNonUniqueMatchesOccur;
-            bool hasIdentityColumn = identityColumnDefinition != null;
+            bool enableIdentityPropProcessing = (identityColumnDefinition != null) && !enableIdentityInsert;
+
             //Small performance improvement here by pre-determining which, if any, identity setters may be implemented by the client;
             //  since this isn't the most often use case it's helpful to more efficiently skip the type checks while processing...
             bool implementsIntIdentitySetter = TypeCache.SqlBulkHelperIdentitySetter.IsAssignableFrom(CachedEntityType);
             bool implementsBigIntIdentitySetter = TypeCache.SqlBulkHelperBigIntIdentitySetter.IsAssignableFrom(CachedEntityType);
             bool identitySetterInterfaceSupported = implementsIntIdentitySetter || implementsBigIntIdentitySetter;
 
-            //If there was no Identity Column or the validation of Unique Merge actions was disabled then we can
-            //  short circuit the post-processing of results as there is nothing to do...
-            if (!hasIdentityColumn && !uniqueMatchValidationEnabled)
+            //If there was no Identity Prop Processing Enabled (e.g. No Identity Column or Identity Insert was ON) and the validation of
+            //  Unique Merge actions was disabled then we can short circuit the post-processing of results as there is nothing to do...
+            if (!enableIdentityPropProcessing && !uniqueMatchValidationEnabled)
                 return entityList;
 
             //BBernard - 12/01/2021
             //Added Optimization to support interface based Identity Setter which may be optionally implemented
             //  directly on the models...
             //However, if the Generic Type doesn't implement our Interface ISqlBulkHelperIdentitySetter then
-            //  we attempt to use Reflection to set the value...
+            //  we attempt to use (Fast) Reflection to set the value...
             string identityPropertyName = null;
 
-            if (hasIdentityColumn && !identitySetterInterfaceSupported)
+            if (enableIdentityPropProcessing && !identitySetterInterfaceSupported)
             {
                 var processingDefinition = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>(identityColumnDefinition);
                 identityPropertyName = processingDefinition.IdentityPropDefinition?.PropertyName;
@@ -106,7 +110,7 @@ namespace SqlBulkHelpers
                 //If there is no Identity Property (e.g. no Identity PropInfo can be found)
                 //  then we can skip any further processing of Identity values....
                 if (identityPropertyName == null)
-                    hasIdentityColumn = false;
+                    enableIdentityPropProcessing = false;
             }
 
             ////Get all Items Inserted or Updated....
@@ -114,7 +118,7 @@ namespace SqlBulkHelpers
             //      so there's no reason to filter the merge results anymore; this is more performant.
             var uniqueMatchesHashSet = new HashSet<int>();
 
-            var identitySetterAction = hasIdentityColumn
+            var identitySetterAction = enableIdentityPropProcessing
                 ? ResolveIdentitySetterAction(entityList, identityPropertyName)
                 : null;
 
@@ -122,28 +126,27 @@ namespace SqlBulkHelpers
             foreach (var mergeResult in mergeResultsList)
             {
                 //ONLY Process uniqueness validation if necessary... otherwise skip the logic altogether.
-                if (uniqueMatchValidationEnabled)
+                //NOTE: The SQL Merge query will result in the same RowNumber in our output results if there were duplicated
+                //      matches made, so we only need to ensure that our RowNumber values are unique when validating...
+                if (uniqueMatchValidationEnabled && !uniqueMatchesHashSet.Add(mergeResult.RowNumber))
                 {
-                    if (uniqueMatchesHashSet.Contains(mergeResult.RowNumber))
-                    {
-                        throw new ArgumentOutOfRangeException(
-                            nameof(mergeResultsList), 
-                            "The bulk action has resulted in multiple matches for the the specified Match Qualifiers"
-                            + $" [{sqlMatchQualifierExpression}] so the original Entities List cannot be safely updated."
-                            + " Verify that the Match Qualifier fields result in unique matches or, if intentional, then"
-                            + " this validation check may be disabled on the SqlMergeMatchQualifierExpression parameter."
-                        );
-                    }
-                    else
-                    {
-                        uniqueMatchesHashSet.Add(mergeResult.RowNumber);
-                    }
+                    throw new ArgumentOutOfRangeException(
+                        nameof(mergeResultsList), 
+                        "The bulk action has resulted in multiple matches for the the specified Match Qualifiers"
+                        + $" [{sqlMatchQualifierExpression}] so the original Entities List cannot be safely updated."
+                        + " Verify that the Match Qualifier fields result in unique matches or, if intentional, then"
+                        + " this validation check may be disabled on the SqlMergeMatchQualifierExpression parameter."
+                    );
                 }
 
-                //ONLY Process Identity value updates if appropriate... otherwise skip the logic altogether.
-                //NOTE: List is 0 (zero) based, but our RowNumber is 1 (one) based.
                 var entity = entityList[mergeResult.RowNumber - 1];
-                identitySetterAction?.Invoke(entity, mergeResult);
+
+                //ONLY Process Identity value updates if appropriate... otherwise skip the logic altogether.
+                //NOTE: If Identity Insert was ON (manually populated Identity values from the Model) then the existing values are
+                //      correct and should not be set/updated; SQL Server would have thrown an error if any Identity value was incorrect.
+                //NOTE: List is 0 (zero) based, but our RowNumber is 1 (one) based.
+                if (enableIdentityPropProcessing && identitySetterAction != null)
+                    identitySetterAction.Invoke(entity, mergeResult);
 
                 entityResultsList.Add(entity);
             }
