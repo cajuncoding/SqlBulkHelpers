@@ -49,9 +49,9 @@ namespace SqlBulkHelpers
                 mergeAction,
                 tableDefinition,
                 sqlTransaction,
+                enableIdentityInsert,
                 tableNameParam,
-                matchQualifierExpressionParam,
-                enableIdentityInsert
+                matchQualifierExpressionParam
             ))
             {
                 var sqlCmd = processHelper.SqlCommand;
@@ -59,12 +59,10 @@ namespace SqlBulkHelpers
                 var sqlScripts = processHelper.SqlMergeScripts;
 
                 //***STEP #4: Create Tables for Buffering Data & Storing Output values
-                //            NOTE: THIS Step is Unique for Async processing...
                 sqlCmd.CommandText = sqlScripts.SqlScriptToInitializeTempTables;
                 await sqlCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
 
                 //***STEP #5: Write Data to the Staging/Buffer Table as fast as possible!
-                //            NOTE: THIS Step is Unique for Async processing...
                 //NOTE: The DataReader must be properly Disposed!
                 sqlBulkCopy.DestinationTableName = sqlScripts.TempStagingTableName.QualifySqlTerm();
                 using (var entityDataReader = processHelper.CreateEntityDataReader())
@@ -74,7 +72,6 @@ namespace SqlBulkHelpers
 
                 //***STEP #6: Merge Data from the Staging Table into the Real Table
                 //            and simultaneously Output Identity Id values into Output Temp Table!
-                //            NOTE: THIS Step is Unique for Async processing...
                 sqlCmd.CommandText = sqlScripts.SqlScriptToExecuteMergeProcess;
 
                 //Execute this script and load the results....
@@ -87,7 +84,7 @@ namespace SqlBulkHelpers
                         //So far all calls to SqlDataReader have been asynchronous, but since the data reader is in 
                         //non -sequential mode and ReadAsync was used, the column data should be read synchronously...
                         //Note: see this StackOverflow thread for more details: https://stackoverflow.com/a/19895322/7293142
-                        var mergeResult = ReadCurrentMergeResultInternal(sqlReader, hasIdentityColumn);
+                        var mergeResult = ReadCurrentMergeResultInternal(sqlReader, hasIdentityColumn, enableIdentityInsert);
                         mergeResultsList.Add(mergeResult);
                     }
                 }
@@ -100,7 +97,8 @@ namespace SqlBulkHelpers
                     entityList,
                     mergeResultsList,
                     processHelper.TableDefinition.IdentityColumn,
-                    processHelper.SqlMergeScripts.SqlMatchQualifierExpression
+                    processHelper.SqlMergeScripts.SqlMatchQualifierExpression,
+                    enableIdentityInsert
                 );
 
                 //FINALLY Return the updated Entities with the Identity Id if it was Inserted!
@@ -121,8 +119,8 @@ namespace SqlBulkHelpers
         /// <param name="enableIdentityInsert"></param>
         /// <returns></returns>
         protected virtual IEnumerable<T> BulkInsertOrUpdateInternal(
-            IEnumerable<T> entities, 
-            SqlBulkHelpersMergeAction mergeAction, 
+            IEnumerable<T> entities,
+            SqlBulkHelpersMergeAction mergeAction,
             SqlTransaction sqlTransaction,
             string tableNameParam = null,   //Optional/Nullable! 
             SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null,
@@ -135,14 +133,22 @@ namespace SqlBulkHelpers
             var bulkOperationTimeoutSeconds = this.BulkHelpersConfig;
 
             var tableDefinition = this.GetTableSchemaDefinitionInternal(
-                TableSchemaDetailLevel.BasicDetails, 
-                sqlTransaction.Connection, 
-                sqlTransaction: sqlTransaction, 
+                TableSchemaDetailLevel.BasicDetails,
+                sqlTransaction.Connection,
+                sqlTransaction: sqlTransaction,
                 tableNameOverride: tableNameParam
             );
 
-            using (ProcessHelper processHelper = this.CreateProcessHelper(
-                entityList, mergeAction, tableDefinition, sqlTransaction, tableNameParam, matchQualifierExpressionParam
+            //Initialize our Disposable ProcessHelper...
+            //This will handle STEP #1, #2, & #3 (as shared steps between Async and Sync implementations)...
+            using (var processHelper = this.CreateProcessHelper(
+               entityList,
+               mergeAction,
+               tableDefinition,
+               sqlTransaction,
+               enableIdentityInsert,
+               tableNameParam,
+               matchQualifierExpressionParam
             ))
             {
                 var sqlCmd = processHelper.SqlCommand;
@@ -166,16 +172,17 @@ namespace SqlBulkHelpers
 
                 //Execute this script and load the results....
                 var mergeResultsList = new List<MergeResult>();
+                bool hasIdentityColumn = processHelper.TableDefinition.IdentityColumn != null;
                 using (SqlDataReader sqlReader = sqlCmd.ExecuteReader())
                 {
                     while (sqlReader.Read())
                     {
-                        var mergeResult = ReadCurrentMergeResultInternal(sqlReader, processHelper.HasIdentityColumn);
+                        var mergeResult = ReadCurrentMergeResultInternal(sqlReader, hasIdentityColumn, enableIdentityInsert);
                         mergeResultsList.Add(mergeResult);
                     }
                 }
 
-                //***STEP #7: FINALLY Update all of the original Entities with INSERTED/New Identity Values
+                //***STEP #7: FINALLY Update all of the original Entities with INSERTED/New or UPDATED Identity Values
                 //NOTE: IF MULTIPLE NON-UNIQUE items are updated then ONLY ONE Identity value can be returned, though multiple
                 //      other items may have in-reality actually been updated within the DB.  This is a likely scenario
                 //      IF a different non-unique Match Qualifier Field is specified.
@@ -183,7 +190,8 @@ namespace SqlBulkHelpers
                     entityList,
                     mergeResultsList,
                     processHelper.TableDefinition.IdentityColumn,
-                    processHelper.SqlMergeScripts.SqlMatchQualifierExpression
+                    processHelper.SqlMergeScripts.SqlMatchQualifierExpression,
+                    enableIdentityInsert
                 );
 
                 //FINALLY Return the updated Entities with the Identity Id if it was Inserted!
@@ -191,21 +199,26 @@ namespace SqlBulkHelpers
             }
         }
 
-        protected virtual MergeResult ReadCurrentMergeResultInternal(SqlDataReader sqlReader,  bool hasIdentityColumn)
+        protected virtual MergeResult ReadCurrentMergeResultInternal(SqlDataReader sqlReader,  bool hasIdentityColumn, bool enableIdentityInsert)
         {
             //So-far all of the calls to SqlDataReader have been asynchronous, but since the data reader is in 
             //non-sequential mode and ReadAsync was used, the column data should be read synchronously.
             var mergeResult = new MergeResult() { RowNumber = sqlReader.GetInt32(0) };
 
-            if (hasIdentityColumn)
+            //NOTE: If Identity Insert was enabled then we can skip all Identity processing as the Models exist Value was used to save
+            //      and SQL Server would error out if the Identity value was invalid.
+            if (!enableIdentityInsert)
             {
-                mergeResult.IdentityId = Convert.ToInt64(sqlReader.GetValue(1));
-                //mergeResult.MergeAction = SqlBulkHelpersMerge.ParseMergeActionString(sqlReader.GetString(2))
-            }
-            else
-            {
-                mergeResult.IdentityId = -1;
-                //mergeResult.MergeAction = SqlBulkHelpersMerge.ParseMergeActionString(sqlReader.GetString(1))
+                if (hasIdentityColumn)
+                {
+                    mergeResult.IdentityId = Convert.ToInt64(sqlReader.GetValue(1));
+                    //mergeResult.MergeAction = SqlBulkHelpersMerge.ParseMergeActionString(sqlReader.GetString(2))
+                }
+                else
+                {
+                    mergeResult.IdentityId = -1;
+                    //mergeResult.MergeAction = SqlBulkHelpersMerge.ParseMergeActionString(sqlReader.GetString(1))
+                }
             }
 
             return mergeResult;
@@ -227,9 +240,9 @@ namespace SqlBulkHelpers
             SqlBulkHelpersMergeAction mergeAction,
             SqlBulkHelpersTableDefinition tableDefinition,
             SqlTransaction sqlTransaction,
+            bool enableIdentityInsert,
             string tableNameOverride = null,
-            SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null,
-            bool enableIdentityInsert = false
+            SqlMergeMatchQualifierExpression matchQualifierExpressionParam = null
         )
         {
             //***STEP #1: Get the Table & Model Processing Definitions (cached after initial Load)!!!

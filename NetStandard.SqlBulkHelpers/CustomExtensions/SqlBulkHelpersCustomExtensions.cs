@@ -9,6 +9,8 @@ namespace SqlBulkHelpers
 {
     public static class SqlBulkHelpersCustomExtensions
     {
+        private const int MaxTableNameLength = 116;
+
         public static T AssertArgumentIsNotNull<T>(this T arg, string argName)
         {
             if (arg == null) throw new ArgumentNullException(argName);
@@ -90,6 +92,20 @@ namespace SqlBulkHelpers
 
         public static IEnumerable<string> QualifySqlTerms(this IEnumerable<string> terms)
             => terms.Select(t => t.QualifySqlTerm());
+
+        public static string MakeTableNameUnique(this string tableNameToMakeUnique, int uniqueTokenLength = 10)
+        {
+            if (string.IsNullOrWhiteSpace(tableNameToMakeUnique))
+                throw new ArgumentNullException(nameof(tableNameToMakeUnique));
+
+            var uniqueTokenSuffix = string.Concat("_", IdGenerator.NewId(uniqueTokenLength));
+            var uniqueName = string.Concat(tableNameToMakeUnique, uniqueTokenSuffix);
+                
+            if (uniqueName.Length > MaxTableNameLength)
+                uniqueName = string.Concat(tableNameToMakeUnique.Substring(0, MaxTableNameLength - uniqueTokenSuffix.Length), uniqueTokenSuffix);
+
+            return uniqueName;
+        }
 
         public static string ToCsv(this IEnumerable<string> enumerableList)
             => string.Join(", ", enumerableList);

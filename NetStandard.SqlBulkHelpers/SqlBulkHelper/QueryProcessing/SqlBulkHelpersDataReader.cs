@@ -81,10 +81,6 @@ namespace SqlBulkHelpers
             var fieldDefinition = _processingFields[i];
             var fieldValue = _fastTypeAccessor[_dataEnumerator.Current, fieldDefinition.PropertyName];
             
-            //Handle special edge cases to ensure that invalid identity values are mapped to unique invalid values.
-            if (fieldDefinition.IsIdentityProperty && (int)fieldValue <= 0)
-                return _entityCounter * -1;
-
             return fieldValue;
         }
 

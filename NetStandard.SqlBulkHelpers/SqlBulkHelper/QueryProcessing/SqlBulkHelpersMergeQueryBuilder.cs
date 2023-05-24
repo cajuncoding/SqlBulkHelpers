@@ -20,8 +20,8 @@ namespace SqlBulkHelpers
 
             //NOTE: BBernard - This temp table name MUST begin with 1 (and only 1) hash "#" to ensure it is a Transaction Scoped table!
             var sanitizedTableName = tableDefinition.TableName.EnforceUnderscoreTableNameTerm();
-            var tempStagingTableName = $"#SqlBulkHelpers_STAGING_{sanitizedTableName}_{Guid.NewGuid()}";
-            var tempOutputIdentityTableName = $"#SqlBulkHelpers_OUTPUT_IDENTITY_TABLE_{Guid.NewGuid()}";
+            var tempStagingTableName = $"#SqlBulkHelpers_STAGING_{sanitizedTableName}".MakeTableNameUnique();
+            var tempOutputIdentityTableName = $"#SqlBulkHelpers_OUTPUT_IDENTITY_TABLE".MakeTableNameUnique();
 
             //Validate the MatchQualifiers that may be specified, and limit to ONLY valid fields of the Table Definition...
             //NOTE: We use the parameter argument for Match Qualifier if specified, otherwise we fall-back to to use the Identity Column.
@@ -87,7 +87,7 @@ namespace SqlBulkHelpers
             var columnNamesWithoutIdentityCsv = columnNamesListWithoutIdentity.QualifySqlTerms().ToCsv();
 
             var columnNamesListIncludingIdentity = tableDefinition.GetColumnNames();
-            var columnNamesIncludingIdentityCsv = columnNamesListWithoutIdentity.QualifySqlTerms().ToCsv();
+            var columnNamesIncludingIdentityCsv = columnNamesListIncludingIdentity.QualifySqlTerms().ToCsv();
 
             var hasIdentityColumn = tableDefinition.IdentityColumn != null;
             var enableIdentityValueRetrieval =  hasIdentityColumn && !enableIdentityInsert;
