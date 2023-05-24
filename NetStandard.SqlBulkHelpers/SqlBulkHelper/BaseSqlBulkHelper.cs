@@ -45,7 +45,8 @@ namespace SqlBulkHelpers
             SqlBulkHelpersTableDefinition tableDefinition,
             SqlBulkHelpersProcessingDefinition processingDefinition,
             SqlBulkHelpersMergeAction mergeAction,
-            SqlMergeMatchQualifierExpression matchQualifierExpression
+            SqlMergeMatchQualifierExpression matchQualifierExpression,
+            bool enableIdentityInsert = false
         )
         {
             var mergeScriptBuilder = new SqlBulkHelpersMergeScriptBuilder();
@@ -53,7 +54,8 @@ namespace SqlBulkHelpers
                 tableDefinition,
                 processingDefinition,
                 mergeAction, 
-                matchQualifierExpression
+                matchQualifierExpression,
+                enableIdentityInsert
             );
 
             return sqlMergeScripts;
@@ -95,7 +97,7 @@ namespace SqlBulkHelpers
             //Added Optimization to support interface based Identity Setter which may be optionally implemented
             //  directly on the models...
             //However, if the Generic Type doesn't implement our Interface ISqlBulkHelperIdentitySetter then
-            //  we attempt to use Reflection to set the value...
+            //  we attempt to use (Fast) Reflection to set the value...
             string identityPropertyName = null;
 
             if (hasIdentityColumn && !identitySetterInterfaceSupported)

@@ -78,12 +78,18 @@ namespace SqlBulkHelpers
             return trimmedTerm;
         }
 
+        public static string EnforceUnderscoreTableNameTerm(this string term)
+            => term?.Replace(" ", "_");
+
         public static string QualifySqlTerm(this string term)
         {
             return string.IsNullOrWhiteSpace(term) 
                 ? null 
                 : $"[{term.TrimTableNameTerm()}]";
         }
+
+        public static IEnumerable<string> QualifySqlTerms(this IEnumerable<string> terms)
+            => terms.Select(t => t.QualifySqlTerm());
 
         public static string ToCsv(this IEnumerable<string> enumerableList)
             => string.Join(", ", enumerableList);

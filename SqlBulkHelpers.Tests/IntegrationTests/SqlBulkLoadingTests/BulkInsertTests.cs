@@ -2,7 +2,6 @@
 using SqlBulkHelpers.Tests;
 using Microsoft.Data.SqlClient;
 using SqlBulkHelpers.MaterializedData;
-using SqlBulkHelpers.SqlBulkHelpers;
 
 namespace SqlBulkHelpers.IntegrationTests
 {
@@ -207,6 +206,92 @@ namespace SqlBulkHelpers.IntegrationTests
                 {
                     //Inserted results should NOT be from the Originally inserted 'existing' test data set...
                     Assert.IsNull(insertedResultsLookupByKey[testItem.Key].FirstOrDefault());
+                }
+            }
+        }
+
+        [TestMethod]
+        public async Task TestBulkInsertWithIdentityInsertEnabledAsync()
+        {
+            var sqlConnectionString = SqlConnectionHelper.GetSqlConnectionString();
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
+
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            await using (SqlTransaction sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+            {
+                ////Must clear all Data and Related Data to maintain Data Integrity...
+                ////NOTE: If we don't clear the related table then the FKey Constraint Check on the Related data (Child table) will FAIL!
+                await sqlTrans.ClearTablesAsync(new[]
+                {
+                    TestHelpers.TestChildTableNameFullyQualified,
+                    TestHelpers.TestTableNameFullyQualified
+                }, forceOverrideOfConstraints: true).ConfigureAwait(false);
+
+                var testData = TestHelpers.CreateTestData(100);
+                var idShift = 100;
+                //MANUALLY Initialize ALL Identity ID Values..
+                for (int t = 1; t <= testData.Count; t++)
+                    testData[t].Id = t + idShift;
+
+                var results = (await sqlTrans.BulkInsertAsync(
+                    testData, 
+                    TestHelpers.TestTableName, 
+                    enableIdentityValueInsert: true
+                )).ToList();
+
+                //Test Child Data with Table name being derived from Model Annotation...
+                var childTestData = TestHelpers.CreateChildTestData(results);
+                var childResults = await sqlTrans.BulkInsertOrUpdateAsync(childTestData).ConfigureAwait(false);
+
+                await sqlTrans.CommitAsync().ConfigureAwait(false);
+
+                //**********************************************************************************************************************
+                //AFTER INSERTING WITH MANUAL Identity Values, we need to ensure that we can still Insert without Issues normally!
+                //**********************************************************************************************************************
+                var testDataNoIdentity = TestHelpers.CreateTestData(10);
+
+                var currentIdentityValue = await sqlTrans.GetTableCurrentIdentityValueAsync(TestHelpers.TestTableName);
+
+                var resultsNoIdentity = (await sqlTrans.BulkInsertAsync(
+                    testDataNoIdentity,
+                    TestHelpers.TestTableName,
+                    enableIdentityValueInsert: true
+                )).ToList();
+
+
+                //ASSERT Results are Valid...
+                Assert.IsNotNull(results);
+
+                //We Sort the Results by Identity Id to ensure that the inserts occurred in the correct
+                //  ordinal order matching our Array of original values, but now with incrementing ID values!
+                //This validates that data is inserted as expected for Identity columns and is validated
+                //  correctly by sorting on the Incrementing Identity value when Queried (e.g. ORDER BY Id)
+                //  which must then match our original order of data.
+                var resultsSorted = results.OrderBy(r => r.Id).ToList();
+                Assert.AreEqual(resultsSorted.Count(), testData.Count);
+
+                var i = 0;
+                foreach (var result in resultsSorted)
+                {
+                    Assert.IsNotNull(result);
+                    Assert.AreEqual(i + 1 + idShift, result.Id);
+                    Assert.AreEqual(testData[i].Key, result.Key);
+                    Assert.AreEqual(testData[i].Value, result.Value);
+                    i++;
+                }
+
+                var parentTestDataLookupById = results.ToLookup(r => r.Id);
+
+                //The Bulk Merge Process should automatically be handling the Sorting for us so this ordinal testing should always work...
+                var c = 0;
+                foreach (var childResult in childResults)
+                {
+                    Assert.IsNotNull(childResult);
+                    Assert.IsTrue(childResult.ParentId > 0);
+                    Assert.IsNotNull(parentTestDataLookupById[childResult.ParentId].FirstOrDefault());
+                    Assert.AreEqual(childTestData[c].ChildKey, childResult.ChildKey);
+                    Assert.AreEqual(childTestData[c].ChildValue, childResult.ChildValue);
+                    c++;
                 }
             }
         }

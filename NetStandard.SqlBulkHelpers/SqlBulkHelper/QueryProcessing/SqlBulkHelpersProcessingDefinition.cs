@@ -161,7 +161,8 @@ namespace SqlBulkHelpers
             this.MappedDbColumnName = GetMappedDbColumnName(propInfo);
             this.IsMatchQualifier = propInfo.FindAttributes(nameof(SqlBulkMatchQualifierAttribute)).Any();
             //Early determination if a Property is an Identity Property for Fast processing later...
-            this.IsIdentityProperty = identityColumnDef?.ColumnName?.Equals(propInfo.Name, StringComparison.OrdinalIgnoreCase) ?? false;
+            //NOTE: MappedDbColumnName will use annotation mapping if defined, otherwise it matches the original PropertyName...
+            this.IsIdentityProperty = identityColumnDef?.ColumnName?.Equals(MappedDbColumnName, StringComparison.OrdinalIgnoreCase) ?? false;
         }
 
         public string PropertyName { get; private set; }
