@@ -5,9 +5,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
 
-namespace SqlBulkHelpers
+namespace SqlBulkHelpers.CustomExtensions
 {
-    public static class SqlBulkHelpersCustomExtensions
+    public static class SqlBulkHelpersPublicCustomExtensions
     {
         private const int MaxTableNameLength = 116;
 

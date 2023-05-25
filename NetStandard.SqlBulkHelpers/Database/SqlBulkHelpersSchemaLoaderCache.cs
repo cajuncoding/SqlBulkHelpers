@@ -1,5 +1,6 @@
 ﻿using System;
 using LazyCacheHelpers;
+using SqlBulkHelpers.CustomExtensions;
 
 namespace SqlBulkHelpers
 {

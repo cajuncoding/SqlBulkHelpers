@@ -1,4 +1,5 @@
 ﻿using System;
+using SqlBulkHelpers.CustomExtensions;
 
 namespace SqlBulkHelpers.MaterializedData
 {

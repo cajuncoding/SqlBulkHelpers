@@ -1,6 +1,7 @@
 ﻿using Microsoft.Data.SqlClient;
 using System;
 using System.Threading.Tasks;
+using SqlBulkHelpers.CustomExtensions;
 
 namespace SqlBulkHelpers
 {

@@ -215,6 +215,9 @@ public class TestDataService
 ## Nuget Package
 To use in your project, add the [SqlBulkHelpers NuGet package](https://www.nuget.org/packages/SqlBulkHelpers/) to your project.
 
+## v2.2.2 Release Notes:
+- Improved namespace for SqlBulkHelpers.CustomExtensions to reduce risk of conflicts with similar existing extensions.
+
 ## v2.2.1 Release Notes:
 - Restored support for SqlConnection Factory (simplified now as a Func&lt;SqlConnection&gt; when manually using the SqlDbSchemaLoader to dynamically retrieve Table Schema definitions for performance.
 

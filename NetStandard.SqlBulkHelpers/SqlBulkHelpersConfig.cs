@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.Data.SqlClient;
+using SqlBulkHelpers.CustomExtensions;
 using SqlBulkHelpers.MaterializedData;
 
 namespace SqlBulkHelpers

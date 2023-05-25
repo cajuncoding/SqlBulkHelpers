@@ -3,6 +3,7 @@ using SqlBulkHelpers.Tests;
 using SqlBulkHelpers.MaterializedData;
 using Microsoft.Data.SqlClient;
 using RepoDb;
+using SqlBulkHelpers.CustomExtensions;
 
 namespace SqlBulkHelpers.IntegrationTests
 {
