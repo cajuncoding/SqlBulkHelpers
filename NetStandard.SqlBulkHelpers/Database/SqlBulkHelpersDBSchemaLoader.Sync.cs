@@ -25,7 +25,48 @@ namespace SqlBulkHelpers
             bool forceCacheReload = false
         )
         {
-			sqlConnection.AssertArgumentIsNotNull(nameof(sqlConnection));
+            sqlConnection.AssertArgumentIsNotNull(nameof(sqlConnection));
+
+            var tableDefinition = GetTableSchemaDefinitionInternal(
+                tableName,
+                detailLevel,
+                () => (sqlConnection, sqlTransaction),
+                disposeOfConnection: false, //DO Not dispose of Existing Connection/Transaction...
+                forceCacheReload
+            );
+
+            return tableDefinition;
+        }
+
+        public SqlBulkHelpersTableDefinition GetTableSchemaDefinition(
+            string tableName,
+            TableSchemaDetailLevel detailLevel,
+            Func<SqlConnection> sqlConnectionFactory,
+            bool forceCacheReload = false
+        )
+        {
+            sqlConnectionFactory.AssertArgumentIsNotNull(nameof(sqlConnectionFactory));
+
+            var tableDefinition = GetTableSchemaDefinitionInternal(
+                tableName,
+                detailLevel,
+                () => (sqlConnectionFactory(), (SqlTransaction)null),
+                disposeOfConnection: true, //Always DISPOSE of New Connections created by the Factory...
+                forceCacheReload
+            );
+
+            return tableDefinition;
+        }
+
+        protected SqlBulkHelpersTableDefinition GetTableSchemaDefinitionInternal(
+            string tableName,
+            TableSchemaDetailLevel detailLevel,
+            Func<(SqlConnection, SqlTransaction)> sqlConnectionAndTransactionFactory,
+            bool disposeOfConnection,
+            bool forceCacheReload = false
+        )
+        {
+            sqlConnectionAndTransactionFactory.AssertArgumentIsNotNull(nameof(sqlConnectionAndTransactionFactory));
 
             if (string.IsNullOrWhiteSpace(tableName))
                 return null;
@@ -40,11 +81,25 @@ namespace SqlBulkHelpers
                 key: cacheKey,
                 cacheValueFactory: key =>
                 {
-                    using (var sqlCmd = CreateSchemaQuerySqlCommand(tableNameTerm, detailLevel, sqlConnection, sqlTransaction))
+                    var (sqlConnection, sqlTransaction) = sqlConnectionAndTransactionFactory();
+                    try
                     {
-                        //Execute and load results from the Json...
-                        var tableDef = sqlCmd.ExecuteForJson<SqlBulkHelpersTableDefinition>();
-                        return tableDef;
+                        //If we don't have a Transaction then offer lazy opening of the Connection,
+                        //  but if we do have a Transaction we assume the Connection is open & valid for the Transaction...
+                        if (sqlTransaction == null)
+                            sqlConnection.EnsureSqlConnectionIsOpen();
+
+                        using (var sqlCmd = CreateSchemaQuerySqlCommand(tableNameTerm, detailLevel, sqlConnection, sqlTransaction))
+                        {
+                            //Execute and load results from the Json...
+                            var tableDef = sqlCmd.ExecuteForJson<SqlBulkHelpersTableDefinition>();
+                            return tableDef;
+                        }
+                    }
+                    finally
+                    {
+                        if(disposeOfConnection)
+                            sqlConnection.Dispose();
                     }
                 });
 
