@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using SqlBulkHelpers.SqlBulkHelpers.CustomExtensions;
 using LazyCacheHelpers;
+using SqlBulkHelpers.CustomExtensions;
 
 namespace SqlBulkHelpers
 {

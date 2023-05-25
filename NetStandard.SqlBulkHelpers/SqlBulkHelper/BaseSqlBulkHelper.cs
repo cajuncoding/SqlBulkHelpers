@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Data.SqlClient;
 using FastMember;
+using SqlBulkHelpers.CustomExtensions;
 using SqlBulkHelpers.Interfaces;
 
 namespace SqlBulkHelpers
