@@ -215,6 +215,9 @@ public class TestDataService
 ## Nuget Package
 To use in your project, add the [SqlBulkHelpers NuGet package](https://www.nuget.org/packages/SqlBulkHelpers/) to your project.
 
+## v2.2.1 Release Notes:
+- Restored support for SqlConnection Factory (simplified now as a Func&lt;SqlConnection&gt; when manually using the SqlDbSchemaLoader to dynamically retrieve Table Schema definitions for performance.
+
 ## v2.2 Release Notes:
 - Added support for other Identity column data types including (INT, BIGINT, SMALLINT, & TINYINT); per [feature request here](https://github.com/cajuncoding/SqlBulkHelpers/issues/10).
 - Added support to explicitly set Identity Values (aka SET IDENTITY_INSERT ON) via new `enableIdentityInsert` api parameter. 
@@ -334,26 +337,29 @@ It offers ability to retrieve basic or extended details; both of which are inter
 
 *NOTE: The internal schema caching can be invalidated using the `forceCacheReload` method parameter.*
 
+NOTE: You man use an existing SqlConnection and/or SqlTransaction with this api, however for maximum performance it's recommended to 
+use a SqlConnection Factory Func so connections are not created at all if the results are already cached...
 ```csharp
+    //Normally would be provided by Dependency Injection...
+    //This is a DI friendly connection factory/provider pattern that can be used...
+    private readonly ISqlBulkHelpersConnectionProvider _sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
+
     public async Task<string> GetSanitizedTableName(string tableNameToValidate)
     {
-        //Normally would be provided by Dependency Injection...
-        //This is a DI friendly connection factory/provider pattern that can be used...
-        ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
+        //We can get the basic or extended (slower query) schema details for the table (both types are cached)...
+        //NOTE: Basic details includes table name, columns, data types, etc. while Extended details includes FKey constraintes, 
+        //      Indexes, relationship details, etc.
+        //NOTE: This is cached, so no DB call is made if it's already been loaded and the forceCacheReload flag is not set to true.
+        var tableDefinition = await sqlConnection.GetTableSchemaDefinitionAsync(
+            tablNameToValidate, 
+            TableSchemaDetailLevel.BasicDetails
+            async () => await _sqlConnectionProvider.NewConnectionAsync()
+        );
 
-        using (SqlConnection sqlConnection = await sqlConnectionProvider.NewConnectionAsync())
-        {
-            //We can get the basic or extended (slower query) schema details for the table (both types are cached)...
-            //NOTE: Basic details includes table name, columns, data types, etc. while Extended details includes FKey constraintes, 
-            //      Indexes, relationship details, etc.
-            //NOTE: This is cached, so no DB call is made if it's already been loaded and the forceCacheReload flag is not set to true.
-            var tableDefinition = await sqlConnection.GetTableSchemaDefinitionAsync(tablNameToValidate, TableSchemaDetailLevel.BasicDetails)
+        if (tableDefinition == null)
+            throw new NullReferenceException($"The Table Definition is null and could not be found for the table name specified [{tableNameToValidate}].");
 
-            if (tableDefinition == null)
-                throw new NullReferenceException($"The Table Definition is null and could not be found for the table name specified [{tableNameToValidate}].");
-
-            return tableDefinition.TableFullyQualifiedName;
-        }
+        return tableDefinition.TableFullyQualifiedName;
     }
 ```
 

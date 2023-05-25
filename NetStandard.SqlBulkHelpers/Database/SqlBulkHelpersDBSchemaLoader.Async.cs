@@ -80,6 +80,51 @@ namespace SqlBulkHelpers
         {
             sqlConnection.AssertArgumentIsNotNull(nameof(sqlConnection));
 
+            var tableDefinition = await GetTableSchemaDefinitionInternalAsync(
+                tableName,
+                detailLevel,
+                () => Task.FromResult((sqlConnection, sqlTransaction)),
+                disposeOfConnection: false, //DO Not dispose of Existing Connection/Transaction...
+                forceCacheReload
+            ).ConfigureAwait(false);
+
+            return tableDefinition;
+        }
+
+        public async Task<SqlBulkHelpersTableDefinition> GetTableSchemaDefinitionAsync(
+            string tableName,
+            TableSchemaDetailLevel detailLevel,
+            Func<Task<SqlConnection>> sqlConnectionAsyncFactory,
+            bool forceCacheReload = false
+        )
+        {
+            sqlConnectionAsyncFactory.AssertArgumentIsNotNull(nameof(sqlConnectionAsyncFactory));
+
+            var tableDefinition = await GetTableSchemaDefinitionInternalAsync(
+                tableName,
+                detailLevel,
+                async () =>
+                {
+                    var sqlConnection = await sqlConnectionAsyncFactory().ConfigureAwait(false);
+                    return (sqlConnection, (SqlTransaction)null);
+                },
+                disposeOfConnection: true, //Always DISPOSE of New Connections created by the Factory...
+                forceCacheReload
+            ).ConfigureAwait(false);
+
+            return tableDefinition;
+        }
+
+        protected async Task<SqlBulkHelpersTableDefinition> GetTableSchemaDefinitionInternalAsync(
+            string tableName,
+            TableSchemaDetailLevel detailLevel,
+            Func<Task<(SqlConnection, SqlTransaction)>> sqlConnectionAndTransactionAsyncFactory,
+            bool disposeOfConnection,
+            bool forceCacheReload = false
+        )
+        {
+            sqlConnectionAndTransactionAsyncFactory.AssertArgumentIsNotNull(nameof(sqlConnectionAndTransactionAsyncFactory));
+
             if (string.IsNullOrWhiteSpace(tableName))
                 return null;
 
@@ -93,16 +138,37 @@ namespace SqlBulkHelpers
                 key: cacheKey,
                 cacheValueFactoryAsync: async key =>
                 {
-                    using (var sqlCmd = CreateSchemaQuerySqlCommand(tableNameTerm, detailLevel, sqlConnection, sqlTransaction))
+                    var (sqlConnection, sqlTransaction) = await sqlConnectionAndTransactionAsyncFactory().ConfigureAwait(false);
+                    try
                     {
-                        //Execute and load results from the Json...
-                        var tableDef = await sqlCmd.ExecuteForJsonAsync<SqlBulkHelpersTableDefinition>().ConfigureAwait(false);
-                        return tableDef;
+                        //If we don't have a Transaction then offer lazy opening of the Connection,
+                        //  but if we do have a Transaction we assume the Connection is open & valid for the Transaction...
+                        if (sqlTransaction == null)
+                            await sqlConnection.EnsureSqlConnectionIsOpenAsync().ConfigureAwait(false);
+
+                        using (var sqlCmd = CreateSchemaQuerySqlCommand(tableNameTerm, detailLevel, sqlConnection, sqlTransaction))
+                        {
+                            //Execute and load results from the Json...
+                            var tableDef = await sqlCmd.ExecuteForJsonAsync<SqlBulkHelpersTableDefinition>().ConfigureAwait(false);
+                            return tableDef;
+                        }
+
+                    }
+                    finally
+                    {
+                        #if NETSTANDARD2_1
+                        if(disposeOfConnection)
+                            await sqlConnection.DisposeAsync().ConfigureAwait(false);
+                        #else
+                        if(disposeOfConnection)
+                            sqlConnection.Dispose();
+                        #endif
                     }
                 }
             ).ConfigureAwait(false);
 
             return tableDefinition;
         }
+
     }
 }

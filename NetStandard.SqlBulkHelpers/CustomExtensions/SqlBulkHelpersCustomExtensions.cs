@@ -32,6 +32,15 @@ namespace SqlBulkHelpers
             return sqlConnection;
         }
 
+        public static SqlConnection EnsureSqlConnectionIsOpen(this SqlConnection sqlConnection)
+        {
+            sqlConnection.AssertArgumentIsNotNull(nameof(sqlConnection));
+            if (sqlConnection.State != ConnectionState.Open)
+                sqlConnection.Open();
+
+            return sqlConnection;
+        }
+
         public static TableNameTerm GetSqlBulkHelpersMappedTableNameTerm(this Type type, string tableNameOverride = null)
         {
             string tableName = tableNameOverride;

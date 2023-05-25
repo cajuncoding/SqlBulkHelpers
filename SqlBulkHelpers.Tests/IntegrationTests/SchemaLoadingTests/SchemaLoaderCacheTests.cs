@@ -1,4 +1,5 @@
 ﻿using System;
+using Microsoft.Data.SqlClient;
 using SqlBulkHelpers.Tests;
 
 namespace SqlBulkHelpers.IntegrationTests
@@ -72,7 +73,7 @@ namespace SqlBulkHelpers.IntegrationTests
         }
 
         [TestMethod]
-        public async Task TestSchemaLoaderCacheWithBadConnectionDueToPendingTransactionFor_v1_2()
+        public async Task TestGetTableSchemaFromLoaderCacheWithBadConnectionDueToPendingTransactionFor_v1_2()
         {
             //****************************************************************************************************
             // Check that Invalid Connection Fails as expected and Lazy continues to re-throw the Exception!!!
@@ -129,6 +130,99 @@ namespace SqlBulkHelpers.IntegrationTests
 
             //Initial Call should result in SQL Exception due to Pending Transaction...
             Assert.IsNotNull(validTableDefinition);
+        }
+
+        [TestMethod]
+        public async Task TestGetTableSchemaFromLoaderWithConnectionFactoryAsync()
+        {
+            var dbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader($"SQL_CONNECTION_CACHE_KEY::{Guid.NewGuid()}");
+
+            Assert.IsNotNull(dbSchemaLoader);
+
+            //Initial Call should result in SQL Exception due to Pending Transaction...
+            var tableDefinition = await dbSchemaLoader.GetTableSchemaDefinitionAsync(
+                TestHelpers.TestTableNameFullyQualified,
+                TableSchemaDetailLevel.BasicDetails,
+                sqlConnectionAsyncFactory: async () => await SqlConnectionHelper.NewConnectionAsync().ConfigureAwait(false),
+                forceCacheReload: true
+            );
+
+            Assert.IsNotNull(tableDefinition);
+            Assert.AreEqual(TestHelpers.TestTableNameFullyQualified, tableDefinition.TableFullyQualifiedName);
+            Assert.AreEqual(TableSchemaDetailLevel.BasicDetails, tableDefinition.SchemaDetailLevel);
+            Assert.AreEqual(3, tableDefinition.TableColumns.Count);
+        }
+
+        [TestMethod]
+        public async Task TestGetTableSchemaFromLoaderWithConnectionFactory()
+        {
+            var dbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader($"SQL_CONNECTION_CACHE_KEY::{Guid.NewGuid()}");
+
+            Assert.IsNotNull(dbSchemaLoader);
+
+            //Initial Call should result in SQL Exception due to Pending Transaction...
+            var tableDefinition = dbSchemaLoader.GetTableSchemaDefinition(
+                TestHelpers.TestTableNameFullyQualified,
+                TableSchemaDetailLevel.BasicDetails,
+                sqlConnectionFactory: SqlConnectionHelper.NewConnection
+            );
+
+            Assert.IsNotNull(tableDefinition);
+            Assert.AreEqual(TestHelpers.TestTableNameFullyQualified, tableDefinition.TableFullyQualifiedName);
+            Assert.AreEqual(TableSchemaDetailLevel.BasicDetails, tableDefinition.SchemaDetailLevel);
+            Assert.AreEqual(3, tableDefinition.TableColumns.Count);
+        }
+
+        [TestMethod]
+        public async Task TestGetTableSchemaFromLoaderWithExistingConnectionAndTransactionAsync()
+        {
+            var dbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader($"SQL_CONNECTION_CACHE_KEY::{Guid.NewGuid()}");
+
+            Assert.IsNotNull(dbSchemaLoader);
+
+            using(var sqlConnection = await SqlConnectionHelper.NewConnectionAsync().ConfigureAwait(false))
+            using (var sqlTransaction = (SqlTransaction)await sqlConnection.BeginTransactionAsync().ConfigureAwait(false))
+            {
+                //Initial Call should result in SQL Exception due to Pending Transaction...
+                var tableDefinition = await dbSchemaLoader.GetTableSchemaDefinitionAsync(
+                    TestHelpers.TestTableNameFullyQualified,
+                    TableSchemaDetailLevel.BasicDetails,
+                    sqlConnection,
+                    sqlTransaction,
+                    forceCacheReload: true
+                );
+
+                Assert.IsNotNull(tableDefinition);
+                Assert.AreEqual(TestHelpers.TestTableNameFullyQualified, tableDefinition.TableFullyQualifiedName);
+                Assert.AreEqual(TableSchemaDetailLevel.BasicDetails, tableDefinition.SchemaDetailLevel);
+                Assert.AreEqual(3, tableDefinition.TableColumns.Count);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestGetTableSchemaFromLoaderWithExistingConnectionAndTransaction()
+        {
+            var dbSchemaLoader = SqlBulkHelpersSchemaLoaderCache.GetSchemaLoader($"SQL_CONNECTION_CACHE_KEY::{Guid.NewGuid()}");
+
+            Assert.IsNotNull(dbSchemaLoader);
+
+            using (var sqlConnection = SqlConnectionHelper.NewConnection())
+            using (var sqlTransaction = (SqlTransaction)sqlConnection.BeginTransaction())
+            {
+                //Initial Call should result in SQL Exception due to Pending Transaction...
+                var tableDefinition = await dbSchemaLoader.GetTableSchemaDefinitionAsync(
+                    TestHelpers.TestTableNameFullyQualified,
+                    TableSchemaDetailLevel.BasicDetails,
+                    sqlConnection,
+                    sqlTransaction,
+                    forceCacheReload: true
+                );
+
+                Assert.IsNotNull(tableDefinition);
+                Assert.AreEqual(TestHelpers.TestTableNameFullyQualified, tableDefinition.TableFullyQualifiedName);
+                Assert.AreEqual(TableSchemaDetailLevel.BasicDetails, tableDefinition.SchemaDetailLevel);
+                Assert.AreEqual(3, tableDefinition.TableColumns.Count);
+            }
         }
     }
 }
