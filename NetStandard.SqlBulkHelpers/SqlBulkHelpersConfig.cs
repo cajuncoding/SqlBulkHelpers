@@ -53,7 +53,7 @@ namespace SqlBulkHelpers
         {
             DefaultConfig = Create(configAction);
             
-            //Validate tje Configuration!
+            //Validate the Configuration!
             if (DefaultConfig.IsFullTextIndexHandlingEnabled && !DefaultConfig.IsConcurrentConnectionProcessingEnabled)
                 throw new InvalidOperationException(
                 $"Full Text Index Handling is currently enabled however Concurrent Connections are disabled and/or " +

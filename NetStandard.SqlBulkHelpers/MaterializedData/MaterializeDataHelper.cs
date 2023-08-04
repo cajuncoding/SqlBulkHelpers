@@ -320,7 +320,7 @@ namespace SqlBulkHelpers.MaterializedData
                         lock (tablesToMaterializeAsEmpty) tablesToMaterializeAsEmpty.Add(tableNameTerm);
                     else
                         lock (tablesToProcessWithTruncation) tablesToProcessWithTruncation.Add(tableNameTerm);
-                };
+                }
 
                 if (tablesToMaterializeAsEmpty.Any())
                 {
@@ -405,7 +405,7 @@ namespace SqlBulkHelpers.MaterializedData
         private SqlCommand CreateGetTableIdentityValueSqlCommand(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null, string tableNameOverride = null)
         {
             var fullyQualifiedTableName = GetMappedTableNameTerm(tableNameOverride).FullyQualifiedTableName;
-            var sqlCmd = new SqlCommand("SELECT CURRENT_IDENTITY_VALUE = IDENT_CURRENT(@TableName)", sqlConnection, sqlTransaction);
+            var sqlCmd = new SqlCommand("SELECT CURRENT_IDENTITY_VALUE = IDENT_CURRENT(@TableName);", sqlConnection, sqlTransaction);
             sqlCmd.CommandTimeout = BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds;
             sqlCmd.Parameters.Add("@TableName", SqlDbType.NVarChar).Value = fullyQualifiedTableName;
             return sqlCmd;
@@ -453,6 +453,55 @@ namespace SqlBulkHelpers.MaterializedData
             return sqlCmd;
         }
 
+        /// <summary>
+        /// Sets / Re-seeds the Current Identity Value with the current MAX() value of the Identity Column for the specified Table.
+        /// </summary>
+        /// <param name="sqlConnection"></param>
+        /// <param name="sqlTransaction"></param>
+        /// <param name="tableNameOverride"></param>
+        /// <returns></returns>
+        public async Task<long> ReSeedTableIdentityValueWithMaxIdAsync(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null, string tableNameOverride = null)
+        {
+            var tableDef = await GetTableSchemaDefinitionInternalAsync(TableSchemaDetailLevel.BasicDetails, sqlConnection, sqlTransaction: sqlTransaction, tableNameOverride).ConfigureAwait(false);
+            using (var sqlCmd = CreateReSeedTableIdentityValueToSyncWithMaxIdSqlCommand(sqlConnection, tableDef, sqlTransaction))
+            {
+                var result = await sqlCmd.ExecuteScalarAsync().ConfigureAwait(false);
+                return Convert.ToInt64(result);
+            }
+        }
+
+        /// <summary>
+        /// Sets / Re-seeds the Current Identity Value with the current MAX() value of the Identity Column for the specified Table.
+        /// </summary>
+        /// <param name="sqlConnection"></param>
+        /// <param name="sqlTransaction"></param>
+        /// <param name="tableNameOverride"></param>
+        /// <returns></returns>
+        public long ReSeedTableIdentityWithMaxId(SqlConnection sqlConnection, SqlTransaction sqlTransaction = null, string tableNameOverride = null)
+        {
+            var tableDef = GetTableSchemaDefinitionInternal(TableSchemaDetailLevel.BasicDetails, sqlConnection, sqlTransaction: sqlTransaction, tableNameOverride);
+            using (var sqlCmd = CreateReSeedTableIdentityValueToSyncWithMaxIdSqlCommand(sqlConnection, tableDef, sqlTransaction))
+            {
+                var result = sqlCmd.ExecuteScalar();
+                return Convert.ToInt64(result);
+            }
+        }
+
+        private SqlCommand CreateReSeedTableIdentityValueToSyncWithMaxIdSqlCommand(SqlConnection sqlConnection, SqlBulkHelpersTableDefinition tableDef, SqlTransaction sqlTransaction = null)
+        {
+            var tableNameTerm = tableDef.TableNameTerm;
+            var maxIdVariable = $"@MaxId_{tableNameTerm.TableNameVariable}";
+
+            var sqlCmd = new SqlCommand($@"
+                DECLARE {maxIdVariable} BIGINT = (SELECT MAX({tableDef.IdentityColumn.ColumnName.QualifySqlTerm()}) FROM {tableNameTerm.FullyQualifiedTableName});
+                DBCC CHECKIDENT(@TableName, RESEED, {maxIdVariable});
+                SELECT CURRENT_IDENTITY_VALUE = IDENT_CURRENT(@TableName);
+            ", sqlConnection, sqlTransaction);
+            
+            sqlCmd.CommandTimeout = BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds;
+            sqlCmd.Parameters.Add("@TableName", SqlDbType.NVarChar).Value = tableNameTerm.FullyQualifiedTableName;
+            return sqlCmd;
+        }
 
         #endregion
 

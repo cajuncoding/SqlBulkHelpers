@@ -8,23 +8,26 @@
 	<PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Authors>BBernard / CajunCoding</Authors>
     <Company>CajunCoding</Company>
+	<Version>2.2.3</Version>
 	<PackageProjectUrl>https://github.com/cajuncoding/SqlBulkHelpers</PackageProjectUrl>
 	<RepositoryUrl>https://github.com/cajuncoding/SqlBulkHelpers</RepositoryUrl>
     <Description>A library for easy, efficient and high performance bulk insert and update of data, into a Sql Database, from .Net applications. By leveraging the power of the SqlBulkCopy classes with added support for Identity primary key table columns this library provides a greatly simplified interface to process Identity based Entities with Bulk Performance with the wide compatibility of .NetStandard 2.0.</Description>
 	<PackageTags>sql server database table bulk insert update identity column sqlbulkcopy orm dapper linq2sql materialization materialized data view materialized-data materialized-view sync replication replica readonly</PackageTags>
     <PackageReleaseNotes>
+		- Fixed a Bug where Identity Column Value was not correctly synced after Materialization Process is completing.
+		- Added new Helper API to quickly Sync the Identity column value with the current MAX Id value of the column (ensuring it's valid after populating additional data); This is useful if you override Identity values for a full Table refresh, but then want to later insert data into the table.
+
+	    Prior Relese Notes:
 		- Improved namespace for SqlBulkHelpers.CustomExtensions to reduce risk of conflicts with similar existing extensions.
-	    - Restored support for SqlConnection Factory (simplified now as a Func&lt;SqlConnection&gt; when manually using the SqlDbSchemaLoader to dynamically retrieve Table Schema definitions for performance.
-	    - Added support for other Identity column data types including (INT, BIGINT, SMALLINT, &amp; TINYINT); per feature request (https://github.com/cajuncoding/SqlBulkHelpers/issues/10).
+		- Restored support for SqlConnection Factory (simplified now as a Func&lt;SqlConnection&gt; when manually using the SqlDbSchemaLoader to dynamically retrieve Table Schema definitions for performance.
+		- Added support for other Identity column data types including (INT, BIGINT, SMALLINT, &amp; TINYINT); per feature request (https://github.com/cajuncoding/SqlBulkHelpers/issues/10).
 		- Added support to explicitly set Identity Values (aka SET IDENTITY_INSERT ON) via new `enableIdentityInsert` api parameter.
 		- Added support to retreive and re-seed (aka set) the current Identity Value on a given table via new apis in the MaterializedData helpers.
 		- Additional small bug fixes and optimiaztions.
-
-		Prior Relese Notes:
 	    - Added additional convenience methods to the `MaterializationContext` to retreive loading table info for models mapped via annotations (ModelType; vs only ordinal or string name).
-	    - Added support to cancel the materialization process via new `MaterializationContext.CancelMaterializationProcess()` method; allows passive cancelling without the need to throw an exception to safely stop the process.
-	    - Fixed small configuration initialization bugs when manually setting the `IsFullTextIndexHandlingEnabled` flag.
-	    - Fixed small bug where default configuration was not being used as the fallback.
+		- Added support to cancel the materialization process via new `MaterializationContext.CancelMaterializationProcess()` method; allows passive cancelling without the need to throw an exception to safely stop the process.
+		- Fixed small configuration initialization bugs when manually setting the `IsFullTextIndexHandlingEnabled` flag.
+		- Fixed small bug where default configuration was not being used as the fallback.
 		- Improve configuration of Timeouts and add support for Default DB Schema Loader timeout setting.
 		- v2.0 provides a simplified and easier to access API as Extension Methods of the SqlTransaction class; this is a breaking change for Sql Bulk Insert/Update/etc, but shoudl be easy to migrate to!
 		- v2.0 release also includes the NEW MaterializeData Helpers to make it significantly easier to implement highly efficient loading and publishing of materialized data via Sql Server much easier via an easy C# API.
@@ -49,7 +52,6 @@
 		- Added more Integration Tests for Constructors and Connections, as well as the new DB Schema Loader caching implementation.
 		- Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances that automtically load the connection string from the application configuration setting.
 	</PackageReleaseNotes>
-    <Version>2.2.2</Version>
   </PropertyGroup>
 
   <ItemGroup>

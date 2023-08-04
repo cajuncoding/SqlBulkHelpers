@@ -194,6 +194,12 @@ namespace SqlBulkHelpers.MaterializedData
                 var liveTableDefinition = materializationTableInfo.LiveTableDefinition;
                 var otherReferencingFKeyConstraints = liveTableDefinition.ReferencingForeignKeyConstraints.Where(rc => !allLiveTableFKeyConstraintLookup.Contains(rc.ToString()));
 
+                //FIRST handle Identity values to minimize risk of Changes.
+                //If Enabled then we Automatically Sync the Identity Value of the newly switched Live table with the Max ID so that is is guaranteed to be a valid value
+                //  otherwise (if disabled) then the Identity may not change when Materializing data...
+                if (BulkHelpersConfig.IsCloningIdentitySeedValueEnabled && liveTableDefinition.IdentityColumn != null)
+                    switchScriptBuilder.SyncIdentitySeedValue(materializationTableInfo.LoadingTable, materializationTableInfo.LiveTable);
+
                 switchScriptBuilder
                     //HERE We enable all FKey Constraints and Trigger a Re-check to ensure Data Integrity (unless EXPLICITLY Overridden)!
                     //NOTE: This is critical because the FKeys were added with NOCHECK status above so that we could safely switch
@@ -205,6 +211,7 @@ namespace SqlBulkHelpers.MaterializedData
                     //Finally cleanup the Loading and Discarding tables...
                     .DropTable(materializationTableInfo.LoadingTable)
                     .DropTable(materializationTableInfo.DiscardingTable);
+
             }
 
             //var timeoutConvertedToMinutes = Math.Max(1, (int)Math.Ceiling((decimal)BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds / 60));

@@ -285,7 +285,7 @@ namespace SqlBulkHelpers.MaterializedData
 
 
         public static void ReSeedTableIdentityValue(this SqlTransaction sqlTransaction, string tableName, long newIdentitySeedValue, ISqlBulkHelpersConfig bulkHelpersConfig = null)
-            => ReSeedTableIdentityValueAsync<ISkipMappingLookup>(sqlTransaction, newIdentitySeedValue, tableName, bulkHelpersConfig);
+            => ReSeedTableIdentityValue<ISkipMappingLookup>(sqlTransaction, newIdentitySeedValue, tableName, bulkHelpersConfig);
 
         public static void ReSeedTableIdentityValue<T>(this SqlTransaction sqlTransaction, long newIdentitySeedValue, string tableNameOverride = null, ISqlBulkHelpersConfig bulkHelpersConfig = null)
             where T : class
@@ -307,6 +307,57 @@ namespace SqlBulkHelpers.MaterializedData
         {
             sqlConnection.AssertArgumentIsNotNull(nameof(sqlConnection));
             new MaterializeDataHelper<T>(bulkHelpersConfig).ReSeedTableIdentityValue(sqlConnection, newIdentitySeedValue, sqlTransaction, tableNameOverride);
+        }
+
+        public static Task<long> ReSeedTableIdentityValueWithMaxIdAsync(this SqlTransaction sqlTransaction, string tableName, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            => ReSeedTableIdentityValueWithMaxIdAsync<ISkipMappingLookup>(sqlTransaction, tableName, bulkHelpersConfig);
+
+        public static Task<long> ReSeedTableIdentityValueWithMaxIdAsync<T>(this SqlTransaction sqlTransaction, string tableNameOverride = null, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            where T : class
+        {
+            sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
+            return ReSeedTableIdentityValueWithMaxIdInternalAsync<T>(sqlTransaction.Connection, tableNameOverride, sqlTransaction, bulkHelpersConfig);
+        }
+
+        public static Task<long> ReSeedTableIdentityValueWithMaxIdAsync(this SqlConnection sqlConnection, string tableName, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            => ReSeedTableIdentityValueWithMaxIdInternalAsync<ISkipMappingLookup>(sqlConnection, tableName, bulkHelpersConfig: bulkHelpersConfig);
+
+        private static async Task<long> ReSeedTableIdentityValueWithMaxIdInternalAsync<T>(
+            this SqlConnection sqlConnection,
+            string tableNameOverride = null,
+            SqlTransaction sqlTransaction = null,
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        ) where T : class
+        {
+            sqlConnection.AssertArgumentIsNotNull(nameof(sqlConnection));
+
+            return await new MaterializeDataHelper<T>(bulkHelpersConfig)
+                .ReSeedTableIdentityValueWithMaxIdAsync(sqlConnection, sqlTransaction, tableNameOverride)
+                .ConfigureAwait(false);
+        }
+
+        public static long ReSeedTableIdentityValueWithMaxId(this SqlTransaction sqlTransaction, string tableName, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            => ReSeedTableIdentityValueWithMaxId<ISkipMappingLookup>(sqlTransaction, tableName, bulkHelpersConfig);
+
+        public static long ReSeedTableIdentityValueWithMaxId<T>(this SqlTransaction sqlTransaction, string tableNameOverride = null, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            where T : class
+        {
+            sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
+            return ReSeedTableIdentityValueWithMaxIdInternal<T>(sqlTransaction.Connection, tableNameOverride, sqlTransaction, bulkHelpersConfig);
+        }
+
+        public static long ReSeedTableIdentityValueWithMaxId(this SqlConnection sqlConnection, string tableName, ISqlBulkHelpersConfig bulkHelpersConfig = null)
+            => ReSeedTableIdentityValueWithMaxIdInternal<ISkipMappingLookup>(sqlConnection, tableName, bulkHelpersConfig: bulkHelpersConfig);
+
+        private static long ReSeedTableIdentityValueWithMaxIdInternal<T>(
+            this SqlConnection sqlConnection,
+            string tableNameOverride = null,
+            SqlTransaction sqlTransaction = null,
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        ) where T : class
+        {
+            sqlConnection.AssertArgumentIsNotNull(nameof(sqlConnection));
+            return new MaterializeDataHelper<T>(bulkHelpersConfig).ReSeedTableIdentityWithMaxId(sqlConnection, sqlTransaction, tableNameOverride);
         }
 
         #endregion

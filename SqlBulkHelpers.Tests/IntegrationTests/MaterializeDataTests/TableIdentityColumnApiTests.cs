@@ -26,6 +26,7 @@ namespace SqlBulkHelpers.Tests.IntegrationTests.MaterializeDataTests
             await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
             await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
             {
+                // ReSharper disable once MethodHasAsyncOverload
                 syncCurrentIdentityValue = sqlTrans.GetTableCurrentIdentityValue(TestHelpers.TestTableName);
             }
 
@@ -50,6 +51,7 @@ namespace SqlBulkHelpers.Tests.IntegrationTests.MaterializeDataTests
 
             await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
             {
+                // ReSharper disable once MethodHasAsyncOverload
                 syncCurrentIdentityValueFromConn = sqlConn.GetTableCurrentIdentityValue(TestHelpers.TestTableName);
             }
 
@@ -86,15 +88,66 @@ namespace SqlBulkHelpers.Tests.IntegrationTests.MaterializeDataTests
             await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
             await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
             {
+                // ReSharper disable once MethodHasAsyncOverload
                 var syncCurrentIdentityValue = sqlTrans.GetTableCurrentIdentityValue(TestHelpers.TestTableName);
                 Assert.AreEqual(firstNewIdentitySeedValue, syncCurrentIdentityValue);
 
                 await sqlTrans.ReSeedTableIdentityValueAsync(TestHelpers.TestTableName, secondNewIdentitySeedValue).ConfigureAwait(false);
+                // ReSharper disable once MethodHasAsyncOverload
                 var syncUpdatedIdentityValue = sqlTrans.GetTableCurrentIdentityValue(TestHelpers.TestTableName);
                 Assert.AreEqual(syncUpdatedIdentityValue, secondNewIdentitySeedValue);
                 Assert.AreNotEqual(syncUpdatedIdentityValue, initialIdentitySeedValue);
 
                 await sqlTrans.ReSeedTableIdentityValueAsync(TestHelpers.TestTableName, initialIdentitySeedValue).ConfigureAwait(false);
+                sqlTrans.Commit();
+            }
+        }
+
+        [TestMethod]
+        public async Task TestReSeedTableIdentityValueWithMaxIdFromSqlTransactionSyncAndAsync()
+        {
+            var sqlConnectionString = SqlConnectionHelper.GetSqlConnectionString();
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
+
+            long initialIdentitySeedValue = 0;
+            var firstNewIdentitySeedValue = 555888;
+            var secondNewIdentitySeedValue = 888444;
+
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+            {
+                await sqlTrans.ReSeedTableIdentityValueAsync(TestHelpers.TestTableName, firstNewIdentitySeedValue).ConfigureAwait(false);
+                var asyncInitialIdentityValue = await sqlTrans.GetTableCurrentIdentityValueAsync(TestHelpers.TestTableName).ConfigureAwait(false);
+                Assert.AreEqual(firstNewIdentitySeedValue, asyncInitialIdentityValue);
+
+                var maxId = await sqlTrans.ReSeedTableIdentityValueWithMaxIdAsync(TestHelpers.TestTableName);
+                Assert.IsTrue(maxId > 0);
+
+                var asyncMaxIdIdentityValue = await sqlTrans.GetTableCurrentIdentityValueAsync(TestHelpers.TestTableName).ConfigureAwait(false);
+                Assert.AreEqual(maxId, asyncMaxIdIdentityValue);
+                Assert.AreNotEqual(asyncInitialIdentityValue, asyncMaxIdIdentityValue);
+
+                await sqlTrans.CommitAsync().ConfigureAwait(false);
+            }
+
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+            {
+                // ReSharper disable once MethodHasAsyncOverload
+                sqlTrans.ReSeedTableIdentityValue(TestHelpers.TestTableName, secondNewIdentitySeedValue);
+                // ReSharper disable once MethodHasAsyncOverload
+                var syncInitialIdentityValue = sqlTrans.GetTableCurrentIdentityValue(TestHelpers.TestTableName);
+                Assert.AreEqual(secondNewIdentitySeedValue, syncInitialIdentityValue);
+
+                // ReSharper disable once MethodHasAsyncOverload
+                var maxId = sqlTrans.ReSeedTableIdentityValueWithMaxId(TestHelpers.TestTableName);
+                Assert.IsTrue(maxId > 0);
+
+                // ReSharper disable once MethodHasAsyncOverload
+                var syncMaxIdIdentityValue = sqlTrans.GetTableCurrentIdentityValue(TestHelpers.TestTableName);
+                Assert.AreEqual(maxId, syncMaxIdIdentityValue);
+                Assert.AreNotEqual(syncInitialIdentityValue, syncMaxIdIdentityValue);
+
                 sqlTrans.Commit();
             }
         }

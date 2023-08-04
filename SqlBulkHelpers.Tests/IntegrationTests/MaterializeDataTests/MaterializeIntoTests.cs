@@ -141,6 +141,80 @@ namespace SqlBulkHelpers.IntegrationTests
         }
 
         [TestMethod]
+        public async Task TestMaterializeDataClearTableWithIdentityValueAsync()
+        {
+            var sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
+
+            //FIRST CLEAR the Tables so we can validate that data changed (not coincidentally the same number of items)!
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            {
+                var initialIdentityValue = await sqlConn.GetTableCurrentIdentityValueAsync(TestHelpers.TestTableNameFullyQualified).ConfigureAwait(false);
+
+                await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+                {
+                    await sqlTrans.ClearTablesAsync(new[]
+                        {
+                            TestHelpers.TestTableNameFullyQualified, 
+                            TestHelpers.TestChildTableNameFullyQualified
+                        }, 
+                        forceOverrideOfConstraints: true
+                    ).ConfigureAwait(false);
+                    
+                    await sqlTrans.CommitAsync().ConfigureAwait(false);
+                }
+
+                var finalIdentityValue = await sqlConn.GetTableCurrentIdentityValueAsync(TestHelpers.TestTableNameFullyQualified).ConfigureAwait(false);
+
+                Assert.AreEqual(initialIdentityValue, finalIdentityValue);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestMaterializeDataIntoTableWithIdentityColumnSyncingAsync()
+        {
+            var sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
+
+            //FIRST CLEAR the Tables so we can validate that data changed (not coincidentally the same number of items)!
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            {
+                var initialIdentityValue = await sqlConn.GetTableCurrentIdentityValueAsync(TestHelpers.TestTableNameFullyQualified).ConfigureAwait(false);
+                int testDataCount = 15;
+
+                await sqlConn.ExecuteMaterializeDataProcessAsync(TestHelpers.TestTableNameFullyQualified, async (materializeDataContext, sqlTransaction) =>
+                {
+                    TestContext.WriteLine($"MaterializedData Context:");
+                    foreach (var table in materializeDataContext.Tables)
+                        TestContext.WriteLine($"    - {table.LoadingTable.FullyQualifiedTableName} ==> {table.LiveTable.FullyQualifiedTableName}");
+
+                    //Test with Table name being provided...
+                    var loadingTableTerm = materializeDataContext.GetLoadingTableName(TestHelpers.TestTableNameFullyQualified);
+
+                    var testData = TestHelpers.CreateTestData(testDataCount);
+
+                    //MANUALLY Initialize ALL Identity ID Values..
+                    int idCounter = (int)initialIdentityValue + 1;
+                    foreach (var testItem in testData)
+                        testItem.Id = (idCounter++);
+
+                    var initialLoadingIdentityValue = await sqlTransaction.GetTableCurrentIdentityValueAsync(loadingTableTerm).ConfigureAwait(false);
+                    Assert.AreEqual(initialIdentityValue, initialLoadingIdentityValue);
+
+                    await sqlTransaction.BulkInsertAsync(testData, tableName: loadingTableTerm).ConfigureAwait(false);
+
+                    var finalLoadingIdentityValue = await sqlTransaction.GetTableCurrentIdentityValueAsync(loadingTableTerm).ConfigureAwait(false);
+
+                    //NOTE: Identity value will assign the current value so we offset by -1 to correctly calculate the final value...
+                    Assert.AreEqual((initialLoadingIdentityValue-1) + testDataCount, finalLoadingIdentityValue);
+                }).ConfigureAwait(false);
+
+                var finalIdentityValue = await sqlConn.GetTableCurrentIdentityValueAsync(TestHelpers.TestTableNameFullyQualified).ConfigureAwait(false);
+
+                //NOTE: Identity value will assign the current value so we offset by -1 to correctly calculate the final value...
+                Assert.AreEqual((initialIdentityValue-1) + testDataCount, finalIdentityValue);
+            }
+        }
+
+        [TestMethod]
         public async Task TestMaterializeDataIntoTableWithFullTextIndexAsync()
         {
             var sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();

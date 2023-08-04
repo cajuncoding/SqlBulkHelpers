@@ -213,7 +213,7 @@ namespace SqlBulkHelpers.IntegrationTests
         }
 
         [TestMethod]
-        public async Task TestBulkInsertWithIdentityInsertEnabledAsync()
+        public async Task TestBulkInsertWithIdentityInsertEnabledReseedToHighNumberAsync()
         {
             var sqlConnectionString = SqlConnectionHelper.GetSqlConnectionString();
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
@@ -269,7 +269,7 @@ namespace SqlBulkHelpers.IntegrationTests
                 Assert.AreEqual(startingIdentityValue, identityValueAfterInsert);
 
                 //**********************************************************************************************************************
-                //AFTER INSERTING WITH Identity Insert ON (MANUALly populated Identity Values), we need to ensure that we can
+                //AFTER INSERTING WITH Identity Insert ON (MANUALLY populated Identity Values), we need to ensure that we can
                 //  still Insert without Issues normally!
                 //**********************************************************************************************************************
                 var testDataNoIdentity = TestHelpers.CreateTestData(10);
@@ -291,6 +291,63 @@ namespace SqlBulkHelpers.IntegrationTests
                     {
                         Assert.AreEqual(testResult.Id, startingIdentityValue + (seedOffset++));
                     }
+                }
+            }
+        }
+
+        [TestMethod]
+        public async Task TestBulkInsertWithIdentityInsertEnabledNoReseedingAsync()
+        {
+            var sqlConnectionString = SqlConnectionHelper.GetSqlConnectionString();
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
+
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            await using (SqlTransaction sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+            {
+                var initialIdentityValue = await sqlTrans.GetTableCurrentIdentityValueAsync(TestHelpers.TestTableName);
+
+                ////Must clear all Data and Related Data to maintain Data Integrity...
+                ////NOTE: If we don't clear the related table then the FKey Constraint Check on the Related data (Child table) will FAIL!
+                await sqlTrans.ClearTablesAsync(new[]
+                {
+                    TestHelpers.TestChildTableNameFullyQualified,
+                    TestHelpers.TestTableNameFullyQualified
+                }, forceOverrideOfConstraints: true).ConfigureAwait(false);
+
+                var testData = TestHelpers.CreateTestData(10);
+
+                //MANUALLY Initialize ALL Identity ID Values..
+                int idCounter = (int)initialIdentityValue + 1;
+                foreach (var testItem in testData)
+                    testItem.Id = (idCounter++);
+
+                var results = (await sqlTrans.BulkInsertAsync(
+                    testData,
+                    TestHelpers.TestTableName,
+                    enableIdentityValueInsert: true
+                )).ToList();
+
+                //Validate the Identity Value did not change (since it was GREATER)!
+                var identityValueAfterInsert = await sqlTrans.GetTableCurrentIdentityValueAsync(TestHelpers.TestTableName);
+
+                //COMMIT our Data so we can then validate it....
+                await sqlTrans.CommitAsync().ConfigureAwait(false);
+
+                //RETRIEVE all the data again and validate!
+                var dbDataArray = (await sqlConn.QueryAllAsync<TestElement>(TestHelpers.TestTableName).ConfigureAwait(false)).OrderBy(r => r.Id).ToArray();
+                var testDataArray = testData.OrderBy(r => r.Id).ToArray();
+
+                Assert.AreEqual(initialIdentityValue + results.Count, identityValueAfterInsert);
+                Assert.AreEqual(dbDataArray.Length, testDataArray.Length);
+
+                var incrementingId = initialIdentityValue + 1;
+                for (var j = 0; j < testDataArray.Length; j++)
+                {
+                    var dbResult = dbDataArray[j];
+                    var testResult = testDataArray[j];
+                    Assert.AreEqual(incrementingId++, dbResult.Id);
+                    Assert.AreEqual(testResult.Key, dbResult.Key);
+                    Assert.AreEqual(testResult.Value, dbResult.Value);
                 }
             }
         }

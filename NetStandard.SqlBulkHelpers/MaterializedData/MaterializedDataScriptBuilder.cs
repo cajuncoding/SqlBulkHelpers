@@ -164,7 +164,7 @@ namespace SqlBulkHelpers.MaterializedData
 
             //Variables will be written out at the Top of the Script so they are initialized quickly and values used are consistent for the entire script...
             var currentIdentityVariable = $"@CurrentIdentity_{sourceTable.TableNameVariable}";
-            Variables.TryAdd(currentIdentityVariable, $"DECLARE {currentIdentityVariable} int = IDENT_CURRENT('{sourceTable.FullyQualifiedTableName}');");
+            Variables.TryAdd(currentIdentityVariable, $"DECLARE {currentIdentityVariable} BIGINT = IDENT_CURRENT('{sourceTable.FullyQualifiedTableName}');");
 
             ScriptBuilder.Append($@"
 	            --Syncs the Identity Seed value of the Target Table with the current value of the Source Table (captured into Variable at top of script)
