@@ -4,7 +4,6 @@ using SqlBulkHelpers.Tests;
 using SqlBulkHelpers.MaterializedData;
 using Microsoft.Data.SqlClient;
 using RepoDb;
-using SqlBulkHelpers.SqlBulkHelpers;
 using SqlBulkHelpers.Utilities;
 
 namespace SqlBulkHelpers.IntegrationTests
@@ -177,6 +176,18 @@ namespace SqlBulkHelpers.IntegrationTests
             //FIRST CLEAR the Tables so we can validate that data changed (not coincidentally the same number of items)!
             await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
             {
+                await using (var sqlClearTableTransaction = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+                {
+                    await sqlClearTableTransaction.ClearTablesAsync(new[]
+                        {
+                            TestHelpers.TestTableNameFullyQualified,
+                            TestHelpers.TestChildTableNameFullyQualified
+                        },
+                        forceOverrideOfConstraints: true
+                    ).ConfigureAwait(false);
+                    await sqlClearTableTransaction.CommitAsync().ConfigureAwait(false);
+                }
+
                 var initialIdentityValue = await sqlConn.GetTableCurrentIdentityValueAsync(TestHelpers.TestTableNameFullyQualified).ConfigureAwait(false);
                 int testDataCount = 15;
 
@@ -324,7 +335,7 @@ namespace SqlBulkHelpers.IntegrationTests
             Exception sqlException = null;
             try
             {
-                await InsertDataWithInvalidFKeyState(validationEnabled: true);
+                await InsertDataWithInvalidFKeyStateAsync(validationEnabled: true);
             }
             catch (Exception exc)
             {
@@ -342,7 +353,7 @@ namespace SqlBulkHelpers.IntegrationTests
             Exception sqlException = null;
             try
             {
-                await InsertDataWithInvalidFKeyState(validationEnabled: false);
+                await InsertDataWithInvalidFKeyStateAsync(validationEnabled: false);
             }
             catch (Exception exc)
             {
@@ -354,54 +365,43 @@ namespace SqlBulkHelpers.IntegrationTests
             Assert.IsNull(sqlException);
         }
 
-        private async Task InsertDataWithInvalidFKeyState(bool validationEnabled)
+        private async Task InsertDataWithInvalidFKeyStateAsync(bool validationEnabled)
         {
             var sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
 
             //NOW Materialize Data into the Tables!
             await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
-            await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
             {
-                ////Must clear all Data and Related Data to maintain Data Integrity...
-                ////NOTE: If we don't clear the related table then the FKey Constraint Check on the Related data (Child table) will FAIL!
-                //await sqlTrans.ClearTablesAsync(new[]
-                //{
-                //    TestHelpers.TestChildTableNameFullyQualified,
-                //    TestHelpers.TestTableNameFullyQualified
-                //}, forceOverrideOfConstraints: true).ConfigureAwait(false);
-
-                //******************************************************************************************
-                //START the Materialize Data Process...
-                //******************************************************************************************
-                var materializeDataContext = await sqlTrans.StartMaterializeDataProcessAsync(
+                var tableNames = new[] {
                     TestHelpers.TestTableNameFullyQualified,
                     TestHelpers.TestChildTableNameFullyQualified
-                ).ConfigureAwait(false);
+                };
 
-                //Test with Table name being provided...
-                var parentMaterializationInfo = materializeDataContext[TestHelpers.TestTableName];
-                var parentTestData = TestHelpers.CreateTestData(100);
-                var parentResults = (await sqlTrans.BulkInsertAsync(parentTestData, tableName: parentMaterializationInfo.LoadingTable).ConfigureAwait(false)).ToList();
+                await sqlConn.ExecuteMaterializeDataProcessAsync(tableNames, async (materializeDataContext, sqlTransaction) =>
+                {
+                    //Test with Table name being provided...
+                    var parentMaterializationInfo = materializeDataContext[TestHelpers.TestTableName];
+                    var parentTestData = TestHelpers.CreateTestData(100);
+                    var parentResults = (await sqlTransaction.BulkInsertAsync(
+                        parentTestData, 
+                        tableName: parentMaterializationInfo.LoadingTable
+                    ).ConfigureAwait(false)).ToList();
 
-                //***********************************************************************
-                //Now Clear the Parent Table to FORCE INVALID FKey STATE!!!
-                //***********************************************************************
-                await sqlTrans.ClearTableAsync(parentMaterializationInfo.LoadingTable).ConfigureAwait(false);
+                    //***********************************************************************
+                    //Now Clear the Parent Table to FORCE INVALID FKey STATE!!!
+                    //***********************************************************************
+                    await sqlTransaction.ClearTableAsync(parentMaterializationInfo.LoadingTable).ConfigureAwait(false);
 
-                //Test Child Data with Table name being derived from Model Annotation...
-                var childMaterializationInfo = materializeDataContext[TestHelpers.TestChildTableNameFullyQualified];
-                var childTestData = TestHelpers.CreateChildTestData(parentResults);
-                var childResults = await sqlTrans.BulkInsertOrUpdateAsync(childTestData, tableName: childMaterializationInfo.LoadingTable).ConfigureAwait(false);
+                    //Add Child Test Data with Table name being derived from Model Annotation...
+                    var childMaterializationInfo = materializeDataContext[TestHelpers.TestChildTableNameFullyQualified];
+                    var childTestData = TestHelpers.CreateChildTestData(parentResults);
+                    var childResults = await sqlTransaction.BulkInsertOrUpdateAsync(childTestData, tableName: childMaterializationInfo.LoadingTable).ConfigureAwait(false);
 
-                //By overriding this Value we force SQL Server to skip all validation of FKey constraints when re-enabling them!
-                //  This can easily leave our data in an invalid state leaving the implementor responsible for ensuring Data Integrity of all tables being Materialized!
-                materializeDataContext.EnableDataConstraintChecksOnCompletion = validationEnabled;
+                    //By overriding this Value we force SQL Server to skip all validation of FKey constraints when re-enabling them!
+                    //  This can easily leave our data in an invalid state leaving the implementor responsible for ensuring Data Integrity of all tables being Materialized!
+                    materializeDataContext.EnableDataConstraintChecksOnCompletion = validationEnabled;
 
-                //******************************************************************************************
-                //FINISH the Materialize Data Process...
-                //******************************************************************************************
-                await materializeDataContext.FinishMaterializeDataProcessAsync().ConfigureAwait(false);
-                await sqlTrans.CommitAsync().ConfigureAwait(false);
+                }).ConfigureAwait(false);
             }
         }
     }

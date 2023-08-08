@@ -109,7 +109,6 @@ namespace SqlBulkHelpers.Tests.IntegrationTests.MaterializeDataTests
             var sqlConnectionString = SqlConnectionHelper.GetSqlConnectionString();
             ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
 
-            long initialIdentitySeedValue = 0;
             var firstNewIdentitySeedValue = 555888;
             var secondNewIdentitySeedValue = 888444;
 

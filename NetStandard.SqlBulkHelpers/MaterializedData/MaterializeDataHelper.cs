@@ -1,11 +1,10 @@
-﻿using System;
+﻿using Microsoft.Data.SqlClient;
+using SqlBulkHelpers.CustomExtensions;
+using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlTypes;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Data.SqlClient;
-using SqlBulkHelpers.CustomExtensions;
 
 namespace SqlBulkHelpers.MaterializedData
 {
@@ -23,22 +22,78 @@ namespace SqlBulkHelpers.MaterializedData
 
         #region Materialize Data API Methods (& Cloning for Materialization Process)
 
+        /// <summary>
+        /// This Method will copy the Schema within the specified transaction which will result in a Schema lock for the duration of the Transaction;
+        ///     therefore it's recommended to use a separate SqlTransaction from the actual loading process just for initialization of the Loading Schema (copied tables).
+        ///     And then use a separate Sql Transaction in a Try/Finally to Clean up the Materialization process via CleanupMaterializeDataProcessAsync().
+        /// </summary>
+        /// <param name="sqlTransaction"></param>
+        /// <param name="tableNames"></param>
+        /// <returns></returns>
         public Task<MaterializeDataContext> StartMaterializeDataProcessAsync(SqlTransaction sqlTransaction, params string[] tableNames)
             => StartMaterializeDataProcessAsync(sqlTransaction, BulkHelpersConfig.MaterializedDataLoadingSchema, BulkHelpersConfig.MaterializedDataDiscardingSchema, tableNames);
 
+        /// <summary>
+        /// This Method will copy the Schema within the specified transaction which will result in a Schema lock for the duration of the Transaction;
+        ///     therefore it's recommended to use a separate SqlTransaction from the actual loading process just for initialization of the Loading Schema (copied tables).
+        ///     And then use a separate Sql Transaction in a Try/Finally to Clean up the Materialization process via CleanupMaterializeDataProcessAsync().
+        /// </summary>
+        /// <param name="sqlTransaction"></param>
+        /// <param name="loadingSchemaName"></param>
+        /// <param name="discardingSchemaName"></param>
+        /// <param name="tableNames"></param>
+        /// <returns></returns>
         public async Task<MaterializeDataContext> StartMaterializeDataProcessAsync(SqlTransaction sqlTransaction, string loadingSchemaName, string discardingSchemaName, params string[] tableNames)
         {
             //This will clone each of the Live tables into one Temp and one Loading table (each in different Schema as defined in the BulkHelperSettings)..
-            var cloneMaterializationTables = await CloneTableStructuresForMaterializationAsync(
+            var cloneMaterializationTables = await CloneTableStructuresForMaterializationInternalAsync(
                 sqlTransaction,
                 tableNames,
                 loadingSchemaName,
                 discardingSchemaName
             ).ConfigureAwait(false);
 
-            return new MaterializeDataContext(sqlTransaction, cloneMaterializationTables, this.BulkHelpersConfig);
+            return new MaterializeDataContext(cloneMaterializationTables, this.BulkHelpersConfig);
         }
 
+        /// <summary>
+        /// This Method will clean up the the Loading/Discarding Schema, as defined in the MaterializedDataContext, specified transaction which will result in a Schema lock for the duration of the Transaction;
+        ///     therefore it's recommended to use a separate SqlTransaction from the actual loading process just for initialization of the Loading Schema (copied tables).
+        ///     And then use a separate Sql Transaction in a Try/Finally to Clean up the Materialization process via CleanupMaterializeDataProcessAsync().
+        /// </summary>
+        /// <param name="sqlTransaction"></param>
+        /// <param name="materializedDataContext"></param>
+        /// <returns></returns>
+        public async Task<IMaterializeDataContext> CleanupMaterializeDataProcessAsync(SqlTransaction sqlTransaction, IMaterializeDataContext materializedDataContext)
+        {
+            var materializationTables = materializedDataContext.Tables;
+            var switchScriptBuilder = MaterializedDataScriptBuilder.NewSqlScript();
+
+            //Explicitly clean up all Loading/Discarding Tables (contains old data) to free resources -- this leaves us with only the (new) Live Table in place!
+            foreach (var materializationTableInfo in materializationTables)
+            {
+                switchScriptBuilder
+                    //Finally cleanup the Loading and Discarding tables...
+                    .DropTableIfExists(materializationTableInfo.LoadingTable)
+                    .DropTableIfExists(materializationTableInfo.DiscardingTable);
+            }
+
+            await sqlTransaction.ExecuteMaterializedDataSqlScriptAsync(
+                switchScriptBuilder,
+                BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds
+            ).ConfigureAwait(false);
+
+            return materializedDataContext;
+        }
+
+        /// <summary>
+        /// This Method will copy the Schema within the specified transaction which will result in a Schema lock for the duration of the Transaction;
+        ///     therefore it's recommended to use a separate SqlTransaction from the actual loading process just for initialization of the Loading Schema (copied tables).
+        ///     And then use a separate Sql Transaction in a Try/Finally to Clean up the Materialization process via CleanupMaterializeDataProcessAsync().
+        /// </summary>
+        /// <param name="sqlTransaction"></param>
+        /// <param name="tableNames"></param>
+        /// <returns></returns>
         public Task<MaterializationTableInfo[]> CloneTableStructuresForMaterializationAsync(
             SqlTransaction sqlTransaction,
             params string[] tableNames
@@ -49,10 +104,32 @@ namespace SqlBulkHelpers.MaterializedData
             BulkHelpersConfig.MaterializedDataDiscardingSchema
         );
 
-        public async Task<MaterializationTableInfo[]> CloneTableStructuresForMaterializationAsync(
-            SqlTransaction sqlTransaction, 
-            IEnumerable<string> tableNames, 
-            string loadingSchemaName = null, 
+        /// <summary>
+        /// This Method will copy the Schema within the specified transaction which will result in a Schema lock for the duration of the load;
+        ///     it's recommended to use the overload with an SqlConnection instead which will initialize it's own SqlTransaction (as part of the MaterializedDataContext)
+        ///     after the Schema copy is complete so Schema locks are avoided but Try/Finally MUST be used to ensure the Schema is cleaned up!
+        /// </summary>
+        /// <param name="sqlTransaction"></param>
+        /// <param name="tableNames"></param>
+        /// <param name="loadingSchemaName"></param>
+        /// <param name="discardingSchemaName"></param>
+        /// <returns></returns>
+        public Task<MaterializationTableInfo[]> CloneTableStructuresForMaterializationAsync(
+            SqlTransaction sqlTransaction,
+            IEnumerable<string> tableNames,
+            string loadingSchemaName = null,
+            string discardingSchemaName = null
+        ) => CloneTableStructuresForMaterializationInternalAsync(
+            sqlTransaction, 
+            tableNames, 
+            loadingSchemaName, 
+            discardingSchemaName
+        );
+
+        protected async Task<MaterializationTableInfo[]> CloneTableStructuresForMaterializationInternalAsync(
+            SqlTransaction sqlTransaction,
+            IEnumerable<string> tableNames,
+            string loadingSchemaName = null,
             string discardingSchemaName = null
         )
         {
@@ -74,7 +151,7 @@ namespace SqlBulkHelpers.MaterializedData
 
             //Optional Perf. Optimization: If ConcurrentConnections are enabled we can optimize performance by asynchronously pre-loading Table Schemas with concurrent Sql Connections...
             if (BulkHelpersConfig.IsConcurrentConnectionProcessingEnabled)
-                await PreCacheTableSchemaDefinitionsForMaterialization(tableNameTermsList).ConfigureAwait(false);
+                await PreCacheTableSchemaDefinitionsForMaterializationAsync(tableNameTermsList).ConfigureAwait(false);
 
             //1) First compute all table cloning instructions, and Materialization table info./details to generate the Loading Tables and the Discard Tables for every table to be cloned...
             foreach (var originalTableNameTerm in tableNameTermsList)
@@ -82,20 +159,31 @@ namespace SqlBulkHelpers.MaterializedData
                 //Add Clones for Loading tables...
                 //NOTE: We make the Loading table name highly unique just in case multiple processes run at the same time they will have less risk of impacting each other;
                 //  though such a conflict would be a flawed design and should be eliminated via an SQL lock or Distributed Mutex lock (aka SqlAppLockHelper library).
-                var loadingCloneInfo = CloneTableInfo.ForNewSchema(originalTableNameTerm, loadingTablesSchema).MakeTargetTableNameUnique();
-                cloneInfoToExecuteList.Add(loadingCloneInfo);
-
-                // ReSharper disable once PossibleNullReferenceException
-                bool isDiscardingSchemaDifferentFromLoadingSchema = !loadingSchemaName.Equals(discardingTablesSchema, StringComparison.OrdinalIgnoreCase);
+                var loadingCloneInfo = CloneTableInfo.ForNewSchema(
+                    originalTableNameTerm, 
+                    loadingTablesSchema, 
+                    BulkHelpersConfig.MaterializedDataLoadingTablePrefix, 
+                    BulkHelpersConfig.MaterializedDataLoadingTableSuffix
+                );
 
                 //Add Clones for Discarding tables (used for switching Live OUT for later cleanup)...
                 //NOTE: We try to keep our Loading and Discarding table names in sync if possible but enforce their uniqueness if the Schema names are not different...
-                var discardingCloneInfo = isDiscardingSchemaDifferentFromLoadingSchema
-                    //Try to keep the Table Names highly unique but in-sync between Loading and Discarding schemas (for debugging purposes mainly).
-                    ? CloneTableInfo.From(originalTableNameTerm, loadingCloneInfo.TargetTable.SwitchSchema(discardingTablesSchema))
-                    //Otherwise enforce uniqueness...
-                    : CloneTableInfo.ForNewSchema(originalTableNameTerm, discardingTablesSchema).MakeTargetTableNameUnique();
-                    
+                var discardingCloneInfo = CloneTableInfo.ForNewSchema(
+                    originalTableNameTerm, 
+                    discardingTablesSchema,
+                    BulkHelpersConfig.MaterializedDataDiscardingTablePrefix,
+                    BulkHelpersConfig.MaterializedDataDiscardingTableSuffix
+                );
+
+                //Enforce table name uniqueness if necessary and enabled in configuration...
+                if (BulkHelpersConfig.MaterializedDataMakeSchemaCopyNamesUnique)
+                {
+                    loadingCloneInfo = loadingCloneInfo.MakeTargetTableNameUnique();
+                    discardingCloneInfo = discardingCloneInfo.MakeTargetTableNameUnique();
+                }
+
+                //Add to our List to be processed...
+                cloneInfoToExecuteList.Add(loadingCloneInfo);
                 cloneInfoToExecuteList.Add(discardingCloneInfo);
 
                 //Finally aggregate the Live/Original, Loading, and Discarding tables into the MaterializationTableInfo
@@ -153,7 +241,7 @@ namespace SqlBulkHelpers.MaterializedData
         /// </summary>
         /// <param name="tableNameTerms"></param>
         /// <returns></returns>
-        protected async Task<List<SqlBulkHelpersTableDefinition>> PreCacheTableSchemaDefinitionsForMaterialization(IEnumerable<TableNameTerm> tableNameTerms)
+        protected async Task<List<SqlBulkHelpersTableDefinition>> PreCacheTableSchemaDefinitionsForMaterializationAsync(IEnumerable<TableNameTerm> tableNameTerms)
         {
             var tableDefinitionResults = new List<SqlBulkHelpersTableDefinition>();
 
@@ -218,6 +306,7 @@ namespace SqlBulkHelpers.MaterializedData
         )
         {
             sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
+
             var cloneInfoList = tablesToClone.ToList();
 
             if (cloneInfoList.IsNullOrEmpty())
@@ -281,7 +370,7 @@ namespace SqlBulkHelpers.MaterializedData
             var sqlScriptBuilder = MaterializedDataScriptBuilder.NewSqlScript();
 
             foreach (var tableNameTerm in tableNameTermsList)
-                sqlScriptBuilder.DropTable(tableNameTerm);
+                sqlScriptBuilder.DropTableIfExists(tableNameTerm);
 
             //Execute the Script!
             await sqlTransaction
@@ -317,9 +406,9 @@ namespace SqlBulkHelpers.MaterializedData
                     var tableDef = await GetTableSchemaDefinitionInternalAsync(TableSchemaDetailLevel.ExtendedDetails, sqlConnection, sqlTransaction: sqlTransaction, tableNameTerm).ConfigureAwait(false);
                     //Bucket our Table Definitions based on if they REQUIRE Materialization or if they can be handled by Truncate processing...
                     if (tableDef.ReferencingForeignKeyConstraints.HasAny() || tableDef.ForeignKeyConstraints.HasAny())
-                        lock (tablesToMaterializeAsEmpty) tablesToMaterializeAsEmpty.Add(tableNameTerm);
+                        tablesToMaterializeAsEmpty.Add(tableNameTerm);
                     else
-                        lock (tablesToProcessWithTruncation) tablesToProcessWithTruncation.Add(tableNameTerm);
+                        tablesToProcessWithTruncation.Add(tableNameTerm);
                 }
 
                 if (tablesToMaterializeAsEmpty.Any())
@@ -329,9 +418,15 @@ namespace SqlBulkHelpers.MaterializedData
                     //          and we simply complete the process by materializing to EMPTY tables (newly cloned) with no data!
                     //START the Materialize Data Process... but we do NOT insert any new data to the Empty Tables!
                     var materializeDataContext = await sqlTransaction.StartMaterializeDataProcessAsync(tablesToMaterializeAsEmpty).ConfigureAwait(false);
-
-                    //We finish the Clearing process by immediately switching out with the new/empty tables to Clear the Data!
-                    await materializeDataContext.FinishMaterializeDataProcessAsync().ConfigureAwait(false);
+                    try
+                    {
+                        //We finish the Clearing process by immediately switching out with the new/empty tables to Clear the Data!
+                        await materializeDataContext.FinishMaterializeDataProcessAsync(sqlTransaction).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        await CleanupMaterializeDataProcessAsync(sqlTransaction, materializeDataContext).ConfigureAwait(false);
+                    }
                 }
             }
             else
@@ -345,7 +440,7 @@ namespace SqlBulkHelpers.MaterializedData
                 var truncateTableSqlScriptBuilder = MaterializedDataScriptBuilder.NewSqlScript();
 
                 foreach (var tableNameTerm in tablesToProcessWithTruncation)
-                    truncateTableSqlScriptBuilder.TruncateTable(tableNameTerm);
+                    truncateTableSqlScriptBuilder.TruncateTableIfExists(tableNameTerm);
 
                 //Execute the Script!
                 await sqlTransaction
@@ -492,8 +587,9 @@ namespace SqlBulkHelpers.MaterializedData
             var tableNameTerm = tableDef.TableNameTerm;
             var maxIdVariable = $"@MaxId_{tableNameTerm.TableNameVariable}";
 
+            //NOTE: If the Table is EMPTY then MAX(Id) will return null so we must Coalesce to the Default value of 1!
             var sqlCmd = new SqlCommand($@"
-                DECLARE {maxIdVariable} BIGINT = (SELECT MAX({tableDef.IdentityColumn.ColumnName.QualifySqlTerm()}) FROM {tableNameTerm.FullyQualifiedTableName});
+                DECLARE {maxIdVariable} BIGINT = (SELECT COALESCE(MAX({tableDef.IdentityColumn.ColumnName.QualifySqlTerm()}), 1) FROM {tableNameTerm.FullyQualifiedTableName});
                 DBCC CHECKIDENT(@TableName, RESEED, {maxIdVariable});
                 SELECT CURRENT_IDENTITY_VALUE = IDENT_CURRENT(@TableName);
             ", sqlConnection, sqlTransaction);
