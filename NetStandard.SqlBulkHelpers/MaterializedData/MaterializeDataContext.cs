@@ -9,7 +9,6 @@ namespace SqlBulkHelpers.MaterializedData
 {
     public class MaterializeDataContext : IMaterializeDataContextCompletionSource, IMaterializeDataContext
     {
-        protected SqlTransaction SqlTransaction { get; }
         protected ILookup<string, MaterializationTableInfo> TableLookupByFullyQualifiedName { get; }
         protected ILookup<string, MaterializationTableInfo> TableLookupByOriginalName { get; }
         protected ISqlBulkHelpersConfig BulkHelpersConfig { get; }
@@ -80,16 +79,15 @@ namespace SqlBulkHelpers.MaterializedData
         /// </summary>
         public bool EnableDataConstraintChecksOnCompletion { get; set; } = true;
 
-        public MaterializeDataContext(SqlTransaction sqlTransaction, MaterializationTableInfo[] materializationTables, ISqlBulkHelpersConfig bulkHelpersConfig)
+        public MaterializeDataContext(MaterializationTableInfo[] materializationTables, ISqlBulkHelpersConfig bulkHelpersConfig)
         {
-            SqlTransaction = sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
             Tables = materializationTables.AssertArgumentIsNotNull(nameof(materializationTables));
             BulkHelpersConfig = bulkHelpersConfig.AssertArgumentIsNotNull(nameof(bulkHelpersConfig));
             TableLookupByFullyQualifiedName = Tables.ToLookup(t => t.LiveTable.FullyQualifiedTableName, StringComparer.OrdinalIgnoreCase);
             TableLookupByOriginalName = Tables.ToLookup(t => t.OriginalTableName, StringComparer.OrdinalIgnoreCase);
         }
 
-        internal async Task HandleNonTransactionTasksBeforeMaterialization()
+        internal async Task HandleParallelConnectionTasksBeforeMaterialization()
         {
             //NOW JUST PRIOR to Executing the Materialized Data Switch we must handle any actions required outside of the Materialized Data Transaction (e.g. FullTextIndexes, etc.)
             //NOTE: We do this here so that our live tables have the absolute minimum impact; meaning things like Full Text Indexes are Dropped for ONLY the amount of time it takes to execute our Switch
@@ -118,7 +116,7 @@ namespace SqlBulkHelpers.MaterializedData
         ///         occurs during the Finish Materialization process!!!
         /// </summary>
         /// <returns></returns>
-        internal async Task HandleNonTransactionTasksAfterMaterialization()
+        internal async Task HandleParallelConnectionTasksAfterMaterialization()
         {
             if (TablesWithFullTextIndexesRemoved.Any())
             {
@@ -134,7 +132,7 @@ namespace SqlBulkHelpers.MaterializedData
             }
         }
 
-        public async Task FinishMaterializeDataProcessAsync()
+        public async Task FinishMaterializeDataProcessAsync(SqlTransaction sqlTransaction)
         {
             var materializationTables = this.Tables;
             var switchScriptBuilder = MaterializedDataScriptBuilder.NewSqlScript();
@@ -207,16 +205,10 @@ namespace SqlBulkHelpers.MaterializedData
                     //NOTE: FKeys must be explicitly re-enabled to ensure they are restored to Trusted state; they aren't included in the ALL Constraint Check.
                     .EnableForeignKeyChecks(materializationTableInfo.LiveTable, this.EnableDataConstraintChecksOnCompletion, liveTableDefinition.ForeignKeyConstraints.AsArray())
                     //Re-enable All other Referencing FKey Checks that were disable above to allow the switching above...
-                    .EnableReferencingForeignKeyChecks(this.EnableDataConstraintChecksOnCompletion, otherReferencingFKeyConstraints.AsArray())
-                    //Finally cleanup the Loading and Discarding tables...
-                    .DropTable(materializationTableInfo.LoadingTable)
-                    .DropTable(materializationTableInfo.DiscardingTable);
-
+                    .EnableReferencingForeignKeyChecks(this.EnableDataConstraintChecksOnCompletion, otherReferencingFKeyConstraints.AsArray());
             }
 
-            //var timeoutConvertedToMinutes = Math.Max(1, (int)Math.Ceiling((decimal)BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds / 60));
-
-            await SqlTransaction.ExecuteMaterializedDataSqlScriptAsync(
+            await sqlTransaction.ExecuteMaterializedDataSqlScriptAsync(
                 switchScriptBuilder,
                 BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds
             ).ConfigureAwait(false);

@@ -30,9 +30,9 @@ namespace SqlBulkHelpers.MaterializedData
             => new CloneTableInfo(SourceTable, MakeTableNameUniqueInternal(TargetTable));
 
         private static TableNameTerm MakeTableNameUniqueInternal(TableNameTerm tableNameTerm)
-            => TableNameTerm.From(tableNameTerm.SchemaName, $"{tableNameTerm.TableName}_Copy_{IdGenerator.NewId(10)}");
+            => TableNameTerm.From(tableNameTerm.SchemaName, string.Concat(tableNameTerm.TableName, "_", IdGenerator.NewId(10)));
 
-        public static CloneTableInfo From<TSource, TTarget>(string sourceTableName = null, string targetTableName = null)
+        public static CloneTableInfo From<TSource, TTarget>(string sourceTableName = null, string targetTableName = null, string targetPrefix = null, string targetSuffix = null)
         {
             //If the generic type is ISkipMappingLookup then we must have a valid sourceTableName specified as a param...
             if (SqlBulkHelpersProcessingDefinition.SkipMappingLookupType.IsAssignableFrom(typeof(TSource)))
@@ -46,7 +46,7 @@ namespace SqlBulkHelpers.MaterializedData
                 ? sourceTableName
                 : targetTableName;
 
-            //If the generic type is ISkipMappingLookup then we must have a valid sourceTableName specified as a param...
+            //If the generic type is ISkipMappingLookup then we must have a valid validTargetTableName specified as a param...
             if (SqlBulkHelpersProcessingDefinition.SkipMappingLookupType.IsAssignableFrom(typeof(TTarget)))
             {
                 //We validate the valid target table name but if it's still blank then we throw an Argument
@@ -54,14 +54,14 @@ namespace SqlBulkHelpers.MaterializedData
                 validTargetTableName.AssertArgumentIsNotNullOrWhiteSpace(nameof(targetTableName));
             }
 
-            var targetTable = TableNameTerm.From<TTarget>(targetTableName ?? sourceTableName);
+            var targetTable = TableNameTerm.From<TTarget>(targetTableName ?? sourceTableName).ApplyNamePrefixOrSuffix(targetPrefix, targetSuffix);
             return new CloneTableInfo(sourceTable, targetTable);
         }
 
-        public static CloneTableInfo From(string sourceTableName, string targetTableName = null)
-            => From<ISkipMappingLookup, ISkipMappingLookup>(sourceTableName, targetTableName);
+        public static CloneTableInfo From(string sourceTableName, string targetTableName = null, string targetPrefix = null, string targetSuffix = null)
+            => From<ISkipMappingLookup, ISkipMappingLookup>(sourceTableName, targetTableName, targetPrefix, targetSuffix);
 
-        public static CloneTableInfo ForNewSchema(TableNameTerm sourceTable, string targetSchemaName)
-            => new CloneTableInfo(sourceTable, sourceTable.SwitchSchema(targetSchemaName));
+        public static CloneTableInfo ForNewSchema(TableNameTerm sourceTable, string targetSchemaName, string targetTablePrefix = null, string targetTableSuffix = null)
+            => new CloneTableInfo(sourceTable, sourceTable.SwitchSchema(targetSchemaName).ApplyNamePrefixOrSuffix(targetTablePrefix, targetTableSuffix));
     }
 }

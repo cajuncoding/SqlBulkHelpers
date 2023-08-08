@@ -31,7 +31,6 @@ namespace SqlBulkHelpers.IntegrationTests
                 Assert.IsNotNull(cloneInfo);
                 Assert.AreEqual(TestHelpers.TestTableName, cloneInfo.SourceTable.TableName);
                 Assert.AreNotEqual(cloneInfo.SourceTable.FullyQualifiedTableName, cloneInfo.TargetTable.FullyQualifiedTableName);
-                Assert.IsTrue(cloneInfo.TargetTable.TableName.Contains("_Copy_", StringComparison.OrdinalIgnoreCase));
 
                 //Validate the schema of the cloned table...
                 Assert.IsNotNull(sourceTableSchema);
@@ -87,6 +86,14 @@ namespace SqlBulkHelpers.IntegrationTests
                 //Validate that the new table has No Data!
                 var targetTableCount = await sqlConn.CountAllAsync(tableName: cloneInfo.TargetTable).ConfigureAwait(false);
                 Assert.AreEqual(0, targetTableCount);
+
+                //CLEANUP The Cloned Table so that other Tests Work as expected (e.g. Some tests validate Referencing FKeys, etc.
+                //  that are now increased with the table clone).
+                await using (var sqlTransForCleanup = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+                {
+                    await sqlTransForCleanup.DropTableAsync(cloneInfo.TargetTable).ConfigureAwait(false);
+                    await sqlTransForCleanup.CommitAsync().ConfigureAwait(false);
+                }
             }
         }
 
@@ -121,6 +128,14 @@ namespace SqlBulkHelpers.IntegrationTests
 
                 //Ensure both Source & Target contain the same number of records!
                 Assert.AreEqual(sourceTableCount, targetTableCount);
+
+                //CLEANUP The Cloned Table so that other Tests Work as expected (e.g. Some tests validate Referencing FKeys, etc.
+                //  that are now increased with the table clone).
+                await using (var sqlTransForCleanup = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+                {
+                    await sqlTransForCleanup.DropTableAsync(cloneInfo.TargetTable).ConfigureAwait(false);
+                    await sqlTransForCleanup.CommitAsync().ConfigureAwait(false);
+                }
             }
         }
 

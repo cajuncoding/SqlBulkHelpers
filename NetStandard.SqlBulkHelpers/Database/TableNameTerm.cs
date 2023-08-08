@@ -23,10 +23,19 @@ namespace SqlBulkHelpers
         public string FullyQualifiedTableName { get; }
 
         public override string ToString() => FullyQualifiedTableName;
-        public bool Equals(TableNameTerm other) => FullyQualifiedTableName.Equals(other.FullyQualifiedTableName);
-        public bool EqualsIgnoreCase(TableNameTerm other) => FullyQualifiedTableName.Equals(other.FullyQualifiedTableName, StringComparison.OrdinalIgnoreCase);
-        public TableNameTerm SwitchSchema(string newSchema) => new TableNameTerm(newSchema, TableName);
-        
+
+        public bool Equals(TableNameTerm other)
+            => FullyQualifiedTableName.Equals(other.FullyQualifiedTableName);
+
+        public bool EqualsIgnoreCase(TableNameTerm other)
+            => FullyQualifiedTableName.Equals(other.FullyQualifiedTableName, StringComparison.OrdinalIgnoreCase);
+
+        public TableNameTerm SwitchSchema(string newSchema)
+            => new TableNameTerm(newSchema, TableName);
+
+        public TableNameTerm ApplyNamePrefixOrSuffix(string prefix = null, string suffix = null)
+             => new TableNameTerm(SchemaName, string.Concat(prefix?.Trim() ?? string.Empty, TableName, suffix?.Trim() ?? string.Empty));
+
         //Handle Automatic String conversions for simplified APIs...
         public static implicit operator string(TableNameTerm t) => t.ToString();
 

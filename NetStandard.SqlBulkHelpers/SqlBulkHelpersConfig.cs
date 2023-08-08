@@ -10,6 +10,12 @@ namespace SqlBulkHelpers
         public const int DefaultMaxConcurrentConnections = 5;
     }
 
+    public enum SchemaCopyMode
+    {
+        OutsideTransactionAvoidSchemaLocks = 1,
+        InsideTransactionAllowSchemaLocks = 2,
+    }
+
     public interface ISqlBulkHelpersConfig
     {
         int SqlBulkBatchSize { get; } //General guidance is that 2000-5000 is efficient enough.
@@ -22,8 +28,17 @@ namespace SqlBulkHelpers
         int MaterializeDataStructureProcessingTimeoutSeconds { get; }
         int MaterializedDataSwitchTableWaitTimeoutMinutes { get; }
         SwitchWaitTimeoutAction MaterializedDataSwitchTimeoutAction { get; }
+
         string MaterializedDataLoadingSchema { get; }
+        string MaterializedDataLoadingTablePrefix { get; }
+        string MaterializedDataLoadingTableSuffix { get; }
+
         string MaterializedDataDiscardingSchema { get; }
+        string MaterializedDataDiscardingTablePrefix { get; }
+        string MaterializedDataDiscardingTableSuffix { get; }
+
+        SchemaCopyMode MaterializedDataSchemaCopyMode { get; }
+        bool MaterializedDataMakeSchemaCopyNamesUnique { get; }
         bool IsCloningIdentitySeedValueEnabled { get; }
 
         ISqlBulkHelpersConnectionProvider ConcurrentConnectionFactory { get; }
@@ -125,8 +140,17 @@ namespace SqlBulkHelpers
         public int MaterializeDataStructureProcessingTimeoutSeconds { get; set; } = 30;
         public int MaterializedDataSwitchTableWaitTimeoutMinutes { get; set; } = 1;
         public SwitchWaitTimeoutAction MaterializedDataSwitchTimeoutAction { get; } = SwitchWaitTimeoutAction.Abort;
+        public SchemaCopyMode MaterializedDataSchemaCopyMode { get; set; } = SchemaCopyMode.OutsideTransactionAvoidSchemaLocks;
+        public bool MaterializedDataMakeSchemaCopyNamesUnique { get; set; } = true;
+
         public string MaterializedDataLoadingSchema { get; set; } = "materializing_load";
+        public string MaterializedDataLoadingTablePrefix { get; set; } = string.Empty;
+        public string MaterializedDataLoadingTableSuffix { get; set; } = "_Loading";
+
         public string MaterializedDataDiscardingSchema { get; set; } = "materializing_discard";
+        public string MaterializedDataDiscardingTablePrefix { get; set; } = string.Empty;
+        public string MaterializedDataDiscardingTableSuffix { get; set; } = "_Discarding";
+
         public bool IsCloningIdentitySeedValueEnabled { get; set; } = true;
         public ISqlBulkHelpersConnectionProvider ConcurrentConnectionFactory { get; set; } = null;
 

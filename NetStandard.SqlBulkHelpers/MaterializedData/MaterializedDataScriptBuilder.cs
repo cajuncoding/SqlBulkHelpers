@@ -52,7 +52,7 @@ namespace SqlBulkHelpers.MaterializedData
             return this;
         }
 
-        public MaterializedDataScriptBuilder DropTable(TableNameTerm tableName)
+        public MaterializedDataScriptBuilder DropTableIfExists(TableNameTerm tableName)
         {
             tableName.AssertArgumentIsNotNull(nameof(tableName));
             ScriptBuilder.Append($@"
@@ -63,7 +63,7 @@ namespace SqlBulkHelpers.MaterializedData
             return this;
         }
 
-        public MaterializedDataScriptBuilder TruncateTable(TableNameTerm tableName)
+        public MaterializedDataScriptBuilder TruncateTableIfExists(TableNameTerm tableName)
         {
             tableName.AssertArgumentIsNotNull(nameof(tableName));
             ScriptBuilder.Append($@"
@@ -212,7 +212,7 @@ namespace SqlBulkHelpers.MaterializedData
             if (ifExists == IfExists.Recreate)
             {
                 addTableCopyScript = true;
-                DropTable(targetTable);
+                DropTableIfExists(targetTable);
             }
             else if (ifExists == IfExists.StopProcessingWithException)
             {
