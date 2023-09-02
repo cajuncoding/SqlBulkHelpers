@@ -215,6 +215,16 @@ public class TestDataService
 ## Nuget Package
 To use in your project, add the [SqlBulkHelpers NuGet package](https://www.nuget.org/packages/SqlBulkHelpers/) to your project.
 
+## v2.3.1 Release Notes:
+- Fixed bug with Sql Bulk Insert/Update processing with Model Properties that have mapped database names via mapping attribute (e.g. [SqlBulkColumn("")], [Map("")], [Column("")], etc.).
+
+## v2.3 Release Notes:
+- Changed default behaviour to no longer clone tables/schema inside a Transaction which creates a full Schema Lock -- as this greatly impacts Schema aware ORMs such as SqlBulkHelpers, RepoDb, etc.
+  - Note: If you are manually orchestrating your process using StartMaterializedDataProcessAsync() and FinishMaterializeDataProcessAsync() then you now need to handle this by explicitly calling CleanupMaterializeDataProcessAsync() in a Try/Finally.
+- Added new configuration value to control if Schema copying/cloning (for Loading Tables) is inside or outide the Transaction (e.g. SchemaCopyMode.InsideTransactionAllowSchemaLocks vs OutsideTransactionAvoidSchemaLocks).
+- Fix bug in ReSeedTableIdentityValueWithMaxIdAsync() when the Table is Empty so that it now defaults to value of 1.
+
+
 ## v2.2.2 Release Notes:
 - Improved namespace for SqlBulkHelpers.CustomExtensions to reduce risk of conflicts with similar existing extensions.
 

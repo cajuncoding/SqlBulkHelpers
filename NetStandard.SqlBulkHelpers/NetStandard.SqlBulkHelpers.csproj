@@ -8,18 +8,19 @@
 	<PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Authors>BBernard / CajunCoding</Authors>
     <Company>CajunCoding</Company>
-	<Version>2.3.0</Version>
+	<Version>2.3.1</Version>
 	<PackageProjectUrl>https://github.com/cajuncoding/SqlBulkHelpers</PackageProjectUrl>
 	<RepositoryUrl>https://github.com/cajuncoding/SqlBulkHelpers</RepositoryUrl>
     <Description>A library for easy, efficient and high performance bulk insert and update of data, into a Sql Database, from .Net applications. By leveraging the power of the SqlBulkCopy classes with added support for Identity primary key table columns this library provides a greatly simplified interface to process Identity based Entities with Bulk Performance with the wide compatibility of .NetStandard 2.0.</Description>
 	<PackageTags>sql server database table bulk insert update identity column sqlbulkcopy orm dapper linq2sql materialization materialized data view materialized-data materialized-view sync replication replica readonly</PackageTags>
     <PackageReleaseNotes>
+	    - Fixed bug with Sql Bulk Insert/Update processing with Model Properties that have mapped database names via mapping attribute (e.g. [SqlBulkColumn("")], [Map("")], [Column("")], etc.).
+
+		Prior Relese Notes:
 		- Changed default behaviour to no longer clone tables/schema inside a Transaction which creates a full Schema Lock -- as this greatly impacts Schema aware ORMs such as SqlBulkHelpers, RepoDb, etc.
 		- New separate methods is now added to handle the CleanupMaterializeDataProcessAsync() but must be explicitly called as it is no longer implicitly called with FinishMaterializeDataProcessAsync().
 		- Added new configuration value to control if Schema copying/cloning (for Loading Tables) is inside or outide the Transaction (e.g. SchemaCopyMode.InsideTransactionAllowSchemaLocks vs OutsideTransactionAvoidSchemaLocks).
 		- Fix bug in ReSeedTableIdentityValueWithMaxIdAsync() when the Table is Empty so that it now defaults to value of 1.
-
-		Prior Relese Notes:
 		- Fixed a Bug where Identity Column Value was not correctly synced after Materialization Process is completing.
 		- Added new Helper API to quickly Sync the Identity column value with the current MAX Id value of the column (ensuring it's valid after populating additional data); This is useful if you override Identity values for a full Table refresh, but then want to later insert data into the table.
 		- Improved namespace for SqlBulkHelpers.CustomExtensions to reduce risk of conflicts with similar existing extensions.

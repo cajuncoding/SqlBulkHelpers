@@ -49,7 +49,7 @@ namespace SqlBulkHelpers
             return _dataEnumerator.MoveNext();
         }
 
-        public int GetOrdinal(string name)
+        public int GetOrdinal(string dbColumnName)
         {
             //Lazy Load the Ordinal reverse lookup dictionary (ONLY if needed)
             if (_processingDefinitionOrdinalDictionary == null)
@@ -58,15 +58,15 @@ namespace SqlBulkHelpers
                 int i = 0;
                 _processingDefinitionOrdinalDictionary = new Dictionary<string, int>();
                 foreach (var propDef in _processingFields)
-                    _processingDefinitionOrdinalDictionary[propDef.PropertyName] = i++;
+                    _processingDefinitionOrdinalDictionary[propDef.MappedDbColumnName] = i++;
             }
 
-            if (SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME.Equals(name))
+            if (SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME.Equals(dbColumnName))
                 return _rowNumberPseudoColumnOrdinal;
-            else if (_processingDefinitionOrdinalDictionary.TryGetValue(name, out var ordinalIndex))
+            else if (_processingDefinitionOrdinalDictionary.TryGetValue(dbColumnName, out var ordinalIndex))
                 return ordinalIndex;
 
-            throw new ArgumentOutOfRangeException($"Property name [{name}] could not be found.");
+            throw new ArgumentOutOfRangeException($"Property name [{dbColumnName}] could not be found.");
         }
 
         public object GetValue(int i)

@@ -141,5 +141,58 @@ namespace SqlBulkHelpers.IntegrationTests
                 }
             }
         }
+
+        [TestMethod]
+        public async Task TestBulkInsertOrUpdateWithMappedPropertiesAndCustomMatchQualifiersAsync()
+        {
+            var testDataWithMappedProps = TestHelpers
+                .CreateTestData(10)
+                .Select(t =>
+                {
+                    var r = new TestElementWithMappedNames(t);
+                    r.MyKey = $"MULTIPLE_QUALIFIER_TEST-{r.MyKey}";
+                    return r;
+                })
+                .ToList();
+
+            var sqlConnectionString = SqlConnectionHelper.GetSqlConnectionString();
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
+
+            await using var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false);
+            await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+            {
+                var results = await sqlTrans.BulkInsertOrUpdateAsync(
+                    testDataWithMappedProps,
+                    TestHelpers.TestTableName,
+                    new SqlMergeMatchQualifierExpression(
+                        nameof(TestElement.Value),
+                        nameof(TestElement.Key) //This will still result in UNIQUE entries that are being inserted (NO UPDATES)
+                    )
+                );
+
+                await sqlTrans.CommitAsync().ConfigureAwait(false);
+
+                //ASSERT Results are Valid...
+                Assert.IsNotNull(results);
+
+                //We Sort the Results by Identity Id to ensure that the inserts occurred in the correct
+                //  ordinal order matching our Array of original values, but now with incrementing ID values!
+                //This validates that data is inserted as expected for Identity columns and is validated
+                //  correctly by sorting on the Incrementing Identity value when Queried (e.g. ORDER BY Id)
+                //  which must then match our original order of data.
+                var resultsSorted = results.OrderBy(r => r.MyId).ToList();
+                Assert.AreEqual(resultsSorted.Count(), testDataWithMappedProps.Count);
+
+                var i = 0;
+                foreach (var result in resultsSorted)
+                {
+                    Assert.IsNotNull(result);
+                    Assert.IsTrue(result.MyId > 0);
+                    Assert.AreEqual((object)result.MyKey, testDataWithMappedProps[i].MyKey);
+                    Assert.AreEqual((object)result.MyValue, testDataWithMappedProps[i].MyValue);
+                    i++;
+                }
+            }
+        }
     }
 }

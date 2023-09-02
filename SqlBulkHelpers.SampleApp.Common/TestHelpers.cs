@@ -103,6 +103,18 @@ namespace SqlBulkHelpers.Tests
     [SqlBulkTable(TestHelpers.TestTableName, uniqueMatchMergeValidationEnabled: false)]
     public class TestElementWithMappedNames
     {
+        public TestElementWithMappedNames()
+        {
+        }
+
+        public TestElementWithMappedNames(TestElement testElement)
+        {
+            MyId = testElement.Id;
+            MyKey = testElement.Key;
+            MyValue = testElement.Value;
+            UnMappedProperty = -1;
+        }
+
         [SqlBulkMatchQualifier]
         [Map("Id")]
         public int MyId { get; set; }
