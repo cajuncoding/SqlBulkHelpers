@@ -163,7 +163,9 @@ namespace SqlBulkHelpers.MaterializedData
                     originalTableNameTerm, 
                     loadingTablesSchema, 
                     BulkHelpersConfig.MaterializedDataLoadingTablePrefix, 
-                    BulkHelpersConfig.MaterializedDataLoadingTableSuffix
+                    BulkHelpersConfig.MaterializedDataLoadingTableSuffix,
+                    //For the Loading Table specify if CopyDataFromSource is enabled based on our configuration...
+                    copyDataFromSource: BulkHelpersConfig.MaterializedDataLoadingTableDataCopyMode == DataCopyMode.CopySourceData
                 );
 
                 //Add Clones for Discarding tables (used for switching Live OUT for later cleanup)...
@@ -208,7 +210,6 @@ namespace SqlBulkHelpers.MaterializedData
                 sqlTransaction, 
                 cloneInfoToExecuteList, 
                 recreateIfExists: true, 
-                copyDataFromSource: false,
                 includeFKeyConstraints: false
             ).ConfigureAwait(false);
 
@@ -279,14 +280,14 @@ namespace SqlBulkHelpers.MaterializedData
             string targetTableName = null,
             bool recreateIfExists = false,
             bool copyDataFromSource = false
-        ) => (await CloneTablesAsync(sqlTransaction, tablesToClone: new[] { CloneTableInfo.From<T, T>(sourceTableName, targetTableName) }, recreateIfExists).ConfigureAwait(false)).FirstOrDefault();
+        ) => (await CloneTablesAsync(sqlTransaction, tablesToClone: new[] { CloneTableInfo.From<T, T>(sourceTableName, targetTableName) }, recreateIfExists, copyDataFromSource).ConfigureAwait(false)).FirstOrDefault();
 
         public Task<CloneTableInfo[]> CloneTablesAsync(
             SqlTransaction sqlTransaction,
             bool recreateIfExists,
             bool copyDataFromSource,
             params CloneTableInfo[] tablesToClone
-        ) => CloneTablesAsync(sqlTransaction, tablesToClone, recreateIfExists, copyDataFromSource);
+        ) => CloneTablesAsync(sqlTransaction, tablesToClone.ToList(), recreateIfExists, copyDataFromSource);
 
         public Task<CloneTableInfo[]> CloneTablesAsync(
             SqlTransaction sqlTransaction,
@@ -301,7 +302,6 @@ namespace SqlBulkHelpers.MaterializedData
             SqlTransaction sqlTransaction,
             IEnumerable<CloneTableInfo> tablesToClone,
             bool recreateIfExists = false,
-            bool copyDataFromSource = false,
             bool includeFKeyConstraints = false
         )
         {
@@ -334,13 +334,81 @@ namespace SqlBulkHelpers.MaterializedData
                     recreateIfExists ? IfExists.Recreate : IfExists.StopProcessingWithException,
                     cloneIdentitySeedValue: BulkHelpersConfig.IsCloningIdentitySeedValueEnabled,
                     includeFKeyConstraints: includeFKeyConstraints,
-                    copyDataFromSource: copyDataFromSource
+                    copyDataFromSource: cloneInfo.CopyDataFromSource
                 );
 
                 ////TODO: Might (potentially if it doesn't impede performance too much) implement support for re-mapping FKey constraints to Materialization Context tables so data integrity issues will be caught sooner
                 ////      in the process, but for now they are caught when FKey constraints are re-enabled after Switching tables...
                 //if (includeFKeyConstraints)
                 //    cloneTableStructureSqlScriptBuilder.DisableAllTableConstraintChecks(targetTable);
+
+                cloneInfoResults.Add(new CloneTableInfo(sourceTable, targetTable));
+            }
+
+            //Execute the Script!
+            await sqlTransaction
+                .ExecuteMaterializedDataSqlScriptAsync(sqlScriptBuilder, BulkHelpersConfig.MaterializeDataStructureProcessingTimeoutSeconds)
+                .ConfigureAwait(false);
+
+            //If everything was successful then we can simply return the input values as they were all cloned...
+            return cloneInfoResults.AsArray();
+        }
+
+        #endregion
+
+        #region Copy Table Data API Methods
+
+        public async Task<CloneTableInfo> CopyTableDataAsync(
+            SqlTransaction sqlTransaction,
+            string sourceTableName = null,
+            string targetTableName = null
+        ) => (await CopyTableDataAsync(sqlTransaction, tablesToProcess: new[] { CloneTableInfo.From<T, T>(sourceTableName, targetTableName, copyDataFromSource: true) }).ConfigureAwait(false)).FirstOrDefault();
+
+        public Task<CloneTableInfo[]> CopyTableDataAsync(
+            SqlTransaction sqlTransaction,
+            params CloneTableInfo[] tablesToProcess
+        ) => CopyTableDataAsync(sqlTransaction, tablesToProcess.ToList());
+
+        public Task<CloneTableInfo[]> CopyTableDataAsync(
+            SqlTransaction sqlTransaction,
+            IEnumerable<CloneTableInfo> tablesToProcess
+        ) => CopyTableDataInternalAsync(sqlTransaction, tablesToProcess);
+
+        //Internal method with additional flags for normal cloning & materialized data cloning
+        //NOTE: Materialization process requires special handling such as No FKeys being added to Temp/Loading Tables until ready to Switch
+        protected async Task<CloneTableInfo[]> CopyTableDataInternalAsync(
+            SqlTransaction sqlTransaction,
+            IEnumerable<CloneTableInfo> tablesToClone
+        )
+        {
+            sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
+
+            var cloneInfoList = tablesToClone.ToList();
+
+            if (cloneInfoList.IsNullOrEmpty())
+                throw new ArgumentException("At least one source & target table pair must be specified.");
+
+            var sqlScriptBuilder = MaterializedDataScriptBuilder.NewSqlScript();
+            var cloneInfoResults = new List<CloneTableInfo>();
+            foreach (var cloneInfo in cloneInfoList)
+            {
+                var sourceTable = cloneInfo.SourceTable;
+                var targetTable = cloneInfo.TargetTable;
+
+                //If both Source & Target are the same (e.g. Target was not explicitly specified) then we adjust
+                //  the Target to ensure we create a copy and append a unique Copy Id...
+                if (targetTable.EqualsIgnoreCase(sourceTable))
+                    throw new InvalidOperationException($"The source table name {sourceTable.FullyQualifiedTableName} and target table name {targetTable.FullyQualifiedTableName} must be different.");
+
+                var sourceTableSchemaDefinition = await GetTableSchemaDefinitionInternalAsync(TableSchemaDetailLevel.BasicDetails, sqlTransaction.Connection, sqlTransaction, sourceTable);
+                if (sourceTableSchemaDefinition == null)
+                    throw new ArgumentException($"Could not resolve the source table schema for {sourceTable.FullyQualifiedTableName} on the provided connection.");
+
+                var targetTableSchemaDefinition = await GetTableSchemaDefinitionInternalAsync(TableSchemaDetailLevel.BasicDetails, sqlTransaction.Connection, sqlTransaction, targetTable);
+                if (targetTableSchemaDefinition == null)
+                    throw new ArgumentException($"Could not resolve the target table schema for {sourceTable.FullyQualifiedTableName} on the provided connection.");
+
+                sqlScriptBuilder.CopyTableData(sourceTableSchemaDefinition, targetTableSchemaDefinition);
 
                 cloneInfoResults.Add(new CloneTableInfo(sourceTable, targetTable));
             }

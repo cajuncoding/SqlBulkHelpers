@@ -67,7 +67,7 @@ namespace SqlBulkHelpers.MaterializedData
             ISqlBulkHelpersConfig bulkHelpersConfig = null
         ) where T : class => (await CloneTablesAsync(
             sqlTransaction, 
-            new[] { CloneTableInfo.From<T, T>() }, 
+            new[] { CloneTableInfo.From<T, T>(copyDataFromSource: copyDataFromSource) }, 
             recreateIfExists, 
             copyDataFromSource, 
             bulkHelpersConfig
@@ -82,7 +82,7 @@ namespace SqlBulkHelpers.MaterializedData
             ISqlBulkHelpersConfig bulkHelpersConfig = null
         ) => (await CloneTablesAsync(
             sqlTransaction,
-            new[] { CloneTableInfo.From(sourceTableName, targetTableName) },
+            new[] { CloneTableInfo.From(sourceTableName, targetTableName, copyDataFromSource: copyDataFromSource) },
             recreateIfExists,
             copyDataFromSource,
             bulkHelpersConfig
@@ -96,7 +96,7 @@ namespace SqlBulkHelpers.MaterializedData
             ISqlBulkHelpersConfig bulkHelpersConfig = null
         ) => CloneTablesAsync(
             sqlTransaction,
-            tablesToClone.Select(t => CloneTableInfo.From(t.SourceTableName, t.TargetTableName)),
+            tablesToClone.Select(t => CloneTableInfo.From(t.SourceTableName, t.TargetTableName, copyDataFromSource: copyDataFromSource)),
             recreateIfExists,
             copyDataFromSource,
             bulkHelpersConfig
@@ -114,6 +114,57 @@ namespace SqlBulkHelpers.MaterializedData
 
             var results = await new MaterializeDataHelper<ISkipMappingLookup>(bulkHelpersConfig)
                 .CloneTablesAsync(sqlTransaction, tablesToClone.AsArray(), recreateIfExists, copyDataFromSource)
+                .ConfigureAwait(false);
+
+            return results;
+        }
+
+        #endregion
+
+        #region Copy Table Data Extensions
+
+        public static async Task<CloneTableInfo> CopyTableDataAsync<TSource, TTarget>(
+            this SqlTransaction sqlTransaction,
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        )
+        where TSource : class 
+        where TTarget : class => (await CopyTableDataAsync(
+            sqlTransaction,
+            new[] { CloneTableInfo.From<TSource, TTarget>(copyDataFromSource: true) },
+            bulkHelpersConfig
+        ).ConfigureAwait(false)).FirstOrDefault();
+
+        public static async Task<CloneTableInfo> CopyTableDataAsync(
+            this SqlTransaction sqlTransaction,
+            string sourceTableName,
+            string targetTableName = null,
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        ) => (await CopyTableDataAsync(
+            sqlTransaction,
+            new[] { CloneTableInfo.From(sourceTableName, targetTableName, copyDataFromSource: true) },
+            bulkHelpersConfig
+        ).ConfigureAwait(false)).FirstOrDefault();
+
+        public static Task<CloneTableInfo[]> CopyTableDataAsync(
+            this SqlTransaction sqlTransaction,
+            IEnumerable<(string SourceTableName, string TargetTableName)> tablesToProcess,
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        ) => CopyTableDataAsync(
+            sqlTransaction,
+            tablesToProcess.Select(t => CloneTableInfo.From(t.SourceTableName, t.TargetTableName, copyDataFromSource: true)),
+            bulkHelpersConfig
+        );
+
+        public static async Task<CloneTableInfo[]> CopyTableDataAsync(
+            this SqlTransaction sqlTransaction,
+            IEnumerable<CloneTableInfo> tablesToClone,
+            ISqlBulkHelpersConfig bulkHelpersConfig = null
+        )
+        {
+            sqlTransaction.AssertArgumentIsNotNull(nameof(sqlTransaction));
+
+            var results = await new MaterializeDataHelper<ISkipMappingLookup>(bulkHelpersConfig)
+                .CopyTableDataAsync(sqlTransaction, tablesToClone.AsArray())
                 .ConfigureAwait(false);
 
             return results;
@@ -535,7 +586,7 @@ namespace SqlBulkHelpers.MaterializedData
             var materializationDataHelper = new MaterializeDataHelper<ISkipMappingLookup>(bulkHelpersConfig);
             MaterializeDataContext materializeDataContext = null;
 
-            //Initialize our Schema outside the transaction to avoid Schema locks (now Default Behaviour as of v2.3.0)...
+            //Initialize our Schema outside the transaction to avoid Schema locks (now Default Behavior as of v2.3.0)...
             if (sqlBulkHelpersConfig.MaterializedDataSchemaCopyMode == SchemaCopyMode.OutsideTransactionAvoidSchemaLocks)
             {
                 #if NETSTANDARD2_0

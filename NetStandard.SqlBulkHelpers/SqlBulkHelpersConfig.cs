@@ -16,6 +16,12 @@ namespace SqlBulkHelpers
         InsideTransactionAllowSchemaLocks = 2,
     }
 
+    public enum DataCopyMode
+    {
+        DoNotCopyData = 1,
+        CopySourceData = 2
+    }
+
     public interface ISqlBulkHelpersConfig
     {
         int SqlBulkBatchSize { get; } //General guidance is that 2000-5000 is efficient enough.
@@ -38,6 +44,7 @@ namespace SqlBulkHelpers
         string MaterializedDataDiscardingTableSuffix { get; }
 
         SchemaCopyMode MaterializedDataSchemaCopyMode { get; }
+        DataCopyMode MaterializedDataLoadingTableDataCopyMode { get; }
         bool MaterializedDataMakeSchemaCopyNamesUnique { get; }
         bool IsCloningIdentitySeedValueEnabled { get; }
 
@@ -141,6 +148,7 @@ namespace SqlBulkHelpers
         public int MaterializedDataSwitchTableWaitTimeoutMinutes { get; set; } = 1;
         public SwitchWaitTimeoutAction MaterializedDataSwitchTimeoutAction { get; } = SwitchWaitTimeoutAction.Abort;
         public SchemaCopyMode MaterializedDataSchemaCopyMode { get; set; } = SchemaCopyMode.OutsideTransactionAvoidSchemaLocks;
+        public DataCopyMode MaterializedDataLoadingTableDataCopyMode { get; set; } = DataCopyMode.DoNotCopyData;
         public bool MaterializedDataMakeSchemaCopyNamesUnique { get; set; } = true;
 
         public string MaterializedDataLoadingSchema { get; set; } = "materializing_load";

@@ -89,7 +89,7 @@ namespace SqlBulkHelpers.MaterializedData
             CloneTableWithColumnsOnly(sourceTableDefinition.TableNameTerm, targetTable, ifExists);
 
             if (copyDataFromSource)
-                CopyTableData(sourceTableDefinition, targetTable);
+                CopyTableDataForClone(sourceTableDefinition, targetTable);
 
             //GET the Seed Value immediately, since there is a small chance of it changing...
             if (cloneIdentitySeedValue && sourceTableDefinition.IdentityColumn != null)
@@ -106,47 +106,67 @@ namespace SqlBulkHelpers.MaterializedData
             return this;
         }
 
-        public MaterializedDataScriptBuilder CopyTableData(SqlBulkHelpersTableDefinition sourceTableDefinition, TableNameTerm targetTable)
+        public MaterializedDataScriptBuilder CopyTableData(SqlBulkHelpersTableDefinition sourceTableDefinition, SqlBulkHelpersTableDefinition targetTableDefinition)
         {
             sourceTableDefinition.AssertArgumentIsNotNull(nameof(sourceTableDefinition));
-            targetTable.AssertArgumentIsNotNull(nameof(targetTable));
+            targetTableDefinition.AssertArgumentIsNotNull(nameof(targetTableDefinition));
 
-            bool hasIdentityColumn = sourceTableDefinition.IdentityColumn != null;
+            var targetColLookup = targetTableDefinition.TableColumns.ToLookup(c => new { c.ColumnName, c.DataType });
 
-            //In this overload we handle the Source Table Definition and can dynamically determine if there is An Identity column we handle by enabling insertion for them...
-            if (hasIdentityColumn)
-            {
-                ScriptBuilder.Append($@"
-                    --The Table {sourceTableDefinition.TableFullyQualifiedName} has an Identity Column {sourceTableDefinition.IdentityColumn.ColumnName.QualifySqlTerm()} so we must allow Insertion of IDENTITY values to copy raw table data...
-                    SET IDENTITY_INSERT {targetTable.FullyQualifiedTableName} ON;
-                ");
-            }
+            var matchingColumnDefs = sourceTableDefinition.TableColumns
+                .Where(c => targetColLookup.Contains(new { c.ColumnName, c.DataType }))
+                .ToArray();
 
-            //Now we can Copy data between the two tables...
-            CopyTableData(sourceTableDefinition.TableNameTerm, targetTable, sourceTableDefinition.TableColumns.AsArray());
+            if (!matchingColumnDefs.Any())
+                throw new ArgumentException("There are no matching column definitions between the source & target table schema definitions provided; there must be at least one column matching on name & data type.");
 
-            //In this overload we handle the Source Table Definition and can dynamically determine if there is An Identity column we handle by enabling insertion for them...
-            if (hasIdentityColumn)
-            {
-                ScriptBuilder.Append($@"
-	                --We now disable IDENTITY Inserts once all data is copied into {targetTable}...
-                    SET IDENTITY_INSERT {targetTable.FullyQualifiedTableName} OFF;
-                ");
-            }
+            //Now we can Copy data between the two tables on the matching columns detected and enable Identity Insert if the
+            //  Target has an Identity Column which might be explicitly copied...
+            CopyTableData(
+                sourceTable: sourceTableDefinition.TableNameTerm,
+                targetTable: targetTableDefinition.TableNameTerm,
+                enableIdentityInsertOnTarget: targetTableDefinition.IdentityColumn != null,
+                matchingColumnDefs
+            );
 
             return this;
         }
 
-        public MaterializedDataScriptBuilder CopyTableData(TableNameTerm sourceTable, TableNameTerm targetTable, params TableColumnDefinition[] columnDefs)
+        public MaterializedDataScriptBuilder CopyTableDataForClone(SqlBulkHelpersTableDefinition sourceTableDefinition, TableNameTerm targetTable, params TableColumnDefinition[] columnDefs)
+        {
+            sourceTableDefinition.AssertArgumentIsNotNull(nameof(sourceTableDefinition));
+            targetTable.AssertArgumentIsNotNull(nameof(targetTable));
+
+            //Now we can Copy data between the two tables and enable Identity Insert if the Source has an Identity Column (which was cloned)...
+            CopyTableData(
+                sourceTableDefinition.TableNameTerm, 
+                targetTable, 
+                enableIdentityInsertOnTarget: sourceTableDefinition.IdentityColumn != null, 
+                sourceTableDefinition.TableColumns.AsArray()
+            );
+
+            return this;
+        }
+
+        public MaterializedDataScriptBuilder CopyTableData(TableNameTerm sourceTable, TableNameTerm targetTable, bool enableIdentityInsertOnTarget, params TableColumnDefinition[] columnDefs)
         {
             sourceTable.AssertArgumentIsNotNull(nameof(sourceTable));
             targetTable.AssertArgumentIsNotNull(nameof(targetTable));
 
             //Validate that we have Table Columns...
             if (!columnDefs.HasAny())
-                throw new ArgumentException($"At least one valid column definition must be specified to denote what data to copy between tables.");
+                throw new ArgumentException("At least one valid column definition must be specified to denote what data to copy between tables.");
 
             var columnNamesCsv = columnDefs.Select(c => c.ColumnName.QualifySqlTerm()).ToCsv();
+
+            //In this overload we handle the Source Table Definition and can dynamically determine if there is An Identity column we handle by enabling insertion for them...
+            if (enableIdentityInsertOnTarget)
+            {
+                ScriptBuilder.Append($@"
+                    --The Table {targetTable.FullyQualifiedTableName} has an Identity Column so we must allow Insertion of IDENTITY values to copy raw table data...
+                    SET IDENTITY_INSERT {targetTable.FullyQualifiedTableName} ON;
+                ");
+            }
 
             ScriptBuilder.Append($@"
 	            --Syncs the Identity Seed value of the Target Table with the current value of the Source Table (captured into Variable at top of script)
@@ -154,6 +174,16 @@ namespace SqlBulkHelpers.MaterializedData
                     SELECT {columnNamesCsv}
                     FROM {sourceTable.FullyQualifiedTableName};
             ");
+
+            //In this overload we handle the Source Table Definition and can dynamically determine if there is An Identity column we handle by enabling insertion for them...
+            if (enableIdentityInsertOnTarget)
+            {
+                ScriptBuilder.Append($@"
+	                --We now disable IDENTITY Inserts once all data is copied into {targetTable.FullyQualifiedTableName}...
+                    SET IDENTITY_INSERT {targetTable.FullyQualifiedTableName} OFF;
+                ");
+            }
+
             return this;
         }
 
