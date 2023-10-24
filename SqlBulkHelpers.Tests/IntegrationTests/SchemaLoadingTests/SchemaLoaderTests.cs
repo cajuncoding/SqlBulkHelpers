@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
 using Microsoft.Data.SqlClient;
+using RepoDb;
+using SqlBulkHelpers.CustomExtensions;
 using SqlBulkHelpers.SqlBulkHelpers;
 
 namespace SqlBulkHelpers.Tests.IntegrationTests
@@ -20,6 +22,25 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
             );
 
             AssertTableDefinitionIsValidForTestElementParentTable(tableDefinition, TableSchemaDetailLevel.BasicDetails);
+        }
+
+        [TestMethod]
+        public void TestTableDefinitionLoadingBasicDetailsForTempTableWithTransactionSyncMethod()
+        {
+            using var sqlConn = SqlConnectionHelper.NewConnection();
+            using var sqlTransaction = sqlConn.BeginTransaction();
+
+            var tempTableName = "#TempTableSchemaLoaderTest";
+            sqlConn.ExecuteNonQuery($@"
+                CREATE TABLE [{tempTableName}] ([Id] INT NOT NULL PRIMARY KEY);
+            ", transaction: sqlTransaction);
+
+            var tableDefinition = sqlTransaction.GetTableSchemaDefinition(
+                tempTableName,
+                TableSchemaDetailLevel.BasicDetails
+            );
+
+            AssertTableDefinitionIsValidForTempTable(tempTableName, tableDefinition);
         }
 
         [TestMethod]
@@ -48,6 +69,27 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
 
             AssertTableDefinitionIsValidForTestElementParentTable(tableDefinition, TableSchemaDetailLevel.BasicDetails);
         }
+
+        [TestMethod]
+        public async Task TestTableDefinitionLoadingBasicDetailsForTempTableWithTransactionAsync()
+        {
+            var sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
+            await using var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false);
+            await using var sqlTransaction = (SqlTransaction)await sqlConn.BeginTransactionAsync();
+
+            var tempTableName = "#TempTableSchemaLoaderTest";
+            await sqlConn.ExecuteNonQueryAsync($@"
+                CREATE TABLE [{tempTableName}] ([Id] INT NOT NULL PRIMARY KEY);
+            ", transaction: sqlTransaction);
+
+            var tableDefinition = await sqlTransaction.GetTableSchemaDefinitionAsync(
+                tempTableName,
+                TableSchemaDetailLevel.BasicDetails
+            ).ConfigureAwait(false);
+
+            AssertTableDefinitionIsValidForTempTable(tempTableName, tableDefinition);
+        }
+
 
         [TestMethod]
         public async Task TestTableDefinitionLoadingExtendedDetailsAsync()
@@ -83,6 +125,22 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
                 Assert.AreEqual(0, tableDefinition.ForeignKeyConstraints.Count);
                 Assert.AreEqual(1, tableDefinition.ReferencingForeignKeyConstraints.Count);
             }
+        }
+
+        private void AssertTableDefinitionIsValidForTempTable(string tempTableName, SqlBulkHelpersTableDefinition tableDefinition)
+        {
+            Assert.IsNotNull(tableDefinition);
+
+            var tableNameTerm = TableNameTerm.From(tempTableName);
+            Assert.IsTrue(tableNameTerm.IsTempTableName);
+            Assert.AreEqual(TableSchemaDetailLevel.BasicDetails, tableDefinition.SchemaDetailLevel);
+            Assert.AreEqual(tableNameTerm.SchemaName, tableDefinition.TableSchema);
+            //NOTE: Table Names will not match exactly due to internal Hashing of the Temp Name for Session isolation, etc...
+            //Assert.AreEqual(tableNameTerm.TableName, tableDefinition.TableName);
+            //Assert.AreEqual(tableNameTerm.FullyQualifiedTableName, tableDefinition.TableFullyQualifiedName);
+            Assert.AreEqual(1, tableDefinition.TableColumns.Count);
+            Assert.IsNotNull(tableDefinition.PrimaryKeyConstraint);
+            Assert.AreEqual(0, tableDefinition.ForeignKeyConstraints.Count);
         }
 
         [TestMethod]

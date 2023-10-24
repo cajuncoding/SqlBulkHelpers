@@ -52,6 +52,12 @@ namespace SqlBulkHelpers
                     }
                 }
 
+                if (sanitizedQualifierFields.IsNullOrEmpty())
+                    throw new ArgumentException($"The merge match qualifier fields specified [{matchQualifierExpression.MatchQualifierFields.Select(f => f.Name).ToCsv()}] " +
+                                                $"are invalid and could not be resolved to valid fields on the target table {tableDefinition.TableFullyQualifiedName}. " +
+                                                $"This could be the result of an invalid argument or potentially due to database schema changes that are not reflected in the schema cache; " +
+                                                $"you may try bypassing the cache via the bool forceCacheReload parameter or the static SqlBulkHelpersSchemaLoaderCache.ClearCache() method.");
+
                 //If we have valid Fields, then we must re-initialize a valid Qualifier Expression parameter with ONLY the valid fields...
                 sanitizedQualifierExpression = new SqlMergeMatchQualifierExpression(sanitizedQualifierFields)
                 {

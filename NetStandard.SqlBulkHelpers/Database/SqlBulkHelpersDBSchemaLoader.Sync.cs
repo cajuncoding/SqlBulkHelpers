@@ -75,7 +75,8 @@ namespace SqlBulkHelpers
             var tableNameTerm = tableName.ParseAsTableNameTerm();
             var cacheKey = CreateCacheKeyInternal(tableNameTerm, detailLevel);
 
-            if (forceCacheReload)
+            //NOTE: We also prevent caching of Temp Table schemas that are by definition Transient!
+            if (forceCacheReload || tableNameTerm.IsTempTableName)
                 TableDefinitionsCaseInsensitiveLazyCache.TryRemove(cacheKey);
 
             var tableDefinitionResult = TableDefinitionsCaseInsensitiveLazyCache.GetOrAdd(

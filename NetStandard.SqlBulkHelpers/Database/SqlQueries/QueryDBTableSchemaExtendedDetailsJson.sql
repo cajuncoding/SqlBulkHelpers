@@ -1,14 +1,19 @@
-﻿	WITH TablesCte AS (
+﻿	--NOTE: For Temp Table support all references to INFORMATION_SCHEMA must be replaced with tempdb.INFORMATION_SCHEMA
+	--			and DB_NAME() must be changed to 'tempdb', otherwise we dynamically resolve the true Temp Table Name in the Cte...
+	WITH TablesCte AS (
 		SELECT TOP (1)
 			TableSchema = t.[TABLE_SCHEMA], 
 			TableName = t.[TABLE_NAME],
 			TableCatalog = t.[TABLE_CATALOG],
-			ObjectId = OBJECT_ID('['+t.TABLE_SCHEMA+'].['+t.TABLE_NAME+']')
+			ObjectId = OBJECT_ID(CONCAT('[', t.TABLE_CATALOG, '].[', t.TABLE_SCHEMA, '].[', t.TABLE_NAME, ']'))
 		FROM INFORMATION_SCHEMA.TABLES t
         WHERE 
             t.TABLE_SCHEMA = @TableSchema
-            AND t.TABLE_NAME = @TableName
 			AND t.TABLE_CATALOG = DB_NAME()
+			AND t.TABLE_NAME = CASE
+				WHEN @IsTempTable = 0 THEN @TableName
+				ELSE (SELECT TOP (1) t.[name] FROM tempdb.sys.objects t WHERE t.[object_id] = OBJECT_ID(CONCAT(N'tempdb.[', @TableSchema, '].[', @TableName, ']')))
+			END
 	)
 	SELECT
 		t.TableSchema, 

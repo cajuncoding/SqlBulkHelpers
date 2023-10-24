@@ -21,6 +21,7 @@ namespace SqlBulkHelpers
         public string TableName { get; }
         public string TableNameVariable { get; }
         public string FullyQualifiedTableName { get; }
+        public bool IsTempTableName => TableName.StartsWith("#");
 
         public override string ToString() => FullyQualifiedTableName;
 

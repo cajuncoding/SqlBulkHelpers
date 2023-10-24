@@ -58,6 +58,17 @@ namespace SqlBulkHelpers
         )
         {
             var tableSchemaQuerySql = GetTableSchemaSqlQuery(detailLevel);
+
+            //Enable Support for Temp Table Schema Loading...
+            if (tableNameTerm.IsTempTableName)
+            {
+                //NOTE: For Temp Table support all references to INFORMATION_SCHEMA must be replaced with tempdb.INFORMATION_SCHEMA
+                //          and DB_NAME() must be changed to 'tempdb', otherwise we dynamically resolve the true Temp Table Name in the Cte...
+                tableSchemaQuerySql = tableSchemaQuerySql
+                    .Replace("INFORMATION_SCHEMA.", "tempdb.INFORMATION_SCHEMA.")
+                    .Replace("DB_NAME()", "'tempdb'");
+            }
+
             var sqlCmd = new SqlCommand(tableSchemaQuerySql, sqlConnection, sqlTransaction);
             
             //Configure the timeout for retrieving the Schema details...
@@ -67,6 +78,7 @@ namespace SqlBulkHelpers
             var sqlParams = sqlCmd.Parameters;
             sqlParams.Add(new SqlParameter("@TableSchema", tableNameTerm.SchemaName));
             sqlParams.Add(new SqlParameter("@TableName", tableNameTerm.TableName));
+            sqlParams.Add(new SqlParameter("@IsTempTable", tableNameTerm.IsTempTableName));
             return sqlCmd;
         }
 
@@ -131,7 +143,8 @@ namespace SqlBulkHelpers
             var tableNameTerm = tableName.ParseAsTableNameTerm();
             var cacheKey = CreateCacheKeyInternal(tableNameTerm, detailLevel);
 
-            if (forceCacheReload)
+            //NOTE: We also prevent caching of Temp Table schemas that are by definition Transient!
+            if (forceCacheReload || tableNameTerm.IsTempTableName)
                 TableDefinitionsCaseInsensitiveLazyCache.TryRemoveAsyncValue(cacheKey);
 
             var tableDefinition = await TableDefinitionsCaseInsensitiveLazyCache.GetOrAddAsync(
