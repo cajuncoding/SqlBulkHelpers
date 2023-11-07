@@ -14,6 +14,7 @@ namespace SqlBulkHelpers.MaterializedData
         protected ISqlBulkHelpersConfig BulkHelpersConfig { get; }
         protected bool IsDisposed { get; set; } = false;
         public bool IsCancelled { get; protected set; } = false;
+        public bool IsMaterializedLoadingTableCleanupEnabled { get; protected set; } = true;
 
         protected List<SqlBulkHelpersTableDefinition> TablesWithFullTextIndexesRemoved { get; set; } = new List<SqlBulkHelpersTableDefinition>();
 
@@ -25,7 +26,30 @@ namespace SqlBulkHelpers.MaterializedData
 
         public MaterializationTableInfo this[Type modelType] => FindMaterializationTableInfoCaseInsensitive(modelType);
 
-        public void CancelMaterializationProcess() => IsCancelled = true;
+        /// <summary>
+        /// Provides ability to manually control if materialization process is Cancelled for advanced validation and control flow support.
+        /// </summary>
+        /// <returns></returns>
+        public IMaterializeDataContext CancelMaterializationProcess()
+        {
+            IsCancelled = true;
+            return this;
+        }
+
+        /// <summary>
+        /// Provides ability to manually control if Materialized Loading tables are cleaned-up/removed when using `SchemaCopyMode.OutsideTransactionAvoidSchemaLocks`
+        ///     for advanced debugging and control flow support; always enabled by default and throws an `InvalidOperationException` if if SchemaCopyMode.InsideTransactionAllowSchemaLocks is used.
+        /// </summary>
+        /// <returns></returns>
+        /// <exception cref="InvalidOperationException"></exception>
+        public IMaterializeDataContext DisableMaterializedLoadingTableCleanup()
+        {
+            if (BulkHelpersConfig.MaterializedDataSchemaCopyMode == SchemaCopyMode.InsideTransactionAllowSchemaLocks)
+                throw new InvalidOperationException("You cannot disable the cleanup of Materialized Loading tables when using SchemaCopyMode.InsideTransactionAllowSchemaLocks.");
+            
+            IsMaterializedLoadingTableCleanupEnabled = false;
+            return this;
+        }
 
         public TableNameTerm GetLoadingTableName(string tableName)
         {

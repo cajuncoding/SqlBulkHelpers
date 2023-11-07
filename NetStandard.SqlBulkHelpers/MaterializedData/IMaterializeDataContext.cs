@@ -26,7 +26,9 @@ namespace SqlBulkHelpers.MaterializedData
         TableNameTerm GetLoadingTableName(string tableName);
         TableNameTerm GetLoadingTableName<TModel>();
         TableNameTerm GetLoadingTableName(Type modelType);
-        void CancelMaterializationProcess();
         bool IsCancelled { get; }
+        IMaterializeDataContext CancelMaterializationProcess();
+        bool IsMaterializedLoadingTableCleanupEnabled { get; }
+        IMaterializeDataContext DisableMaterializedLoadingTableCleanup();
     }
 }

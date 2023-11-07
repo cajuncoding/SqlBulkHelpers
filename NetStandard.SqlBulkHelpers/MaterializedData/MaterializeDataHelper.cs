@@ -72,10 +72,12 @@ namespace SqlBulkHelpers.MaterializedData
             //Explicitly clean up all Loading/Discarding Tables (contains old data) to free resources -- this leaves us with only the (new) Live Table in place!
             foreach (var materializationTableInfo in materializationTables)
             {
-                switchScriptBuilder
-                    //Finally cleanup the Loading and Discarding tables...
-                    .DropTableIfExists(materializationTableInfo.LoadingTable)
-                    .DropTableIfExists(materializationTableInfo.DiscardingTable);
+                //ALWAYS cleanup the Discarding tables...
+                switchScriptBuilder.DropTableIfExists(materializationTableInfo.DiscardingTable);
+                
+                //IF enabled (default is always Enabled) then cleanup up the Loading Tables
+                if (materializedDataContext.IsMaterializedLoadingTableCleanupEnabled)
+                    switchScriptBuilder.DropTableIfExists(materializationTableInfo.LoadingTable);
             }
 
             await sqlTransaction.ExecuteMaterializedDataSqlScriptAsync(

@@ -21,8 +21,8 @@ namespace SqlBulkHelpers.IntegrationTests
             {
                 var cloneInfo = await sqlTrans.CloneTableAsync<TestElementWithMappedNames>().ConfigureAwait(false);
 
-                var sourceTableSchema = sqlTrans.GetTableSchemaDefinition(cloneInfo.SourceTable.FullyQualifiedTableName);
-                var clonedTableSchema = sqlTrans.GetTableSchemaDefinition(cloneInfo.TargetTable.FullyQualifiedTableName);
+                var sourceTableSchema = await sqlTrans.GetTableSchemaDefinitionAsync(cloneInfo.SourceTable.FullyQualifiedTableName).ConfigureAwait(false);
+                var clonedTableSchema = await sqlTrans.GetTableSchemaDefinitionAsync(cloneInfo.TargetTable.FullyQualifiedTableName).ConfigureAwait(false);
 
                 await sqlTrans.RollbackAsync().ConfigureAwait(false);
                 //await sqlTransaction.CommitAsync().ConfigureAwait(false);

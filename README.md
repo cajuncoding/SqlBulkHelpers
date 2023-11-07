@@ -215,6 +215,21 @@ public class TestDataService
 ## Nuget Package
 To use in your project, add the [SqlBulkHelpers NuGet package](https://www.nuget.org/packages/SqlBulkHelpers/) to your project.
 
+### v2.4.2 Release Notes:
+- Add Support to manually control if Materialized Loading tables are cleaned-up/removed when using `SchemaCopyMode.OutsideTransactionAvoidSchemaLocks` via `materializeDataContext.DisableMaterializedStagingTableCleanup()`;
+ always enabled by default and throws an `InvalidOperationException` if if SchemaCopyMode.InsideTransactionAllowSchemaLocks is used. This provides support for advanced debugging and control flow support.
+- Improved SqlBulkHelpers Configuration API to now provide Clone() and Configure() methods to more easily copy/clone existing configuration and change values is specific instances;
+ including copy/clone of the Defaults for unique exeuctions.
+
+### v2.4.1 Release Notes:
+- Added support to load Table Schema for Temp Tables (basic Schema details needed for BulkInsert or Update, etc. to allow Bulk Loading Temp Tables!
+- Improved Error message for when custom SQL Merge Match qualifiers are specified but DB Schema may have changed making them invalid or missing from Cached schema.
+
+### v2.4.0 Release Notes:
+- Added new explicit CopyTableDataAsync() APIs which enable explicit copying of data between two tables on matching columns (automatically detected by column Name and Data Type).
+- Added new Materialized Data Configuration value MaterializedDataLoadingTableDataCopyMode to control whether the materialized data process automatically copies data into the Loading Tables after cloning. 
+ This helps to greatly simplify new use cases where data must be merged (and preserved) during the materialization process.
+
 ## v2.3.1 Release Notes:
 - Fixed bug with Sql Bulk Insert/Update processing with Model Properties that have mapped database names via mapping attribute (e.g. [SqlBulkColumn("")], [Map("")], [Column("")], etc.).
 

@@ -5,6 +5,7 @@ using SqlBulkHelpers.MaterializedData;
 using Microsoft.Data.SqlClient;
 using RepoDb;
 using SqlBulkHelpers.Utilities;
+using SqlBulkHelpers.CustomExtensions;
 
 namespace SqlBulkHelpers.IntegrationTests
 {
@@ -305,7 +306,7 @@ namespace SqlBulkHelpers.IntegrationTests
                 //******************************************************************************************
                 //START the Materialize Data Process...
                 //******************************************************************************************
-                await sqlConn.ExecuteMaterializeDataProcessAsync(new[] { typeof(TestElementWithMappedNames) }, async (materializeDataContext, sqlTransaction) =>
+                await sqlConn.ExecuteMaterializeDataProcessAsync(new[] { typeof(TestElementWithMappedNames) }, (materializeDataContext, sqlTransaction) =>
                 {
                     var tableInfoByIndex = materializeDataContext[0];
                     Assert.IsNotNull(tableInfoByIndex);
@@ -321,8 +322,72 @@ namespace SqlBulkHelpers.IntegrationTests
 
                     //TEST Passive Cancellation process (no need to throw an exception in this advanced use case)...
                     materializeDataContext.CancelMaterializationProcess();
+
+                    return Task.CompletedTask;
                 }).ConfigureAwait(false);
 
+
+                timer.Stop();
+                TestContext.WriteLine($"Materialization Test Completed/Finished in [{timer.ElapsedMilliseconds}] millis...");
+            }
+        }
+
+        [TestMethod]
+        public async Task TestMaterializeDataContextWithLoadingTableCleanupDisabledAsync()
+        {
+            var sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
+            var timer = Stopwatch.StartNew();
+
+            string? finalLoadingTableName = null;
+
+            //NOW Materialize Data into the Tables!
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            {
+                var testDataCount = 1;
+
+                var loadingTableSuffix = $"_{nameof(TestMaterializeDataContextWithLoadingTableCleanupDisabledAsync)}";
+
+                //******************************************************************************************
+                //START the Materialize Data Process...
+                //******************************************************************************************
+                var bulkHelpersConfig = SqlBulkHelpersConfig.DefaultConfig.Clone().Configure(c =>
+                {
+                    c.MaterializedDataLoadingTableSuffix = loadingTableSuffix;
+                    c.MaterializedDataMakeSchemaCopyNamesUnique = false;
+                });
+
+                await sqlConn.ExecuteMaterializeDataProcessAsync<TestElementWithMappedNames>((materializeDataContext, sqlTransaction) =>
+                    {
+                        finalLoadingTableName = materializeDataContext.GetLoadingTableName<TestElementWithMappedNames>();
+                        finalLoadingTableName.AssertArgumentIsNotNullOrWhiteSpace(nameof(finalLoadingTableName));
+                        TestContext.WriteLine($"Loading Table Name (that will not be cleaned up is: [{finalLoadingTableName}]");
+
+                        //TEST Passive Cancellation process (no need to throw an exception in this advanced use case)...
+                        materializeDataContext
+                            .DisableMaterializedLoadingTableCleanup()
+                            .CancelMaterializationProcess();
+                        TestContext.WriteLine($"Now cancelling/bailing out the Materialization Process but leaving Loading Table to exist!");
+
+                        return Task.CompletedTask;
+                    },
+                    bulkHelpersConfig
+                ).ConfigureAwait(false);
+            }
+
+            await using (var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false))
+            {
+                var originalTableDef = await sqlConn.GetTableSchemaDefinitionAsync<TestElementWithMappedNames>(detailLevel: TableSchemaDetailLevel.BasicDetails).ConfigureAwait(false);
+                var testTableDef = await sqlConn.GetTableSchemaDefinitionAsync(finalLoadingTableName, TableSchemaDetailLevel.BasicDetails, forceCacheReload: true).ConfigureAwait(false);
+
+                Assert.IsNotNull(testTableDef);
+                Assert.AreEqual(testTableDef.TableFullyQualifiedName, finalLoadingTableName);
+                Assert.IsTrue(testTableDef.TableName.Contains(originalTableDef.TableName));
+                Assert.AreEqual(originalTableDef.TableColumns.Count, testTableDef.TableColumns.Count);
+                Assert.AreEqual(originalTableDef.TableIndexes.Count, testTableDef.TableIndexes.Count);
+
+                await using var sqlTransaction = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false);
+                await sqlTransaction.DropTableAsync(testTableDef.TableFullyQualifiedName);
+                await sqlTransaction.CommitAsync().ConfigureAwait(false);
 
                 timer.Stop();
                 TestContext.WriteLine($"Materialization Test Completed/Finished in [{timer.ElapsedMilliseconds}] millis...");

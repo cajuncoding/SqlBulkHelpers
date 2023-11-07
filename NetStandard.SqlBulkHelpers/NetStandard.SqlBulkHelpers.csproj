@@ -8,18 +8,22 @@
 	<PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Authors>BBernard / CajunCoding</Authors>
     <Company>CajunCoding</Company>
-	<Version>2.4.1</Version>
+	<Version>2.4.2</Version>
 	<PackageProjectUrl>https://github.com/cajuncoding/SqlBulkHelpers</PackageProjectUrl>
 	<RepositoryUrl>https://github.com/cajuncoding/SqlBulkHelpers</RepositoryUrl>
     <Description>A library for easy, efficient and high performance bulk insert and update of data, into a Sql Database, from .Net applications. By leveraging the power of the SqlBulkCopy classes with added support for Identity primary key table columns this library provides a greatly simplified interface to process Identity based Entities with Bulk Performance with the wide compatibility of .NetStandard 2.0.</Description>
 	<PackageTags>sql server database table bulk insert update identity column sqlbulkcopy orm dapper linq2sql materialization materialized data view materialized-data materialized-view sync replication replica readonly</PackageTags>
     <PackageReleaseNotes>
+		- Add Support to manually control if Materialized Loading tables are cleaned-up/removed when using `SchemaCopyMode.OutsideTransactionAvoidSchemaLocks` via `materializeDataContext.DisableMaterializedStagingTableCleanup()`;
+		always enabled by default and throws an `InvalidOperationException` if if SchemaCopyMode.InsideTransactionAllowSchemaLocks is used. This provides support for advanced debugging and control flow support.
+		- Improved SqlBulkHelpers Configuration API to now provide Clone() and Configure() methods to more easily copy/clone existing configuration and change values is specific instances;
+		including copy/clone of the Defaults for unique exeuctions.
 		- Added support to load Table Schema for Temp Tables (basic Schema details needed for BulkInsert or Update, etc. to allow Bulk Loading Temp Tables!
 		- Improved Error message for when custom SQL Merge Match qualifiers are specified but DB Schema may have changed making them invalid or missing from Cached schema.
+		- Added new explicit CopyTableDataAsync() APIs which enable explicit copying of data between two tables on matching columns (automatically detected by column Name and Data Type).
+		- Added new Materialized Data Configuration value MaterializedDataLoadingTableDataCopyMode to control whether the materialized data process automatically copies data into the Loading Tables after cloning. This helps to greatly simplify new use cases where data must be merged (and preserved) during the materialization process.
 
 		Prior Relese Notes:
-		-Added new explicit CopyTableDataAsync() APIs which enable explicit copying of data between two tables on matching columns (automatically detected by column Name and Data Type).
-		-Added new Materialized Data Configuration value MaterializedDataLoadingTableDataCopyMode to control whether the materialized data process automatically copies data into the Loading Tables after cloning. This helps to greatly simplify new use cases where data must be merged (and preserved) during the materialization process.
 		- Fixed bug with Sql Bulk Insert/Update processing with Model Properties that have mapped database names via mapping attribute (e.g. [SqlBulkColumn("")], [Map("")], [Column("")], etc.).
 		- Changed default behaviour to no longer clone tables/schema inside a Transaction which creates a full Schema Lock -- as this greatly impacts Schema aware ORMs such as SqlBulkHelpers, RepoDb, etc.
 		- New separate methods is now added to handle the CleanupMaterializeDataProcessAsync() but must be explicitly called as it is no longer implicitly called with FinishMaterializeDataProcessAsync().

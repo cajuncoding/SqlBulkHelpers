@@ -52,19 +52,54 @@ namespace SqlBulkHelpers
         int MaxConcurrentConnections { get; }
         bool IsConcurrentConnectionProcessingEnabled { get; }
         bool IsFullTextIndexHandlingEnabled { get; }
+
+        ISqlBulkHelpersConfig Clone();
+        ISqlBulkHelpersConfig Configure(Action<SqlBulkHelpersConfig> configAction);
     }
 
     public class SqlBulkHelpersConfig : ISqlBulkHelpersConfig
     {
         public static ISqlBulkHelpersConfig DefaultConfig { get; private set; } = new SqlBulkHelpersConfig();
 
-        public static SqlBulkHelpersConfig Create(Action<SqlBulkHelpersConfig> configAction)
+        // Constructor for cloning
+        private SqlBulkHelpersConfig(ISqlBulkHelpersConfig otherConfigToClone = null)
+        {
+            if (otherConfigToClone == null) return;
+
+            // Copy property values from the other instance
+            this.SqlBulkBatchSize = otherConfigToClone.SqlBulkBatchSize;
+            this.SqlBulkPerBatchTimeoutSeconds = otherConfigToClone.SqlBulkPerBatchTimeoutSeconds;
+            this.IsSqlBulkTableLockEnabled = otherConfigToClone.IsSqlBulkTableLockEnabled;
+            this.SqlBulkCopyOptions = otherConfigToClone.SqlBulkCopyOptions;
+            this.DbSchemaLoaderQueryTimeoutSeconds = otherConfigToClone.DbSchemaLoaderQueryTimeoutSeconds;
+            this.MaterializeDataStructureProcessingTimeoutSeconds = otherConfigToClone.MaterializeDataStructureProcessingTimeoutSeconds;
+            this.MaterializedDataSwitchTableWaitTimeoutMinutes = otherConfigToClone.MaterializedDataSwitchTableWaitTimeoutMinutes;
+            this.MaterializedDataSwitchTimeoutAction = otherConfigToClone.MaterializedDataSwitchTimeoutAction;
+            this.MaterializedDataSchemaCopyMode = otherConfigToClone.MaterializedDataSchemaCopyMode;
+            this.MaterializedDataLoadingTableDataCopyMode = otherConfigToClone.MaterializedDataLoadingTableDataCopyMode;
+            this.MaterializedDataMakeSchemaCopyNamesUnique = otherConfigToClone.MaterializedDataMakeSchemaCopyNamesUnique;
+            this.MaterializedDataLoadingSchema = otherConfigToClone.MaterializedDataLoadingSchema;
+            this.MaterializedDataLoadingTablePrefix = otherConfigToClone.MaterializedDataLoadingTablePrefix;
+            this.MaterializedDataLoadingTableSuffix = otherConfigToClone.MaterializedDataLoadingTableSuffix;
+            this.MaterializedDataDiscardingSchema = otherConfigToClone.MaterializedDataDiscardingSchema;
+            this.MaterializedDataDiscardingTablePrefix = otherConfigToClone.MaterializedDataDiscardingTablePrefix;
+            this.MaterializedDataDiscardingTableSuffix = otherConfigToClone.MaterializedDataDiscardingTableSuffix;
+            this.IsCloningIdentitySeedValueEnabled = otherConfigToClone.IsCloningIdentitySeedValueEnabled;
+            this.ConcurrentConnectionFactory = otherConfigToClone.ConcurrentConnectionFactory;
+            this.MaxConcurrentConnections = otherConfigToClone.MaxConcurrentConnections;
+            this.IsFullTextIndexHandlingEnabled = otherConfigToClone.IsFullTextIndexHandlingEnabled;
+        }
+
+        public static SqlBulkHelpersConfig Create(Action<SqlBulkHelpersConfig> configAction, ISqlBulkHelpersConfig otherConfigToClone = null)
+            => (SqlBulkHelpersConfig)new SqlBulkHelpersConfig(otherConfigToClone).Configure(configAction);
+
+        public ISqlBulkHelpersConfig Clone() => new SqlBulkHelpersConfig(this);
+
+        public ISqlBulkHelpersConfig Configure(Action<SqlBulkHelpersConfig> configAction)
         {
             configAction.AssertArgumentIsNotNull(nameof(configAction));
-
-            var newConfig = new SqlBulkHelpersConfig();
-            configAction.Invoke(newConfig);
-            return newConfig;
+            configAction.Invoke(this);
+            return this;
         }
 
         /// <summary>
@@ -124,6 +159,8 @@ namespace SqlBulkHelpers
             //NOTE: Full text index handling may have been enabled already so we preserve it or turn it on if specified to this convenience method!
             this.IsFullTextIndexHandlingEnabled = IsFullTextIndexHandlingEnabled || enableFullTextIndexHandling;
         }
+
+        #region All Public Properties / Config Setttings...
 
         public int SqlBulkBatchSize { get; set; } = 2000; //General guidance is that 2000-5000 is efficient enough.
 
@@ -186,5 +223,7 @@ namespace SqlBulkHelpers
         /// Recommended to use the SqlBulkHelpersConfig.EnableConcurrentSqlConnectionProcessing() convenience method(s) to enable this more easily!
         /// </summary>
         public bool IsFullTextIndexHandlingEnabled { get; set; } = false;
+
+        #endregion
     }
 }
