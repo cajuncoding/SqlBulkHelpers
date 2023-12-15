@@ -48,7 +48,7 @@ namespace SqlBulkHelpers
             type.AssertArgumentIsNotNull(nameof(type));
 
             var processingDefinition = _processingDefinitionsLazyCache.GetOrAdd(
-                key: $"[Type={type.Name}][Identity={identityColumnDefinition?.ColumnName ?? "N/A"}]",  //Cache Key
+                key: $"[Type={type.FullName}][Identity={identityColumnDefinition?.ColumnName ?? "N/A"}]",  //Cache Key
                 cacheValueFactory: key =>
                 {
                     var propertyInfos = type.GetProperties().Select(pi => new PropInfoDefinition(pi, identityColumnDefinition)).ToList();
