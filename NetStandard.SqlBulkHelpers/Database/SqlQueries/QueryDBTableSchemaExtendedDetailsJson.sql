@@ -12,7 +12,7 @@
 			AND t.TABLE_CATALOG = DB_NAME()
 			AND t.TABLE_NAME = CASE
 				WHEN @IsTempTable = 0 THEN @TableName
-				ELSE (SELECT TOP (1) t.[name] FROM tempdb.sys.objects t WHERE t.[object_id] = OBJECT_ID(CONCAT(N'tempdb.[', @TableSchema, '].[', @TableName, ']')))
+				ELSE (SELECT TOP (1) t.[name] FROM tempdb.sys.objects t WHERE t.[object_id] = OBJECT_ID(CONCAT(N'tempdb.[', @TableSchema, '].[', @TableName, ']'))) COLLATE DATABASE_DEFAULT
 			END
 	)
 	SELECT
