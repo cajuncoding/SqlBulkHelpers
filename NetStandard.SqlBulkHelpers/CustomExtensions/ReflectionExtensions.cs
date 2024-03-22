@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Text;
-using Microsoft.IdentityModel.Protocols;
 using SqlBulkHelpers.CustomExtensions;
 
 namespace SqlBulkHelpers.SqlBulkHelpers.CustomExtensions

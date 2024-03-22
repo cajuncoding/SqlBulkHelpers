@@ -151,7 +151,6 @@ _Since this functionality is disabled by default it must be enabled via `SqlBulk
 _To minimize the risk of issues dropping/re-creating the FullTextIndex, it is done on a separate connection so that it can be recovered in the case of
 any issues, therefore it requires the use of Concurrent Sql Connections via a `Func<SqlConnection>` connection factory or `ISqlBulkHelpersConnectionProvider` implementation._
 
-
 ## Example Usage for Materializing Data:
 NOTE: Use the [Configuration](#example-configuration-of-defaults) above to improve performance -- particularly when initially loading table schemas for multiple tables (which are cached after initial load).
 
@@ -214,9 +213,16 @@ public class TestDataService
 
 ```
 
-
 ## Nuget Package
 To use in your project, add the [SqlBulkHelpers NuGet package](https://www.nuget.org/packages/SqlBulkHelpers/) to your project.
+
+### v2.4.4 Release Notes:
+- Fix Collation Conflict Risks -- Thanks to Contribution by @simelis [PR](https://github.com/cajuncoding/SqlBulkHelpers/pull/18)
+- Fix Security Vulnerability in System.Data.SqlClient
+
+### v2.4.3 Release Notes:
+- Fix Caching bug for Processing Definitions loaded from class Attribute annotations, etc. whereby the FullName was not correctly used resulting in cache conflicts and 
+incorrect values when classes have the same name.
 
 ### v2.4.2 Release Notes:
 - Add Support to manually control if Materialized Loading tables are cleaned-up/removed when using `SchemaCopyMode.OutsideTransactionAvoidSchemaLocks` via `materializeDataContext.DisableMaterializedStagingTableCleanup()`;
