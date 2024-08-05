@@ -26,6 +26,8 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
                     nameof(TestElementWithMappedNames.MyId) => "Id",
                     nameof(TestElementWithMappedNames.MyKey) => "Key",
                     nameof(TestElementWithMappedNames.MyValue) => "Value",
+                    //For Test case clarity we explicitly Test Linq2Db Column Attr. with no Name specified: https://github.com/cajuncoding/SqlBulkHelpers/issues/20
+                    nameof(TestElementWithMappedNames.MyColWithNullName) => nameof(TestElementWithMappedNames.MyColWithNullName),
                     unmappedPropertyName => unmappedPropertyName,
                     _ => null
                 };

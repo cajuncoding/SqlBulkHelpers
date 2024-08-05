@@ -123,6 +123,11 @@ namespace SqlBulkHelpers.Tests
         [SqlBulkMatchQualifier]
         public string MyKey { get; set; }
 
+        //TEST case where Name is not Specified in the Linq2Db Column Attribute
+        //  since it is actually Optional: https://github.com/cajuncoding/SqlBulkHelpers/issues/20
+        [Column()]
+        public string MyColWithNullName { get; set; }
+
         //Regardless of attribute order the SqlBulkColumn should take precedent!
         [Column("INCORRECT_NAME_SHOULD_NOT_RESOLVE")]
         [SqlBulkColumn("Value")]
