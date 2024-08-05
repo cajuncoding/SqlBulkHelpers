@@ -8,16 +8,17 @@
 	<PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Authors>BBernard / CajunCoding</Authors>
     <Company>CajunCoding</Company>
-	<Version>2.4.4</Version>
+	<Version>2.4.5</Version>
 	<PackageProjectUrl>https://github.com/cajuncoding/SqlBulkHelpers</PackageProjectUrl>
 	<RepositoryUrl>https://github.com/cajuncoding/SqlBulkHelpers</RepositoryUrl>
     <Description>A library for easy, efficient and high performance bulk insert and update of data, into a Sql Database, from .Net applications. By leveraging the power of the SqlBulkCopy classes with added support for Identity primary key table columns this library provides a greatly simplified interface to process Identity based Entities with Bulk Performance with the wide compatibility of .NetStandard 2.0.</Description>
 	<PackageTags>sql server database table bulk insert update identity column sqlbulkcopy orm dapper linq2sql materialization materialized data view materialized-data materialized-view sync replication replica readonly</PackageTags>
     <PackageReleaseNotes>
-		- Fix Collation Conflict Risks -- Thanks to Contribution by @simelis
-		- Fix Security Vulnerability in System.Data.SqlClient
+		-Fix Null Reference Exception if Linq2Db Column Attribute is used but no Name mapping is specified since it is actually optional (https://github.com/cajuncoding/SqlBulkHelpers/issues/20).
 
 		Prior Relese Notes:
+		- Fix Collation Conflict Risks -- Thanks to Contribution by @simelis
+		- Fix Security Vulnerability in System.Data.SqlClient
 		- Fix Caching bug for Processing Definitions loaded from class Attribute annotations, etc. whereby the FullName was not correctly used resulting in cache conflicts and incorrect values when classes have the same name.
 		- Add Support to manually control if Materialized Loading tables are cleaned-up/removed when using `SchemaCopyMode.OutsideTransactionAvoidSchemaLocks` via `materializeDataContext.DisableMaterializedStagingTableCleanup()`;
 		always enabled by default and throws an `InvalidOperationException` if if SchemaCopyMode.InsideTransactionAllowSchemaLocks is used. This provides support for advanced debugging and control flow support.

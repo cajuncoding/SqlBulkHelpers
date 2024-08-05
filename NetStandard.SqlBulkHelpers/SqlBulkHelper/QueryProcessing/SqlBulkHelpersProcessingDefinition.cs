@@ -197,15 +197,18 @@ namespace SqlBulkHelpers
                 {
                     var attrAccessor = ObjectAccessor.Create(mappingAttribute);
 
+                    object attributeNameValue = null;
                     switch (mappingAttribute.GetType().Name)
                     {
                         case MappingAttributeNames.RepoDbFieldMapAttributeName:
-                            return attrAccessor[MappingAttributeNames.RepoDbFieldMapAttributePropertyName].ToString();
+                            attributeNameValue = attrAccessor[MappingAttributeNames.RepoDbFieldMapAttributePropertyName];
+                            break;
                         case MappingAttributeNames.LinqToDbFieldMapAttributeName:
-                            return attrAccessor[MappingAttributeNames.LinqToDbFieldMapAttributePropertyName].ToString();
-                        default:
-                            return propInfo.Name;
+                            attributeNameValue = attrAccessor[MappingAttributeNames.LinqToDbFieldMapAttributePropertyName];
+                            break;
                     }
+
+                    return attributeNameValue?.ToString() ?? propInfo.Name;
                 }
             }
         }
