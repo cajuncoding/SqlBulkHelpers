@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="RepoDb" Version="1.13.0" />
+    <PackageReference Include="RepoDb" Version="1.13.1" />
   </ItemGroup>
 
   <ItemGroup>
