@@ -8,15 +8,16 @@
 	<PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Authors>BBernard / CajunCoding</Authors>
     <Company>CajunCoding</Company>
-	<Version>2.4.5</Version>
+	<Version>2.4.6</Version>
 	<PackageProjectUrl>https://github.com/cajuncoding/SqlBulkHelpers</PackageProjectUrl>
 	<RepositoryUrl>https://github.com/cajuncoding/SqlBulkHelpers</RepositoryUrl>
     <Description>A library for easy, efficient and high performance bulk insert and update of data, into a Sql Database, from .Net applications. By leveraging the power of the SqlBulkCopy classes with added support for Identity primary key table columns this library provides a greatly simplified interface to process Identity based Entities with Bulk Performance with the wide compatibility of .NetStandard 2.0.</Description>
 	<PackageTags>sql server database table bulk insert update identity column sqlbulkcopy orm dapper linq2sql materialization materialized data view materialized-data materialized-view sync replication replica readonly</PackageTags>
     <PackageReleaseNotes>
-		-Fix Null Reference Exception if Linq2Db Column Attribute is used but no Name mapping is specified since it is actually optional (https://github.com/cajuncoding/SqlBulkHelpers/issues/20).
-
+		- Updates to resolve security vulnerabilities in dependencies.
+		
 		Prior Relese Notes:
+		- Fix Null Reference Exception if Linq2Db Column Attribute is used but no Name mapping is specified since it is actually optional (https://github.com/cajuncoding/SqlBulkHelpers/issues/20).
 		- Fix Collation Conflict Risks -- Thanks to Contribution by @simelis
 		- Fix Security Vulnerability in System.Data.SqlClient
 		- Fix Caching bug for Processing Definitions loaded from class Attribute annotations, etc. whereby the FullName was not correctly used resulting in cache conflicts and incorrect values when classes have the same name.
@@ -87,9 +88,10 @@
 
   <ItemGroup>
     <PackageReference Include="FastMember" Version="1.5.0" />
-    <PackageReference Include="LazyCacheHelpers" Version="1.3.2" />
+    <PackageReference Include="LazyCacheHelpers" Version="1.3.3" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.1.3" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
   </ItemGroup>
 
 </Project>
