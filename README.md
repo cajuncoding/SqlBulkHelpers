@@ -216,6 +216,12 @@ public class TestDataService
 ## Nuget Package
 To use in your project, add the [SqlBulkHelpers NuGet package](https://www.nuget.org/packages/SqlBulkHelpers/) to your project.
 
+### v2.4.6 Release Notes:
+- Updates to resolve security vulnerabilities in dependencies.
+
+### v2.4.5 Release Notes:
+- Fix Null Reference Exception if Linq2Db Column Attribute is used but no Name mapping is specified since it is actually optional (https://github.com/cajuncoding/SqlBulkHelpers/issues/20).
+
 ### v2.4.4 Release Notes:
 - Fix Collation Conflict Risks -- Thanks to Contribution by @simelis [PR](https://github.com/cajuncoding/SqlBulkHelpers/pull/18)
 - Fix Security Vulnerability in System.Data.SqlClient
