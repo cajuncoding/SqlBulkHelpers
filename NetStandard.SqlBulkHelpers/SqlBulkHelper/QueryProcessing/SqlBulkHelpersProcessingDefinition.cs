@@ -1,4 +1,4 @@
-﻿using FastMember;
+﻿using Fasterflect;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -51,7 +51,7 @@ namespace SqlBulkHelpers
                 key: $"[Type={type.FullName}][Identity={identityColumnDefinition?.ColumnName ?? "N/A"}]",  //Cache Key
                 cacheValueFactory: key =>
                 {
-                    var propertyInfos = type.GetProperties().Select(pi => new PropInfoDefinition(pi, identityColumnDefinition)).ToList();
+                    var propertyInfos = type.Properties().Select(pi => new PropInfoDefinition(pi, identityColumnDefinition)).ToList();
                     var newProcessingDefinition = new SqlBulkHelpersProcessingDefinition(propertyInfos, type);
                     return newProcessingDefinition;
                 }
@@ -132,15 +132,13 @@ namespace SqlBulkHelpers
                     return sqlBulkTableAttr.FullyQualifiedTableName;
                 default:
                 {
-                    var attrAccessor = ObjectAccessor.Create(mappingAttribute);
-
                     switch (mappingAttribute.GetType().Name)
                     {
                         case MappingAttributeNames.RepoDbTableMapAttributeName:
-                            return attrAccessor[MappingAttributeNames.RepoDbTableMapAttributePropertyName].ToString();
+                            return mappingAttribute.GetPropertyValue(MappingAttributeNames.RepoDbTableMapAttributePropertyName).AsString();
                         //NOTE: Dapper and LinqToDb actually have the SAME Attribute & Property Name so this handles both...
                         case MappingAttributeNames.DapperTableMapAttributeName:
-                            return attrAccessor[MappingAttributeNames.DapperTableMapAttributePropertyName].ToString();
+                            return mappingAttribute.GetPropertyValue(MappingAttributeNames.DapperTableMapAttributePropertyName).AsString();
                         //NOTE: Removed because this conflicts with Dapper and both will be handled above.
                         //case MappingAttributeNames.LinqToDbTableMapAttributeName:
                         //    return attrAccessor[MappingAttributeNames.LinqToDbTableMapAttributePropertyName].ToString();
@@ -154,6 +152,8 @@ namespace SqlBulkHelpers
 
     public class PropInfoDefinition
     {
+        private readonly MemberGetter _fasterflectPropertyValueGetter;
+
         public PropInfoDefinition(PropertyInfo propInfo, TableColumnDefinition identityColumnDef = null)
         {
             this.PropInfo = propInfo;
@@ -164,6 +164,12 @@ namespace SqlBulkHelpers
             //Early determination if a Property is an Identity Property for Fast processing later...
             //NOTE: MappedDbColumnName will use annotation mapping if defined, otherwise it matches the original PropertyName...
             this.IsIdentityProperty = identityColumnDef?.ColumnName?.Equals(MappedDbColumnName, StringComparison.OrdinalIgnoreCase) ?? false;
+
+            //Initialize a fast Delegate based Property Value Getter for high performance access; this is now very easy with Fasterflect!
+            //NOTE: Event though Fasterflect has internal caching There is still some minor overhead in initializing the Cache Key (CallInfo) internally
+            //      which we can further avoid by initializing and keeping our Getter reference here for pure performance!
+            _fasterflectPropertyValueGetter = propInfo.DelegateForGetPropertyValue();
+            InvokePropertyValueGetter = new Func<object, object>(obj => _fasterflectPropertyValueGetter(obj));
         }
 
         public string PropertyName { get; private set; }
@@ -172,6 +178,7 @@ namespace SqlBulkHelpers
         public bool IsMatchQualifier { get; private set; }
         public PropertyInfo PropInfo { get; private set; }
         public Type PropertyType { get; private set; }
+        public Func<object, object> InvokePropertyValueGetter { get; private set; }
 
         public override string ToString()
         {
@@ -195,20 +202,18 @@ namespace SqlBulkHelpers
                     return sqlBulkColumnAttr.Name;
                 default:
                 {
-                    var attrAccessor = ObjectAccessor.Create(mappingAttribute);
-
                     object attributeNameValue = null;
                     switch (mappingAttribute.GetType().Name)
                     {
                         case MappingAttributeNames.RepoDbFieldMapAttributeName:
-                            attributeNameValue = attrAccessor[MappingAttributeNames.RepoDbFieldMapAttributePropertyName];
+                            attributeNameValue = mappingAttribute.GetPropertyValue(MappingAttributeNames.RepoDbFieldMapAttributePropertyName);
                             break;
                         case MappingAttributeNames.LinqToDbFieldMapAttributeName:
-                            attributeNameValue = attrAccessor[MappingAttributeNames.LinqToDbFieldMapAttributePropertyName];
+                            attributeNameValue = mappingAttribute.GetPropertyValue(MappingAttributeNames.LinqToDbFieldMapAttributePropertyName);
                             break;
                     }
 
-                    return attributeNameValue?.ToString() ?? propInfo.Name;
+                    return attributeNameValue.AsString() ?? propInfo.Name;
                 }
             }
         }

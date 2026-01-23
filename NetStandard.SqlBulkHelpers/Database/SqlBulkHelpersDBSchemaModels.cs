@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Text.Json.Serialization;
 using Newtonsoft.Json.Converters;
@@ -11,6 +12,7 @@ namespace SqlBulkHelpers
     public class SqlBulkHelpersTableDefinition
     {
         protected ILookup<string, TableColumnDefinition> ColumnLookupByNameCaseInsensitive { get; }
+        protected ILookup<string, TableColumnDefinition> UpdatableColumnLookupByNameCaseInsensitive { get; }
 
         public SqlBulkHelpersTableDefinition(
             string tableSchema, 
@@ -48,8 +50,12 @@ namespace SqlBulkHelpers
             //Derived Key/Constraint properties for Convenience/Fast Processing
             IdentityColumn = this.TableColumns.FirstOrDefault(c => c.IsIdentityColumn);
 
-            //Initialize the Case-insensitive Dictionary for quickly looking up Columns...
+            //Initialize the Case-insensitive Lookups for quickly finding Columns...
             ColumnLookupByNameCaseInsensitive = this.TableColumns.ToLookup(c => c.ColumnName, StringComparer.OrdinalIgnoreCase);
+            UpdatableColumnLookupByNameCaseInsensitive = this.TableColumns
+                //Only include valid updatable Columns (e.g. Computed Columns can NOT be updated)!
+                .Where(c => !c.IsComputedColumn)
+                .ToLookup(c => c.ColumnName, StringComparer.OrdinalIgnoreCase);
         }
 
         public TableNameTerm TableNameTerm { get; }
@@ -73,15 +79,20 @@ namespace SqlBulkHelpers
         public TableColumnDefinition IdentityColumn { get; }
 
         //The following are Helper Methods for processing...
-        public IList<string> GetColumnNames(bool includeIdentityColumn = true)
+        public IList<string> GetUpdatableColumnNames(bool includeIdentityColumn = true)
         {
-            IEnumerable<string> results = includeIdentityColumn 
-                ? this.TableColumns.Select(c => c.ColumnName)
-                : this.TableColumns.Where(c => !c.IsIdentityColumn).Select(c => c.ColumnName);
+            var updatableColumns = this.TableColumns.Where(c => !c.IsComputedColumn);
+            if (!includeIdentityColumn)
+                updatableColumns = updatableColumns.Where(c => !c.IsIdentityColumn);
 
             //Ensure that our List is Immutable/ReadOnly!
-            return results.ToList().AsReadOnly();
+            return updatableColumns
+                .Select(c => c.ColumnName)
+                .ToImmutableList();
         }
+
+        public TableColumnDefinition FindUpdatableColumnCaseInsensitive(string columnName)
+            => UpdatableColumnLookupByNameCaseInsensitive[columnName].FirstOrDefault();
 
         public TableColumnDefinition FindColumnCaseInsensitive(string columnName)
             => ColumnLookupByNameCaseInsensitive[columnName].FirstOrDefault();
@@ -98,6 +109,7 @@ namespace SqlBulkHelpers
             string columnName, 
             string dataType, 
             bool isIdentityColumn,
+            bool isComputedColumn,
             int? charactersMaxLength,
             int? numericPrecision,
             int? numericPrecisionRadix,
@@ -111,6 +123,7 @@ namespace SqlBulkHelpers
             ColumnName = columnName;
             DataType = dataType;
             IsIdentityColumn = isIdentityColumn;
+            IsComputedColumn = isComputedColumn;
             CharacterMaxLength = charactersMaxLength;
             NumericPrecision = numericPrecision;
             NumericPrecisionRadix = numericPrecisionRadix;
@@ -124,6 +137,7 @@ namespace SqlBulkHelpers
         public string ColumnName { get; }
         public string DataType { get; }
         public bool IsIdentityColumn { get; }
+        public bool IsComputedColumn { get; }
         public int? CharacterMaxLength { get; }
         public int? NumericPrecision { get; }
         public int? NumericPrecisionRadix { get; }
@@ -432,7 +446,7 @@ namespace SqlBulkHelpers
             //      which is common with auto-generated constraints.
             if (mappedName.Length >= SQL_NAME_MAX_LENGTH || mappedName.Equals(originalObjectName))
             {
-                var uniqueIdSuffix = string.Concat("_", IdGenerator.NewId());
+                var uniqueIdSuffix = string.Concat("_", TokenIdGenerator.NewTokenId());
                 var truncatedMappedName = mappedName.TruncateToLength(SQL_NAME_MAX_LENGTH - uniqueIdSuffix.Length);
                 mappedName = string.Concat(truncatedMappedName, uniqueIdSuffix);
             }

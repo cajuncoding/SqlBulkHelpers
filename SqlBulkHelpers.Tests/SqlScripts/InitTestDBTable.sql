@@ -1,8 +1,22 @@
-﻿--DROP TABLE [dbo].[SqlBulkHelpersTestElements];
+﻿--****************************************************************************************************************************************
+--****************************************************************************************************************************************
+-- Restore Script for bacpack file directly into Azure SQL Database (Empty DB needed):
+--
+-- sqlpackage.exe /Action:Import /SourceFile:"\\Path\To\DB_Backup.bacpac" /TargetServerName:"{{servername}}.database.windows.net" /TargetDatabaseName:"{{Test_DB_Name}}" /TargetUser:"{{Admin_Username}}" /TargetPassword:"{{Password}}"
+--
+--****************************************************************************************************************************************
+--****************************************************************************************************************************************
+
+
+
+--DROP TABLE IF EXISTS [dbo].[SqlBulkHelpersTestElements];
 CREATE TABLE [dbo].[SqlBulkHelpersTestElements](
 	[Id] [int] IDENTITY(1,1) NOT NULL,
 	[Key] [nvarchar](max) NULL,
 	[Value] [nvarchar](max) NULL,
+	--Add Computed Column test case to cover Github Issue: 
+	--	https://github.com/cajuncoding/SqlBulkHelpers/issues/24#issuecomment-3683605296
+	[ComputedValue] AS CONCAT([Key], N'::', [Value]) PERSISTED,
 	CONSTRAINT [PK_SqlBulkHelpersTestElements] PRIMARY KEY CLUSTERED ([Id] ASC) 
 		WITH (STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, OPTIMIZE_FOR_SEQUENTIAL_KEY = OFF) ON [PRIMARY]
 ) 
@@ -10,7 +24,7 @@ ON [PRIMARY]
 TEXTIMAGE_ON [PRIMARY];
 GO
 
---DROP TABLE [dbo].[SqlBulkHelpersTestElements_Child_NoIdentity];
+--DROP TABLE IF EXISTS [dbo].[SqlBulkHelpersTestElements_Child_NoIdentity];
 CREATE TABLE [dbo].[SqlBulkHelpersTestElements_Child_NoIdentity](
 	[ChildKey] [nvarchar](250) NOT NULL,
 	[ParentId] [int] NOT NULL,
@@ -24,7 +38,7 @@ TEXTIMAGE_ON [PRIMARY];
 ALTER TABLE [dbo].[SqlBulkHelpersTestElements_Child_NoIdentity] ADD FOREIGN KEY (ParentId) REFERENCES [dbo].[SqlBulkHelpersTestElements](Id);
 GO
 
---DROP TABLE [dbo].[SqlBulkHelpersTestElements_WithFullTextIndex];
+--DROP TABLE IF EXISTS [dbo].[SqlBulkHelpersTestElements_WithFullTextIndex];
 CREATE TABLE [dbo].[SqlBulkHelpersTestElements_WithFullTextIndex](
 	[Id] [int] IDENTITY(1,1) NOT NULL,
 	[Key] [nvarchar](max) NULL,
@@ -39,3 +53,32 @@ CREATE FULLTEXT INDEX ON [dbo].[SqlBulkHelpersTestElements_WithFullTextIndex]([K
    KEY INDEX [PK_SqlBulkHelpersTestElements_WithFullTextIndex] ON [SearchCatalog]
    WITH STOPLIST = SYSTEM;  
 GO
+
+--NOTE: Example Extraced from Github Issue: https://github.com/cajuncoding/SqlBulkHelpers/issues/24#issuecomment-3683605296
+--DROP TABLE IF EXISTS [dbo].[SqlBulkHelpersComputedColumnSchemaTest];
+CREATE TABLE [dbo].[SqlBulkHelpersComputedColumnSchemaTest](
+	[Id] INT IDENTITY (1, 1) NOT NULL,
+	-- raw identifiers (storage only)
+	[PartNumber]            NVARCHAR (MAX) NULL,
+	[SupplierPartNumber]    NVARCHAR (MAX) NULL,
+	-- normalized identifiers (computed + persisted)
+	[PartNumberNormalized] AS
+		UPPER(
+			REPLACE(
+				REPLACE(
+					REPLACE([PartNumber], '-', ''),
+				' ', ''),
+			'/', '')
+		) PERSISTED,
+
+	[SupplierPartNumberNormalized] AS
+		UPPER(
+			REPLACE(
+				REPLACE(
+					REPLACE([SupplierPartNumber], '-', ''),
+				' ', ''),
+			'/', '')
+		) PERSISTED,
+
+	CONSTRAINT [PK_SqlBulkHelpersComputedColumnSchemaTest] PRIMARY KEY CLUSTERED ([Id] ASC)
+);

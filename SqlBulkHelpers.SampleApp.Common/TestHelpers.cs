@@ -31,7 +31,8 @@ namespace SqlBulkHelpers.Tests
                 {
                     Id = default,
                     Key = $"{prefix}[{x:0000}]_GUID[{Guid.NewGuid().ToString().ToUpper()}]",
-                    Value = $"VALUE_{x:0000}"
+                    Value = $"VALUE_{x:0000}",
+                    ComputedValue = $"SHOULD_NOT_BE_SAVED::{TokenIdGenerator.NewTokenId(50)}" //NOTE: SHOULD NEVER BE SAVED!
                 };
 
                 list.Add(testElement);
@@ -76,7 +77,8 @@ namespace SqlBulkHelpers.Tests
             {
                 Id = t.Id,
                 Key = t.Key,
-                Value = t.Value
+                Value = t.Value,
+                ComputedValue = t.ComputedValue
             }).ToList();
 
             return list;
@@ -88,6 +90,7 @@ namespace SqlBulkHelpers.Tests
         public int Id { get; set; }
         public string Key { get; set; }
         public string Value { get; set; }
+        public string ComputedValue { get; set; }
         public override string ToString() => $"Id=[{Id}], Key=[{Key}]";
     }
 

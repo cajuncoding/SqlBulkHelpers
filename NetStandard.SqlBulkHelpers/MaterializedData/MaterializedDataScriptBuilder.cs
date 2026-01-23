@@ -401,7 +401,7 @@ namespace SqlBulkHelpers.MaterializedData
 
                 var fkeyConstraintNameQualified = fkeyConstraint.ConstraintName.QualifySqlTerm();
                 var fullyQualifiedTableName = tableName.FullyQualifiedTableName;
-                var errorMsgVariableName = $"@errorMsg_{IdGenerator.NewId()}";
+                var errorMsgVariableName = $"@errorMsg_{TokenIdGenerator.NewTokenId()}";
 
                 //We manually provide better error handling because the Messages from Sql Server are vague and it's unclear to a developer
                 //  that this FKey constraint Check was the likely cause of failures, so we provide more details in a custom error message!
@@ -451,7 +451,7 @@ namespace SqlBulkHelpers.MaterializedData
 
                 var fkeyConstraintNameQualified = referencingFKey.ConstraintName.QualifySqlTerm();
                 var fullyQualifiedTableName = referencingFKey.SourceTableNameTerm.FullyQualifiedTableName;
-                var errorMsgVariableName = $"@errorMsg_{IdGenerator.NewId()}";
+                var errorMsgVariableName = $"@errorMsg_{TokenIdGenerator.NewTokenId()}";
 
                 //We manually provide better error handling because the Messages from Sql Server are vague and it's unclear to a developer
                 //  that this FKey constraint Check was the likely cause of failures, so we provide more details in a custom error message!

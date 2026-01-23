@@ -1,12 +1,10 @@
 ﻿using System;
-using SqlBulkHelpers.Tests;
 using SqlBulkHelpers.MaterializedData;
 using Microsoft.Data.SqlClient;
 using RepoDb;
 using SqlBulkHelpers.CustomExtensions;
-using SqlBulkHelpers.SqlBulkHelpers;
 
-namespace SqlBulkHelpers.IntegrationTests
+namespace SqlBulkHelpers.Tests.IntegrationTests
 {
     [TestClass]
     public class MaterializeDataCopyTableDataTests : BaseTest
@@ -42,7 +40,7 @@ namespace SqlBulkHelpers.IntegrationTests
                 //Validate that the new table has No Data!
                 Assert.IsNotNull(cloneInfo);
                 Assert.IsNotNull(resultCopyInfo);
-                Assert.AreEqual(resultCopyInfo.SourceTable.FullyQualifiedTableName, TestHelpers.TestTableNameFullyQualified);
+                Assert.AreEqual(TestHelpers.TestTableNameFullyQualified, resultCopyInfo.SourceTable.FullyQualifiedTableName);
                 Assert.AreEqual(resultCopyInfo.TargetTable.FullyQualifiedTableName, targetTableNameTerm);
                 var sourceTableCount = await sqlConn.CountAllAsync(tableName: cloneInfo.SourceTable).ConfigureAwait(false);
                 var targetTableCount = await sqlConn.CountAllAsync(tableName: cloneInfo.TargetTable).ConfigureAwait(false);

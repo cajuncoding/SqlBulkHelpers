@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using FastMember;
 using SqlBulkHelpers.CustomExtensions;
 
 namespace SqlBulkHelpers
@@ -10,11 +9,10 @@ namespace SqlBulkHelpers
     internal sealed class SqlBulkHelpersDataReader<T> : IDataReader, IDisposable
     {
         private readonly PropInfoDefinition[] _processingFields;
-        private readonly TypeAccessor _fastTypeAccessor = TypeAccessor.Create(typeof(T));
         private readonly int _rowNumberPseudoColumnOrdinal;
         
         private IEnumerator<T> _dataEnumerator;
-        private Dictionary<string, int> _processingDefinitionOrdinalDictionary;
+        private readonly Dictionary<string, int> _processingDefinitionOrdinalDictionary;
         private int _entityCounter = 0;
 
         public SqlBulkHelpersDataReader(IEnumerable<T> entityData, SqlBulkHelpersProcessingDefinition processingDefinition, SqlBulkHelpersTableDefinition tableDefinition)
@@ -25,11 +23,19 @@ namespace SqlBulkHelpers
             processingDefinition.AssertArgumentIsNotNull(nameof(processingDefinition));
             tableDefinition.AssertArgumentIsNotNull(nameof(tableDefinition));
 
+            //Determine which of the Type Processing Definition fields/properties actually exists as DB Columns in the Table Definition.
+            //NOTE: We can only update fields that actuallyl exist within the Table being targeted!
             _processingFields = processingDefinition.PropertyDefinitions.Where(
-                p => tableDefinition.FindColumnCaseInsensitive(p.MappedDbColumnName) != null
+                p => tableDefinition.FindUpdatableColumnCaseInsensitive(p.MappedDbColumnName) != null
             ).AsArray();
 
             _rowNumberPseudoColumnOrdinal = _processingFields.Length;
+
+            //Populate our Property Ordinal reverse lookup dictionary...
+            int i = 0;
+            _processingDefinitionOrdinalDictionary = new Dictionary<string, int>(_processingFields.Length);
+            foreach (var propDef in _processingFields)
+                _processingDefinitionOrdinalDictionary[propDef.MappedDbColumnName] = i++;
 
             //Must ensure we include all Entity data fields as well as the Row Number pseudo-Column...
             this.FieldCount = _processingFields.Length + 1;
@@ -51,16 +57,6 @@ namespace SqlBulkHelpers
 
         public int GetOrdinal(string dbColumnName)
         {
-            //Lazy Load the Ordinal reverse lookup dictionary (ONLY if needed)
-            if (_processingDefinitionOrdinalDictionary == null)
-            {
-                //Populate our Property Ordinal reverse lookup dictionary...
-                int i = 0;
-                _processingDefinitionOrdinalDictionary = new Dictionary<string, int>();
-                foreach (var propDef in _processingFields)
-                    _processingDefinitionOrdinalDictionary[propDef.MappedDbColumnName] = i++;
-            }
-
             if (SqlBulkHelpersConstants.ROWNUMBER_COLUMN_NAME.Equals(dbColumnName))
                 return _rowNumberPseudoColumnOrdinal;
             else if (_processingDefinitionOrdinalDictionary.TryGetValue(dbColumnName, out var ordinalIndex))
@@ -80,8 +76,7 @@ namespace SqlBulkHelpers
 
             //Otherwise retrieve from our Entity Data model...
             var fieldDefinition = _processingFields[i];
-            var fieldValue = _fastTypeAccessor[_dataEnumerator.Current, fieldDefinition.PropertyName];
-            
+            var fieldValue = fieldDefinition.InvokePropertyValueGetter(_dataEnumerator.Current);
             return fieldValue;
         }
 

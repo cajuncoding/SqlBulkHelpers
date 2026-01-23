@@ -2,8 +2,6 @@
 using System.Diagnostics;
 using Microsoft.Data.SqlClient;
 using RepoDb;
-using SqlBulkHelpers.CustomExtensions;
-using SqlBulkHelpers.SqlBulkHelpers;
 
 namespace SqlBulkHelpers.Tests.IntegrationTests
 {
@@ -41,6 +39,22 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
             );
 
             AssertTableDefinitionIsValidForTempTable(tempTableName, tableDefinition);
+        }
+
+        [TestMethod]
+        public void TestTableDefinitionLoadingBasicDetailsForTableWithComputedColumnsWithTransactionSyncMethod()
+        {
+            using var sqlConn = SqlConnectionHelper.NewConnection();
+            using var sqlTransaction = sqlConn.BeginTransaction();
+
+            var computedColumnTestTableName = "[dbo].[SqlBulkHelpersComputedColumnSchemaTest]";
+
+            var tableDefinition = sqlTransaction.GetTableSchemaDefinition(
+                computedColumnTestTableName,
+                TableSchemaDetailLevel.BasicDetails
+            );
+
+            AssertTableDefinitionIsValidForComputedColumnsTable(computedColumnTestTableName, tableDefinition);
         }
 
         [TestMethod]
@@ -88,6 +102,22 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
             ).ConfigureAwait(false);
 
             AssertTableDefinitionIsValidForTempTable(tempTableName, tableDefinition);
+        }
+
+        [TestMethod]
+        public async Task TestTableDefinitionLoadingBasicDetailsForTableWithComputedColumnsWithTransactionAsync()
+        {
+            var sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
+            await using var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false);
+            await using var sqlTransaction = (SqlTransaction)await sqlConn.BeginTransactionAsync();
+
+            var computedColumnTestTableName = "[dbo].[SqlBulkHelpersComputedColumnSchemaTest]";
+            var tableDefinition = await sqlTransaction.GetTableSchemaDefinitionAsync(
+                computedColumnTestTableName,
+                TableSchemaDetailLevel.BasicDetails
+            ).ConfigureAwait(false);
+
+            AssertTableDefinitionIsValidForComputedColumnsTable(computedColumnTestTableName, tableDefinition);
         }
 
 
@@ -138,9 +168,31 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
             //NOTE: Table Names will not match exactly due to internal Hashing of the Temp Name for Session isolation, etc...
             //Assert.AreEqual(tableNameTerm.TableName, tableDefinition.TableName);
             //Assert.AreEqual(tableNameTerm.FullyQualifiedTableName, tableDefinition.TableFullyQualifiedName);
-            Assert.AreEqual(1, tableDefinition.TableColumns.Count);
+            Assert.HasCount(1, tableDefinition.TableColumns);
             Assert.IsNotNull(tableDefinition.PrimaryKeyConstraint);
-            Assert.AreEqual(0, tableDefinition.ForeignKeyConstraints.Count);
+            Assert.IsEmpty(tableDefinition.ForeignKeyConstraints);
+        }
+
+        private void AssertTableDefinitionIsValidForComputedColumnsTable(string tempTableName, SqlBulkHelpersTableDefinition tableDefinition)
+        {
+            Assert.IsNotNull(tableDefinition);
+
+            var tableNameTerm = TableNameTerm.From(tempTableName);
+            Assert.IsFalse(tableNameTerm.IsTempTableName);
+            Assert.AreEqual(TableSchemaDetailLevel.BasicDetails, tableDefinition.SchemaDetailLevel);
+            Assert.AreEqual(tableNameTerm.SchemaName, tableDefinition.TableSchema);
+            Assert.IsNotNull(tableDefinition.PrimaryKeyConstraint);
+            Assert.IsEmpty(tableDefinition.ForeignKeyConstraints);
+
+            //Validate Computed Columns Exist as expected!
+            Assert.HasCount(2, tableDefinition.TableColumns.Where(c => c.IsComputedColumn));
+            Assert.IsGreaterThan(2, tableDefinition.TableColumns.Count);
+            //Computed Columsn should exist...
+            Assert.IsNotNull(tableDefinition.FindColumnCaseInsensitive("PartNumberNormalized"));
+            Assert.IsNotNull(tableDefinition.FindColumnCaseInsensitive("SupplierPartNumberNormalized"));
+            //Computed Columsn should NOT be udatable (not returned by FindUpdatableColumn method)...
+            Assert.IsNull(tableDefinition.FindUpdatableColumnCaseInsensitive("PartNumberNormalized"));
+            Assert.IsNull(tableDefinition.FindUpdatableColumnCaseInsensitive("SupplierPartNumberNormalized"));
         }
 
         [TestMethod]

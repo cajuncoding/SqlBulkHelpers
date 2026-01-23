@@ -1,12 +1,10 @@
 ﻿using System;
-using SqlBulkHelpers.Tests;
 using SqlBulkHelpers.MaterializedData;
 using Microsoft.Data.SqlClient;
 using RepoDb;
 using SqlBulkHelpers.CustomExtensions;
-using SqlBulkHelpers.SqlBulkHelpers;
 
-namespace SqlBulkHelpers.IntegrationTests
+namespace SqlBulkHelpers.Tests.IntegrationTests
 {
     [TestClass]
     public class MaterializeDataCloneTablesTests : BaseTest
@@ -36,10 +34,10 @@ namespace SqlBulkHelpers.IntegrationTests
                 Assert.IsNotNull(sourceTableSchema);
                 Assert.IsNotNull(clonedTableSchema);
                 Assert.AreEqual(cloneInfo.TargetTable.FullyQualifiedTableName, clonedTableSchema.TableNameTerm.FullyQualifiedTableName);
-                Assert.AreEqual(sourceTableSchema.TableIndexes.Count, clonedTableSchema.TableIndexes.Count);
-                Assert.AreEqual(sourceTableSchema.ForeignKeyConstraints.Count, clonedTableSchema.ForeignKeyConstraints.Count);
-                Assert.AreEqual(sourceTableSchema.ColumnDefaultConstraints.Count, clonedTableSchema.ColumnDefaultConstraints.Count);
-                Assert.AreEqual(sourceTableSchema.ColumnCheckConstraints.Count, clonedTableSchema.ColumnCheckConstraints.Count);
+                Assert.HasCount(sourceTableSchema.TableIndexes.Count, sourceTableSchema.TableIndexes);
+                Assert.HasCount(sourceTableSchema.ForeignKeyConstraints.Count, sourceTableSchema.ForeignKeyConstraints);
+                Assert.HasCount(sourceTableSchema.ColumnDefaultConstraints.Count, sourceTableSchema.ColumnDefaultConstraints);
+                Assert.HasCount(sourceTableSchema.ColumnCheckConstraints.Count, sourceTableSchema.ColumnCheckConstraints);
                 Assert.AreEqual(sourceTableSchema.IdentityColumn.ColumnName, clonedTableSchema.IdentityColumn.ColumnName);
                 Assert.AreEqual(
                     sourceTableSchema.PrimaryKeyConstraint.KeyColumns.OrderBy(k => k.OrdinalPosition).Select(k => k.ColumnName).ToCsv(),

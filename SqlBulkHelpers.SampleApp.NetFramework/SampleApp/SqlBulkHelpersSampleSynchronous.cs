@@ -1,11 +1,7 @@
 ﻿using SqlBulkHelpers;
 using System;
-using System.Collections.Generic;
-using Microsoft.Data.SqlClient;
 using System.Diagnostics;
 using System.Linq;
-using SqlBulkHelpers.SqlBulkHelpers;
-using SqlBulkHelpers.Tests;
 
 namespace SqlBulkHelpersSample.ConsoleApp
 {

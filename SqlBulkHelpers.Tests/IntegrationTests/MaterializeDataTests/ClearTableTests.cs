@@ -1,11 +1,10 @@
 ﻿using System;
-using SqlBulkHelpers.Tests;
 using SqlBulkHelpers.MaterializedData;
 using Microsoft.Data.SqlClient;
 using RepoDb;
 using SqlBulkHelpers.CustomExtensions;
 
-namespace SqlBulkHelpers.IntegrationTests
+namespace SqlBulkHelpers.Tests.IntegrationTests
 {
     [TestClass]
     public class MaterializeDataClearTableTests : BaseTest
@@ -54,7 +53,7 @@ namespace SqlBulkHelpers.IntegrationTests
 
                 //Get our count BEFORE and Validate we have some data...
                 var initialTableCount = await sqlConn.CountAllAsync(tableNameTerm, transaction: sqlTrans).ConfigureAwait(false);
-                Assert.IsTrue(initialTableCount > 0);
+                Assert.IsGreaterThan(0, initialTableCount);
 
                 //var initialTableCount = await sqlConn.CountAllAsync(tableNameTerm, transaction: sqlTrans).ConfigureAwait(false);
                 var resultTable = await sqlTrans.ClearTableAsync(tableNameTerm);

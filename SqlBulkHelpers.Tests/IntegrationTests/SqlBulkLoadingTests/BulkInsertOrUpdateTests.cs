@@ -1,10 +1,8 @@
 ﻿using System;
-using SqlBulkHelpers.Tests;
 using Microsoft.Data.SqlClient;
 using SqlBulkHelpers.MaterializedData;
-using SqlBulkHelpers.SqlBulkHelpers;
 
-namespace SqlBulkHelpers.IntegrationTests
+namespace SqlBulkHelpers.Tests.IntegrationTests
 {
     [TestClass]
     public class SqlBulkHelpersBulkInsertOrUpdateTests : BaseTest
@@ -62,14 +60,14 @@ namespace SqlBulkHelpers.IntegrationTests
                     //  correctly by sorting on the Incrementing Identity value when Queried (e.g. ORDER BY Id)
                     //  which must then match our original order of data.
                     var resultsSorted = results.OrderBy(r => r.Id).ToList();
-                    Assert.AreEqual(resultsSorted.Count, testData.Count);
+                    Assert.HasCount(resultsSorted.Count, testData);
 
                     var i = 0;
                     foreach (var result in resultsSorted)
                     {
                         Assert.IsNotNull(result);
-                        Assert.IsTrue(result.Id > 0);
-                        Assert.IsTrue(result.Key.StartsWith(testKeyPrefix));
+                        Assert.IsGreaterThan(0, result.Id);
+                        Assert.StartsWith(testKeyPrefix, result.Key);
                         Assert.AreEqual(result.Key, testData[i].Key);
                         Assert.AreEqual(result.Value, testData[i].Value);
                         i++;
@@ -134,7 +132,7 @@ namespace SqlBulkHelpers.IntegrationTests
                 foreach (var result in resultsSorted)
                 {
                     Assert.IsNotNull(result);
-                    Assert.IsTrue(result.Id > 0);
+                    Assert.IsGreaterThan(0, result.Id);
                     Assert.AreEqual((object)result.Key, testData[i].Key);
                     Assert.AreEqual((object)result.Value, testData[i].Value);
                     i++;
@@ -181,13 +179,13 @@ namespace SqlBulkHelpers.IntegrationTests
                 //  correctly by sorting on the Incrementing Identity value when Queried (e.g. ORDER BY Id)
                 //  which must then match our original order of data.
                 var resultsSorted = results.OrderBy(r => r.MyId).ToList();
-                Assert.AreEqual(resultsSorted.Count(), testDataWithMappedProps.Count);
+                Assert.HasCount(resultsSorted.Count(), testDataWithMappedProps);
 
                 var i = 0;
                 foreach (var result in resultsSorted)
                 {
                     Assert.IsNotNull(result);
-                    Assert.IsTrue(result.MyId > 0);
+                    Assert.IsGreaterThan(0, result.MyId);
                     Assert.AreEqual((object)result.MyKey, testDataWithMappedProps[i].MyKey);
                     Assert.AreEqual((object)result.MyValue, testDataWithMappedProps[i].MyValue);
                     i++;

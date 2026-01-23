@@ -1,7 +1,6 @@
-﻿using SqlBulkHelpers.Tests;
-using Microsoft.Data.SqlClient;
+﻿using Microsoft.Data.SqlClient;
 
-namespace SqlBulkHelpers.IntegrationTests
+namespace SqlBulkHelpers.Tests.IntegrationTests
 {
     [TestClass]
     public class SqlBulkHelpersConnectionAndConstructorTests : BaseTest
