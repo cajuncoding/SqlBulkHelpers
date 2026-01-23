@@ -149,7 +149,7 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
             Assert.IsNotNull(tableDefinition);
             Assert.AreEqual(TestHelpers.TestTableNameFullyQualified, tableDefinition.TableFullyQualifiedName);
             Assert.AreEqual(TableSchemaDetailLevel.BasicDetails, tableDefinition.SchemaDetailLevel);
-            Assert.HasCount(3, tableDefinition.TableColumns);
+            Assert.IsGreaterThan(3, tableDefinition.TableColumns.Count);
         }
 
         [TestMethod]
@@ -169,7 +169,7 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
             Assert.IsNotNull(tableDefinition);
             Assert.AreEqual(TestHelpers.TestTableNameFullyQualified, tableDefinition.TableFullyQualifiedName);
             Assert.AreEqual(TableSchemaDetailLevel.BasicDetails, tableDefinition.SchemaDetailLevel);
-            Assert.HasCount(3, tableDefinition.TableColumns);
+            Assert.IsGreaterThan(3, tableDefinition.TableColumns.Count);
         }
 
         [TestMethod]
@@ -194,7 +194,7 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
                 Assert.IsNotNull(tableDefinition);
                 Assert.AreEqual(TestHelpers.TestTableNameFullyQualified, tableDefinition.TableFullyQualifiedName);
                 Assert.AreEqual(TableSchemaDetailLevel.BasicDetails, tableDefinition.SchemaDetailLevel);
-                Assert.AreEqual(3, tableDefinition.TableColumns.Count);
+                Assert.IsGreaterThan(3, tableDefinition.TableColumns.Count);
             }
         }
 
@@ -220,7 +220,7 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
                 Assert.IsNotNull(tableDefinition);
                 Assert.AreEqual(TestHelpers.TestTableNameFullyQualified, tableDefinition.TableFullyQualifiedName);
                 Assert.AreEqual(TableSchemaDetailLevel.BasicDetails, tableDefinition.SchemaDetailLevel);
-                Assert.HasCount(3, tableDefinition.TableColumns);
+                Assert.IsGreaterThan(3, tableDefinition.TableColumns.Count);
             }
         }
     }

@@ -488,14 +488,24 @@ namespace SqlBulkHelpers.MaterializedData
                     //          and we simply complete the process by materializing to EMPTY tables (newly cloned) with no data!
                     //START the Materialize Data Process... but we do NOT insert any new data to the Empty Tables!
                     var materializeDataContext = await sqlTransaction.StartMaterializeDataProcessAsync(tablesToMaterializeAsEmpty).ConfigureAwait(false);
+                    SqlException sqlException = null;
                     try
                     {
                         //We finish the Clearing process by immediately switching out with the new/empty tables to Clear the Data!
                         await materializeDataContext.FinishMaterializeDataProcessAsync(sqlTransaction).ConfigureAwait(false);
                     }
+                    catch(SqlException sqlExc)
+                    { 
+                        sqlException = sqlExc; 
+                    }
                     finally
                     {
-                        await CleanupMaterializeDataProcessAsync(sqlTransaction, materializeDataContext).ConfigureAwait(false);
+                        //We can only clean things up if there wasn't a SqlException because SqlExceptions result in invalid SqlConnection/SqlTransaction state
+                        //  and any attempt to use them will mask the underlying exception making it very hard to debug...
+                        if(sqlException == null)
+                            await CleanupMaterializeDataProcessAsync(sqlTransaction, materializeDataContext).ConfigureAwait(false);
+                        else
+                            throw sqlException;
                     }
                 }
             }

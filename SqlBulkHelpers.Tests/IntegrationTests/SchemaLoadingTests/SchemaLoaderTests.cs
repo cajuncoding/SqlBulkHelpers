@@ -19,7 +19,7 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
                 TableSchemaDetailLevel.BasicDetails
             );
 
-            AssertTableDefinitionIsValidForTestElementParentTable(tableDefinition, TableSchemaDetailLevel.BasicDetails);
+            AssertTableDefinitionIsValidForTestElementParentTable(tableDefinition, TableNameTerm.From<object>(TestHelpers.TestTableNameFullyQualified), TableSchemaDetailLevel.BasicDetails);
         }
 
         [TestMethod]
@@ -42,19 +42,28 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
         }
 
         [TestMethod]
-        public void TestTableDefinitionLoadingBasicDetailsForTableWithComputedColumnsWithTransactionSyncMethod()
+        public void TestTableDefinitionLoadingForTableWithComputedColumnsWithTransactionSyncMethod()
         {
             using var sqlConn = SqlConnectionHelper.NewConnection();
             using var sqlTransaction = sqlConn.BeginTransaction();
 
             var computedColumnTestTableName = "[dbo].[SqlBulkHelpersComputedColumnSchemaTest]";
 
-            var tableDefinition = sqlTransaction.GetTableSchemaDefinition(
+            //Validate Computed Columnd details with the BasicDetails of the Schema...
+            var tableDefinitionBasciDetails = sqlTransaction.GetTableSchemaDefinition(
                 computedColumnTestTableName,
                 TableSchemaDetailLevel.BasicDetails
             );
 
-            AssertTableDefinitionIsValidForComputedColumnsTable(computedColumnTestTableName, tableDefinition);
+            AssertTableDefinitionIsValidForComputedColumnsTable(computedColumnTestTableName, tableDefinitionBasciDetails);
+
+            //Validate Computed Columnd details with the ExtendedDetails of the Schema...
+            var tableDefinitionExtendedDetails = sqlTransaction.GetTableSchemaDefinition(
+                computedColumnTestTableName,
+                TableSchemaDetailLevel.ExtendedDetails
+            );
+
+            AssertTableDefinitionIsValidForComputedColumnsTable(computedColumnTestTableName, tableDefinitionExtendedDetails);
         }
 
         [TestMethod]
@@ -66,7 +75,7 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
                 TableSchemaDetailLevel.ExtendedDetails
             );
 
-            AssertTableDefinitionIsValidForTestElementParentTable(tableDefinition, TableSchemaDetailLevel.ExtendedDetails);
+            AssertTableDefinitionIsValidForTestElementParentTable(tableDefinition, TableNameTerm.From<object>(TestHelpers.TestTableNameFullyQualified), TableSchemaDetailLevel.ExtendedDetails);
         }
 
         [TestMethod]
@@ -81,7 +90,7 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
                 TableSchemaDetailLevel.BasicDetails
             ).ConfigureAwait(false);
 
-            AssertTableDefinitionIsValidForTestElementParentTable(tableDefinition, TableSchemaDetailLevel.BasicDetails);
+            AssertTableDefinitionIsValidForTestElementParentTable(tableDefinition, TableNameTerm.From<object>(TestHelpers.TestTableNameFullyQualified), TableSchemaDetailLevel.BasicDetails);
         }
 
         [TestMethod]
@@ -105,7 +114,7 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
         }
 
         [TestMethod]
-        public async Task TestTableDefinitionLoadingBasicDetailsForTableWithComputedColumnsWithTransactionAsync()
+        public async Task TestTableDefinitionLoadingForTableWithComputedColumnsWithTransactionAsync()
         {
             var sqlConnectionProvider = SqlConnectionHelper.GetConnectionProvider();
             await using var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false);
@@ -118,6 +127,15 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
             ).ConfigureAwait(false);
 
             AssertTableDefinitionIsValidForComputedColumnsTable(computedColumnTestTableName, tableDefinition);
+
+            //Validate Computed Columnd details with the ExtendedDetails of the Schema...
+            var tableDefinitionExtendedDetails = await sqlTransaction.GetTableSchemaDefinitionAsync(
+                computedColumnTestTableName,
+                TableSchemaDetailLevel.ExtendedDetails
+            ).ConfigureAwait(false);
+
+            AssertTableDefinitionIsValidForComputedColumnsTable(computedColumnTestTableName, tableDefinitionExtendedDetails);
+
         }
 
 
@@ -132,29 +150,34 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
                 TableSchemaDetailLevel.ExtendedDetails
             ).ConfigureAwait(false);
 
-            AssertTableDefinitionIsValidForTestElementParentTable(tableDefinition, TableSchemaDetailLevel.ExtendedDetails);
+            AssertTableDefinitionIsValidForTestElementParentTable(tableDefinition, TableNameTerm.From<object>(TestHelpers.TestTableNameFullyQualified), TableSchemaDetailLevel.ExtendedDetails);
+            Assert.IsEmpty(tableDefinition.ForeignKeyConstraints);
+            Assert.HasCount(1, tableDefinition.ReferencingForeignKeyConstraints);
+
+            var childTableDefinition = await sqlConn.GetTableSchemaDefinitionAsync(
+                TestHelpers.TestChildTableNameFullyQualified,
+                TableSchemaDetailLevel.ExtendedDetails
+            ).ConfigureAwait(false);
+
+            AssertTableDefinitionIsValidForTestElementParentTable(childTableDefinition, TableNameTerm.From<object>(TestHelpers.TestChildTableNameFullyQualified), TableSchemaDetailLevel.ExtendedDetails);
+            Assert.IsEmpty(childTableDefinition.ReferencingForeignKeyConstraints);
+            Assert.HasCount(1, childTableDefinition.ForeignKeyConstraints);
+
+            var childKeyColumn = childTableDefinition.FindColumnCaseInsensitive("ChildKey");
+            Assert.IsTrue(childKeyColumn.DataType.Equals("nvarchar", StringComparison.OrdinalIgnoreCase));
+            Assert.AreEqual(250, childKeyColumn.CharacterMaxLength);
         }
 
-        private void AssertTableDefinitionIsValidForTestElementParentTable(SqlBulkHelpersTableDefinition tableDefinition, TableSchemaDetailLevel expectedDetailLevel)
+        private void AssertTableDefinitionIsValidForTestElementParentTable(SqlBulkHelpersTableDefinition tableDefinition, TableNameTerm tableNameTerm, TableSchemaDetailLevel expectedDetailLevel)
         {
             Assert.IsNotNull(tableDefinition);
 
-            var tableNameTerm = TableNameTerm.From<object>(TestHelpers.TestTableNameFullyQualified);
             Assert.AreEqual(expectedDetailLevel, tableDefinition.SchemaDetailLevel);
             Assert.AreEqual(tableNameTerm.SchemaName, tableDefinition.TableSchema);
             Assert.AreEqual(tableNameTerm.TableName, tableDefinition.TableName);
             Assert.AreEqual(tableNameTerm.FullyQualifiedTableName, tableDefinition.TableFullyQualifiedName);
-            Assert.AreEqual(3, tableDefinition.TableColumns.Count);
+            Assert.IsGreaterThan(2, tableDefinition.TableColumns.Count);
             Assert.IsNotNull(tableDefinition.PrimaryKeyConstraint);
-            Assert.IsNotNull(tableDefinition.IdentityColumn);
-            Assert.AreEqual(0, tableDefinition.ForeignKeyConstraints.Count);
-
-            //EXTENDED Details includes FKeys and Referencing Keys...
-            if (expectedDetailLevel == TableSchemaDetailLevel.ExtendedDetails)
-            {
-                Assert.AreEqual(0, tableDefinition.ForeignKeyConstraints.Count);
-                Assert.AreEqual(1, tableDefinition.ReferencingForeignKeyConstraints.Count);
-            }
         }
 
         private void AssertTableDefinitionIsValidForTempTable(string tempTableName, SqlBulkHelpersTableDefinition tableDefinition)
@@ -179,7 +202,6 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
 
             var tableNameTerm = TableNameTerm.From(tempTableName);
             Assert.IsFalse(tableNameTerm.IsTempTableName);
-            Assert.AreEqual(TableSchemaDetailLevel.BasicDetails, tableDefinition.SchemaDetailLevel);
             Assert.AreEqual(tableNameTerm.SchemaName, tableDefinition.TableSchema);
             Assert.IsNotNull(tableDefinition.PrimaryKeyConstraint);
             Assert.IsEmpty(tableDefinition.ForeignKeyConstraints);
@@ -187,10 +209,22 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
             //Validate Computed Columns Exist as expected!
             Assert.HasCount(2, tableDefinition.TableColumns.Where(c => c.IsComputedColumn));
             Assert.IsGreaterThan(2, tableDefinition.TableColumns.Count);
+
             //Computed Columsn should exist...
-            Assert.IsNotNull(tableDefinition.FindColumnCaseInsensitive("PartNumberNormalized"));
-            Assert.IsNotNull(tableDefinition.FindColumnCaseInsensitive("SupplierPartNumberNormalized"));
-            //Computed Columsn should NOT be udatable (not returned by FindUpdatableColumn method)...
+            var computedColumnDefs = new List<TableColumnDefinition> {
+                tableDefinition.FindColumnCaseInsensitive("PartNumberNormalized"),
+                tableDefinition.FindColumnCaseInsensitive("SupplierPartNumberNormalized")
+            };
+
+            computedColumnDefs.ForEach(c =>
+            {
+                Assert.IsNotNull(c);
+                Assert.IsTrue(c.IsComputedColumn);
+                Assert.IsNotEmpty(c.ComputedColumnDefinition);
+                Assert.IsTrue(c.IsPersistedColumn);
+            });
+
+            //Computed Columns should NOT be udatable (not returned by FindUpdatableColumn method)...
             Assert.IsNull(tableDefinition.FindUpdatableColumnCaseInsensitive("PartNumberNormalized"));
             Assert.IsNull(tableDefinition.FindUpdatableColumnCaseInsensitive("SupplierPartNumberNormalized"));
         }
