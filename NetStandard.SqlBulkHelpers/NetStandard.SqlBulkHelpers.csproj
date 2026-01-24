@@ -8,7 +8,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Authors>BBernard / CajunCoding</Authors>
     <Company>CajunCoding</Company>
-    <Version>2.4.6</Version>
+    <Version>2.5.0</Version>
     <PackageProjectUrl>https://github.com/cajuncoding/SqlBulkHelpers</PackageProjectUrl>
     <RepositoryUrl>https://github.com/cajuncoding/SqlBulkHelpers</RepositoryUrl>
     <Description>A library for easy, efficient and high performance bulk insert and update of data, into a Sql Database, from .Net applications. By leveraging the power of the SqlBulkCopy classes with added support for Identity primary key table columns this library provides a greatly simplified interface to process Identity based Entities with Bulk Performance with the wide compatibility of .NetStandard 2.0.</Description>
@@ -18,6 +18,10 @@
       - Implement support for Property Handler interceptors to enable advanced custom handling of Property Get/Set operations during Bulk Insert/Update operations.
       - Improve compatibility with RepoDb by implementing support for RepoDb PropertyHandler interceptors by dynamically detecting and using any registered PropertyHandlers (Annotations on Properties) if already used on models.
       - Fix issue with SLQ Server non-writeable fields such as Computed Columns causing failures during Bulk Insert/Update operations.
+      - Add Support to intentionally ignore properties on data models (for edge cases) using SqlBulkIgnoreAttribute.
+      - Add Support for property mapping/interception hanlding for dynamic conversions before writing to the DB via new ISqlBulkHelpersPropertyConverter interface that can be added to any custom Attribute (e.g. convert comples object property to Json to store in a single field).
+      - Add compatibility support to utilize RepoDb PropertyHandlerAttribute for conversions before writing to the DB.
+      - Add Support for dynamic Json property conversion with built in SqlBulkConvertToJsonAttribute.
 
       Prior Relese Notes:
       - Updates to resolve security vulnerabilities in dependencies.

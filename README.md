@@ -216,6 +216,16 @@ public class TestDataService
 ## Nuget Package
 To use in your project, add the [SqlBulkHelpers NuGet package](https://www.nuget.org/packages/SqlBulkHelpers/) to your project.
 
+### v2.5.0 Release Notes:
+- Migrate from FastMember to Fasterflect for improved performance and reliability and functionality.
+- Implement support for Property Handler interceptors to enable advanced custom handling of Property Get/Set operations during Bulk Insert/Update operations.
+- Improve compatibility with RepoDb by implementing support for RepoDb PropertyHandler interceptors by dynamically detecting and using any registered PropertyHandlers (Annotations on Properties) if already used on models.
+- Fix issue with SLQ Server non-writeable fields such as Computed Columns causing failures during Bulk Insert/Update operations.
+- Add Support to intentionally ignore properties on data models (for edge cases) using SqlBulkIgnoreAttribute.
+- Add Support for property mapping/interception hanlding for dynamic conversions before writing to the DB via new ISqlBulkHelpersPropertyConverter interface that can be added to any custom Attribute (e.g. convert comples object property to Json to store in a single field).
+- Add compatibility support to utilize RepoDb PropertyHandlerAttribute for conversions before writing to the DB.
+- Add Support for dynamic Json property conversion with built in SqlBulkConvertToJsonAttribute.
+
 ### v2.4.6 Release Notes:
 - Updates to resolve security vulnerabilities in dependencies.
 

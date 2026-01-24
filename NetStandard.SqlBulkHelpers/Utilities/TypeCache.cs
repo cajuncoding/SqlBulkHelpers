@@ -5,6 +5,8 @@ namespace SqlBulkHelpers
 {
     internal static class TypeCache
     {
+        public static readonly Type Type = typeof(Type);
+
         public static readonly Type Short = typeof(short);
         public static readonly Type Int = typeof(int);
         public static readonly Type Long = typeof(long);

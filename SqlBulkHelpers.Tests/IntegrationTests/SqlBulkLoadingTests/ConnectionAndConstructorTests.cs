@@ -54,7 +54,7 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
             foreach (var result in resultsSorted)
             {
                 Assert.IsNotNull(result);
-                Assert.IsTrue(result.Id > 0);
+                Assert.IsGreaterThan(0, result.Id);
                 Assert.AreEqual(result.Key, testData[i].Key);
                 Assert.AreEqual(result.Value, testData[i].Value);
                 i++;

@@ -126,7 +126,7 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
                 //  correctly by sorting on the Incrementing Identity value when Queried (e.g. ORDER BY Id)
                 //  which must then match our original order of data.
                 var resultsSorted = results.OrderBy(r => r.Id).ToList();
-                Assert.AreEqual(resultsSorted.Count(), testData.Count);
+                Assert.HasCount(resultsSorted.Count(), testData);
 
                 var i = 0;
                 foreach (var result in resultsSorted)
@@ -190,6 +190,45 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
                     Assert.AreEqual((object)result.MyValue, testDataWithMappedProps[i].MyValue);
                     i++;
                 }
+            }
+        }
+
+        [TestMethod]
+        public async Task TestBulkInsertOrUpdateWithPropertyHandlersConvertingToJsonAsync()
+        {
+            var testElementsForJson = TestHelpers
+                .CreateTestData(10)
+                .Select(t => new TestElementConvertedToJson(t))
+                .ToList();
+
+            var sqlConnectionString = SqlConnectionHelper.GetSqlConnectionString();
+            ISqlBulkHelpersConnectionProvider sqlConnectionProvider = new SqlBulkHelpersConnectionProvider(sqlConnectionString);
+
+            await using var sqlConn = await sqlConnectionProvider.NewConnectionAsync().ConfigureAwait(false);
+            await using (var sqlTrans = (SqlTransaction)await sqlConn.BeginTransactionAsync().ConfigureAwait(false))
+            {
+                var results = await sqlTrans.BulkInsertOrUpdateAsync(testElementsForJson);
+                
+                await sqlTrans.CommitAsync().ConfigureAwait(false);
+
+                //ASSERT Results are Valid...
+                Assert.IsNotNull(results);
+
+                //We Sort the Results by Identity Id to ensure that the inserts occurred in the correct
+                //  ordinal order matching our Array of original values, but now with incrementing ID values!
+                //This validates that data is inserted as expected for Identity columns and is validated
+                //  correctly by sorting on the Incrementing Identity value when Queried (e.g. ORDER BY Id)
+                //  which must then match our original order of data.
+                var resultsSorted = results.OrderBy(r => r.Id).ToList();
+                Assert.HasCount(resultsSorted.Count(), testElementsForJson);
+
+                foreach (var result in resultsSorted)
+                {
+                    Assert.IsNotNull(result);
+                    Assert.IsGreaterThan(0, result.Id);
+                }
+
+                //TODO: Add Validation Query to return data and validate valid JSON was stored!
             }
         }
     }

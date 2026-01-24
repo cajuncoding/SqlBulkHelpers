@@ -82,3 +82,11 @@ CREATE TABLE [dbo].[SqlBulkHelpersComputedColumnSchemaTest](
 
 	CONSTRAINT [PK_SqlBulkHelpersComputedColumnSchemaTest] PRIMARY KEY CLUSTERED ([Id] ASC)
 );
+
+DROP TABLE IF EXISTS [dbo].[SqlBulkHelpersPropertyHandlerTest];
+CREATE TABLE [dbo].[SqlBulkHelpersPropertyHandlerTest](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[TestElementSqlBulkConvertedJson] [nvarchar](max) NULL,
+	[TestElementRepoDbConvertedJson] [nvarchar](max) NULL,
+	CONSTRAINT [PKEY_SqlBulkHelpersPropertyHandlerTest] PRIMARY KEY CLUSTERED ([Id] ASC)
+);
