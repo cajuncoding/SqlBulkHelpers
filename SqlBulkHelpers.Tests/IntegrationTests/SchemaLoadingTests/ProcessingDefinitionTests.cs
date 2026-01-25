@@ -33,8 +33,6 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
                 };
 
                 Assert.AreEqual(expectedMappedName, propDef.MappedDbColumnName);
-                //NONE of these should be an Identity Property since no Identity Column Table Definition was provided when Initializing!
-                Assert.IsFalse(propDef.IsIdentityProperty);
             }
 
             var matchQualifierExpression = processingDef.MergeMatchQualifierExpressionFromEntityModel;

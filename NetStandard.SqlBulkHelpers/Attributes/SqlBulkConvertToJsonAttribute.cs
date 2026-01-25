@@ -9,7 +9,7 @@ namespace SqlBulkHelpers
     /// Provides and example and helpful utility using hte ISqlBulkHelperPropertyConverter<TProp, TConverted> interface!
     /// </summary>
     [AttributeUsage(AttributeTargets.Property, Inherited = true, AllowMultiple = false)]
-    public class SqlBulkConvertToJsonAttribute : Attribute, ISqlBulkHelpersPropertyConverter
+    public class SqlBulkConvertToJsonAttribute : Attribute, ISqlBulkHelpersPropertyTransformer
     {
         /// <summary>
         /// You can globally set this in your application root or bootstrapping logic to ensure the desired Serialization options
@@ -20,7 +20,7 @@ namespace SqlBulkHelpers
         public static void SetJsonSerializerOptions(JsonSerializerOptions options)
             => SqlBulkJsonConverterSerializerOptions = options;
 
-        object ISqlBulkHelpersPropertyConverter.ConvertPropValue(object propValue)
+        object ISqlBulkHelpersPropertyTransformer.TransformPropValue(object propValue)
             => JsonSerializer.Serialize(propValue, SqlBulkJsonConverterSerializerOptions);
     }
 }

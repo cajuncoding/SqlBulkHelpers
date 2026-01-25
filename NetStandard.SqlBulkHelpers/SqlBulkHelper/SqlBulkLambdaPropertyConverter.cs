@@ -4,7 +4,7 @@ using SqlBulkHelpers.Interfaces;
 
 namespace SqlBulkHelpers
 {
-    public class SqlBulkLambdaPropertyConverter : ISqlBulkHelpersPropertyConverter
+    public class SqlBulkLambdaPropertyConverter : ISqlBulkHelpersPropertyTransformer
     {
         public Func<object, object> ConverterFunc { get; protected set; }
 
@@ -13,6 +13,6 @@ namespace SqlBulkHelpers
             ConverterFunc = coverterFunc.AssertArgumentIsNotNull(nameof(ConverterFunc));
         }
 
-        public object ConvertPropValue(object propValue) => ConverterFunc.Invoke(propValue);
+        public object TransformPropValue(object propValue) => ConverterFunc.Invoke(propValue);
     }
 }

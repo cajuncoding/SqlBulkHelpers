@@ -51,24 +51,22 @@ namespace SqlBulkHelpers
 
         public static readonly Type SkipMappingLookupType = typeof(ISkipMappingLookup);
 
-        public static SqlBulkHelpersProcessingDefinition GetProcessingDefinition<T>(TableColumnDefinition identityColumnDefinition = null)
-            => GetProcessingDefinition(typeof(T), identityColumnDefinition);
+        public static SqlBulkHelpersProcessingDefinition GetProcessingDefinition<T>()
+            => GetProcessingDefinition(typeof(T));
 
-        public static SqlBulkHelpersProcessingDefinition GetProcessingDefinition(Type type, TableColumnDefinition identityColumnDefinition = null)
+        public static SqlBulkHelpersProcessingDefinition GetProcessingDefinition(Type type)
         {
             type.AssertArgumentIsNotNull(nameof(type));
 
-            var processingDefinition = _processingDefinitionsLazyCache.GetOrAdd(
-                key: $"[Type={type.FullName}][Identity={identityColumnDefinition?.ColumnName ?? "N/A"}]",  //Cache Key
+            return _processingDefinitionsLazyCache.GetOrAdd(
+                key: type.FullName,  //Cache Key
                 cacheValueFactory: key =>
                 {
-                    var propertyInfos = type.Properties().Select(pi => new PropInfoDefinition(pi, identityColumnDefinition)).ToList();
+                    var propertyInfos = type.Properties().Select(pi => new PropInfoDefinition(pi)).ToList();
                     var newProcessingDefinition = new SqlBulkHelpersProcessingDefinition(propertyInfos, type);
                     return newProcessingDefinition;
                 }
             );
-
-            return processingDefinition;
         }
         
         protected SqlBulkHelpersProcessingDefinition(IList<PropInfoDefinition> propertyDefinitions, Type entityType, bool isRowNumberColumnNameEnabled = true)
@@ -82,7 +80,6 @@ namespace SqlBulkHelpers
             IsMappingLookupEnabled = !SkipMappingLookupType.IsAssignableFrom(entityType);
             IsRowNumberColumnNameEnabled = isRowNumberColumnNameEnabled;
             MappedDbTableName = GetMappedDbTableName(entityType);
-            IdentityPropDefinition = propertyDefinitions.FirstOrDefault(p => p.IsIdentityProperty);
 
             //Initialize Lookups for high performance processing since this will be cached and only initialized once...
             PropInfoLookupByPropNameCaseInsensitive = PropertyDefinitions.ToLookup(pi => pi.PropertyName, StringComparer.OrdinalIgnoreCase);
@@ -116,7 +113,6 @@ namespace SqlBulkHelpers
         public ImmutableArray<PropInfoDefinition> AllPropertyDefinitions { get; protected set; }
         public string MappedDbTableName { get; protected set; }
         public bool IsRowNumberColumnNameEnabled { get; protected set; }
-        public PropInfoDefinition IdentityPropDefinition { get; protected set; }
         public SqlMergeMatchQualifierExpression MergeMatchQualifierExpressionFromEntityModel { get; protected set; }
         public bool UniqueMatchMergeValidationEnabled { get; protected set; } = true;
         public PropInfoDefinition this[string propName] => FindPropDefinitionByNameCaseInsensitive(propName);
@@ -125,6 +121,19 @@ namespace SqlBulkHelpers
         public PropInfoDefinition FindPropDefinitionByNameCaseInsensitive(string propertyName) 
             => PropInfoLookupByPropNameCaseInsensitive[propertyName].FirstOrDefault();
 
+        //NOTE: This is an internal Cache and should NOT be static as it must be unique per ProcessingDefinition
+        private readonly LazyStaticInMemoryCache<string, PropInfoDefinition> _identityPropertyDefinitionsLazyCache = new LazyStaticInMemoryCache<string, PropInfoDefinition>();
+
+        public PropInfoDefinition FindIdentityPropertyDefinition(TableColumnDefinition identityColumnDef)
+            //TODO: Determine add Lazy Caching of this resultfor Fast processing later...
+            //NOTE: MappedDbColumnName will use annotation mapping if defined, otherwise it matches the original PropertyName...
+            => identityColumnDef == null
+                ? null
+                : _identityPropertyDefinitionsLazyCache.GetOrAdd(
+                    key: identityColumnDef.ColumnName,  //Cache Key
+                    cacheValueFactory: key => this.PropertyDefinitions.FirstOrDefault(p => p.MappedDbColumnName.Equals(key, StringComparison.OrdinalIgnoreCase))
+                );
+            
         protected string GetMappedDbTableName(Type entityType)
         {
             var mappingAttribute = entityType.FindAttributesByName(
@@ -166,17 +175,17 @@ namespace SqlBulkHelpers
     {
         private readonly MemberGetter _fasterflectPropertyValueGetter;
 
-        public PropInfoDefinition(PropertyInfo propInfo, TableColumnDefinition identityColumnDef = null)
+        public PropInfoDefinition(PropertyInfo propInfo)
         {
             this.PropInfo = propInfo;
             this.PropertyName = propInfo.Name;
             this.PropertyType = propInfo.PropertyType;
             this.MappedDbColumnName = GetMappedDbColumnName(propInfo);
             this.IsMatchQualifier = propInfo.HasAttribute<SqlBulkMatchQualifierAttribute>();
-            //Early determination if a Property is an Identity Property for Fast processing later...
-            //NOTE: MappedDbColumnName will use annotation mapping if defined, otherwise it matches the original PropertyName...
-            this.IsIdentityProperty = identityColumnDef?.ColumnName?.Equals(MappedDbColumnName, StringComparison.OrdinalIgnoreCase) ?? false;
-            this.PropertyConverter = GetPropertyConverter(propInfo);
+            
+            //First look to see if an attribute already implements our converter (via explicit interface) and use it.
+            //Second fall back to looking to see if RepoDb library might be in use (no direct dependency) and dynamically resolve the IPropertyHandler if available.
+            this.PropertyTransformer = propInfo.FindSqlBulkHelpersPropertyTransformer() ?? propInfo.FindRepoDbPropertyHandler();
 
             //Initialize a fast Delegate based Property Value Getter for high performance access; this is now very easy with Fasterflect!
             //NOTE: Event though Fasterflect has internal caching There is still some minor overhead in initializing the Cache Key (CallInfo) internally
@@ -185,7 +194,7 @@ namespace SqlBulkHelpers
             InvokePropertyValueGetter = new Func<object, object>(obj => {
                 var propValue = _fasterflectPropertyValueGetter(obj);
                 //If defined use the Property Converter, otherwise return the underlying value of the property...
-                return this.PropertyConverter?.ConvertPropValue(propValue) ?? propValue;
+                return this.PropertyTransformer?.TransformPropValue(propValue) ?? propValue;
             });
 
             //Added support to explicitly Ignore Properties on Models that may be transient and/or problemmatic so this eliminates
@@ -196,11 +205,10 @@ namespace SqlBulkHelpers
         public string PropertyName { get; protected set; }
         public bool IsIgnoredForUpdates { get; protected set; }
         public string MappedDbColumnName { get; protected set; }
-        public bool IsIdentityProperty { get; protected set; }
         public bool IsMatchQualifier { get; protected set; }
         public PropertyInfo PropInfo { get; protected set; }
         public Type PropertyType { get; protected set; }
-        public ISqlBulkHelpersPropertyConverter PropertyConverter { get; protected set; }
+        public ISqlBulkHelpersPropertyTransformer PropertyTransformer { get; protected set; }
         public Func<object, object> InvokePropertyValueGetter { get; protected set; }
 
         public override string ToString() => $"{this.PropertyName} [{this.PropertyType.Name}]";
@@ -235,83 +243,6 @@ namespace SqlBulkHelpers
 
                     return attributeNameValue.AsString() ?? propInfo.Name;
                 }
-            }
-        }
-
-        protected static ISqlBulkHelpersPropertyConverter GetPropertyConverter(PropertyInfo propInfo)
-        {
-            if (propInfo == null) return null;
-
-            // 1) If an attribute already implements our converter, just use it.
-            var explicitConverter = propInfo
-                .Attributes()
-                .OfType<ISqlBulkHelpersPropertyConverter>()
-                .FirstOrDefault();
-
-            if (explicitConverter != null)
-                return explicitConverter;
-
-            // 2) Detect RepoDb's [PropertyHandler(typeof(...))] by name (no RepoDb reference required)
-            var repoDbAttr = propInfo
-                .FindAttributesByName(RepoDbNames.PropertyHandlerAttributeName)
-                .FirstOrDefault();
-
-            if (repoDbAttr == null)
-                return null;
-
-            // 3) Extract the handler type from the attribute  with last ditch effort fallback if name/property differs
-            var repoDbHandlerType = repoDbAttr.GetPropertyValue(RepoDbNames.PropertyHandlerTypePropertyName) as Type
-                ?? repoDbAttr.GetType().Properties().FirstOrDefault(p => p.CanRead && p.PropertyType == TypeCache.Type)?.GetValue(repoDbAttr) as Type;
-
-            if (repoDbHandlerType == null)
-                return null;
-
-            // 4) Locate the 'Set' method: TInput Set(TResult input, PropertyHandlerSetOptions options);
-            var repoDbHandlerSetMethod = repoDbHandlerType
-                .Methods()
-                .FirstOrDefault(m =>
-                    m.Name.Equals(RepoDbNames.PropertyHandlerSetMethodName, StringComparison.OrdinalIgnoreCase)
-                    && !m.IsGenericMethodDefinition
-                    && m.Parameters() is IList<ParameterInfo> methodParams
-                    && methodParams.Count == 2 //Must have exactly 2 params (per RepoDb Interface) and validate the Name of the second param below...
-                    && methodParams[0].ParameterType.IsAssignableFrom(propInfo.PropertyType) //Input Type (to be converted) must match the current Property Type we are processing!
-                    && methodParams[1].ParameterType is Type methodType
-                    //The Set method is used to write value to the DB!
-                    && (methodType.FullName ?? methodType.Name).IndexOf(RepoDbNames.PropertyHandlerSetOptionsClassName, StringComparison.OrdinalIgnoreCase) >= 0
-                );
-
-            if (repoDbHandlerSetMethod == null)
-                return null;
-
-            try
-            {
-                // 5) Create an instance of the PropertyHandler class (as only the Type is reference in the Attribute)
-                object propertyHandlerInstance = repoDbHandlerType.CreateInstance(); // Fasterflect; falls back to Activator if needed
-
-                // 6) Create high‑performance Fasterflect invoker (delegate)
-                var repoDbPropHandlerGetMethodInvoker = repoDbHandlerSetMethod.DelegateForCallMethod(); // returns Fasterflect.MethodInvoker
-
-                // For safety, ensure the first arg (TInput) matches/accepts the property type
-                //NOTE: We already know we have 2 parameters above!
-                var parameters = repoDbHandlerSetMethod.Parameters();
-                var optionsParamType = parameters[1].ParameterType;
-
-                // Options: null for class, default(T) for struct which is returned when we try to create an instance...
-                object optionsArg = optionsParamType.IsValueType 
-                    ? optionsParamType.CreateInstance()
-                    : null;
-
-                // 8) Return a converter wrapper Interfaced Func<object, object> to encapsulate the call to the Invoker
-                //      of the Get mehod of the PropertyHandler
-                return new SqlBulkLambdaPropertyConverter(valueObj =>
-                {
-                    if (valueObj is null) return null;
-                    return repoDbPropHandlerGetMethodInvoker.Invoke(propertyHandlerInstance, valueObj, optionsArg);
-                });
-            }
-            catch
-            {
-                return null; // could not construct; ignore optional feature
             }
         }
     }

@@ -99,8 +99,8 @@ namespace SqlBulkHelpers
 
             if (enableIdentityPropProcessing && !identitySetterInterfaceSupported)
             {
-                var processingDefinition = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>(identityColumnDefinition);
-                identityPropertyName = processingDefinition.IdentityPropDefinition?.PropertyName;
+                var processingDefinition = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>();
+                identityPropertyName = processingDefinition.FindIdentityPropertyDefinition(identityColumnDefinition)?.PropertyName;
 
                 //If there is no Identity Property (e.g. no Identity PropInfo can be found)
                 //  then we can skip any further processing of Identity values....
