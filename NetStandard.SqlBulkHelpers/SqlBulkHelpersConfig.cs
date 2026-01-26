@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text.Json;
 using Microsoft.Data.SqlClient;
 using SqlBulkHelpers.CustomExtensions;
 using SqlBulkHelpers.MaterializedData;
@@ -52,6 +53,8 @@ namespace SqlBulkHelpers
         int MaxConcurrentConnections { get; }
         bool IsConcurrentConnectionProcessingEnabled { get; }
         bool IsFullTextIndexHandlingEnabled { get; }
+
+        JsonSerializerOptions SqlBulkJsonConverterSerializerOptions { get; }
 
         ISqlBulkHelpersConfig Clone();
         ISqlBulkHelpersConfig Configure(Action<SqlBulkHelpersConfig> configAction);
@@ -223,6 +226,11 @@ namespace SqlBulkHelpers
         /// Recommended to use the SqlBulkHelpersConfig.EnableConcurrentSqlConnectionProcessing() convenience method(s) to enable this more easily!
         /// </summary>
         public bool IsFullTextIndexHandlingEnabled { get; set; } = false;
+
+        /// <summary>
+        /// Set the default Json Serializer Options used for JSON conversion (e.g. via  [SqlBulkConvertToJson] attribute annotation).
+        /// </summary>
+        public JsonSerializerOptions SqlBulkJsonConverterSerializerOptions { get; set; } = new JsonSerializerOptions();
 
         #endregion
     }

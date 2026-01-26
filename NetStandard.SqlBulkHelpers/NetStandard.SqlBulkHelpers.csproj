@@ -14,14 +14,14 @@
     <Description>A library for easy, efficient and high performance bulk insert and update of data, into a Sql Database, from .Net applications. By leveraging the power of the SqlBulkCopy classes with added support for Identity primary key table columns this library provides a greatly simplified interface to process Identity based Entities with Bulk Performance with the wide compatibility of .NetStandard 2.0.</Description>
     <PackageTags>sql server database table bulk insert update identity column sqlbulkcopy orm dapper linq2sql materialization materialized data view materialized-data materialized-view sync replication replica readonly</PackageTags>
     <PackageReleaseNotes>
-      - Migrate from FastMember to Fasterflect for improved performance and reliability and functionality.
-      - Implement support for Property Handler interceptors to enable advanced custom handling of Property Get/Set operations during Bulk Insert/Update operations.
-      - Improve compatibility with RepoDb by implementing support for RepoDb PropertyHandler interceptors by dynamically detecting and using any registered PropertyHandlers (Annotations on Properties) if already used on models.
       - Fix issue with SLQ Server non-writeable fields such as Computed Columns causing failures during Bulk Insert/Update operations.
+      - Migrate from FastMember to Fasterflect for improved performance, reliability and functionality.
+      - Implement support for Property Handler interceptors to enable advanced dynamic transformation of property values during Bulk Insert/Update operations.
+      - Improve compatibility with RepoDb by implementing support for RepoDb PropertyHandler interceptors by dynamically detecting and using any registered PropertyHandlers (Annotations on Properties) if already used on models.
       - Add Support to intentionally ignore properties on data models (for edge cases) using SqlBulkIgnoreAttribute.
       - Add Support for property mapping/interception hanlding for dynamic conversions before writing to the DB via new ISqlBulkHelpersPropertyConverter interface that can be added to any custom Attribute (e.g. convert comples object property to Json to store in a single field).
-      - Add compatibility support to utilize RepoDb PropertyHandlerAttribute for conversions before writing to the DB.
-      - Add Support for dynamic Json property conversion with built in SqlBulkConvertToJsonAttribute.
+      - Add compatibility support to utilize RepoDb IPropertyHandler and PropertyHandlerAttribute for conversions before writing to the DB.
+      - Add Support for dynamic Json property conversion with new SqlBulkConvertToJsonAttribute now provided out-of-the-box.
 
       Prior Relese Notes:
       - Updates to resolve security vulnerabilities in dependencies.
@@ -97,7 +97,7 @@
   <ItemGroup>
     <PackageReference Include="fasterflect" Version="3.0.0" />
     <PackageReference Include="LazyCacheHelpers" Version="1.3.3" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.1.3" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.4" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
   </ItemGroup>
