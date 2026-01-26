@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Text.Json.Serialization;
 using Newtonsoft.Json.Converters;
@@ -11,6 +12,7 @@ namespace SqlBulkHelpers
     public class SqlBulkHelpersTableDefinition
     {
         protected ILookup<string, TableColumnDefinition> ColumnLookupByNameCaseInsensitive { get; }
+        protected ILookup<string, TableColumnDefinition> UpdatableColumnLookupByNameCaseInsensitive { get; }
 
         public SqlBulkHelpersTableDefinition(
             string tableSchema, 
@@ -37,6 +39,9 @@ namespace SqlBulkHelpers
 
             //Ensure that the Columns, Constraints, etc. collections are always NullSafe and is Immutable/ReadOnly!
             TableColumns = (tableColumns ?? new List<TableColumnDefinition>()).AsReadOnly();
+            //Only include valid updatable Columns (e.g. Computed Columns can NOT be updated)!
+            UpdatableTableColumns = TableColumns.Where(c => c.IsUpdatableColumn).ToList().AsReadOnly();
+
             PrimaryKeyConstraint = primaryKeyConstraint;
             ForeignKeyConstraints = (foreignKeyConstraints ?? new List<ForeignKeyConstraintDefinition>()).AsReadOnly();
             ReferencingForeignKeyConstraints = (referencingForeignKeyConstraints ?? new List<ReferencingForeignKeyConstraintDefinition>()).AsReadOnly(); 
@@ -48,8 +53,9 @@ namespace SqlBulkHelpers
             //Derived Key/Constraint properties for Convenience/Fast Processing
             IdentityColumn = this.TableColumns.FirstOrDefault(c => c.IsIdentityColumn);
 
-            //Initialize the Case-insensitive Dictionary for quickly looking up Columns...
+            //Initialize the Case-insensitive Lookups for quickly finding Columns...
             ColumnLookupByNameCaseInsensitive = this.TableColumns.ToLookup(c => c.ColumnName, StringComparer.OrdinalIgnoreCase);
+            UpdatableColumnLookupByNameCaseInsensitive = this.UpdatableTableColumns.ToLookup(c => c.ColumnName, StringComparer.OrdinalIgnoreCase);
         }
 
         public TableNameTerm TableNameTerm { get; }
@@ -58,6 +64,7 @@ namespace SqlBulkHelpers
         public string TableName => TableNameTerm.TableName;
         public string TableFullyQualifiedName => TableNameTerm.FullyQualifiedTableName;
         public IList<TableColumnDefinition> TableColumns { get; }
+        public IList<TableColumnDefinition> UpdatableTableColumns { get; }
         public PrimaryKeyConstraintDefinition PrimaryKeyConstraint { get; }
         public IList<ForeignKeyConstraintDefinition> ForeignKeyConstraints { get; }
         public IList<ReferencingForeignKeyConstraintDefinition> ReferencingForeignKeyConstraints { get; }
@@ -73,15 +80,18 @@ namespace SqlBulkHelpers
         public TableColumnDefinition IdentityColumn { get; }
 
         //The following are Helper Methods for processing...
-        public IList<string> GetColumnNames(bool includeIdentityColumn = true)
+        public IList<string> GetUpdatableColumnNames(bool includeIdentityColumn = true)
         {
-            IEnumerable<string> results = includeIdentityColumn 
-                ? this.TableColumns.Select(c => c.ColumnName)
-                : this.TableColumns.Where(c => !c.IsIdentityColumn).Select(c => c.ColumnName);
+            var updatableColumns = this.UpdatableTableColumns.AsEnumerable();
+            if (!includeIdentityColumn)
+                updatableColumns = updatableColumns.Where(c => !c.IsIdentityColumn);
 
             //Ensure that our List is Immutable/ReadOnly!
-            return results.ToList().AsReadOnly();
+            return updatableColumns.Select(c => c.ColumnName).ToImmutableList();
         }
+
+        public TableColumnDefinition FindUpdatableColumnCaseInsensitive(string columnName)
+            => UpdatableColumnLookupByNameCaseInsensitive[columnName].FirstOrDefault();
 
         public TableColumnDefinition FindColumnCaseInsensitive(string columnName)
             => ColumnLookupByNameCaseInsensitive[columnName].FirstOrDefault();
@@ -96,9 +106,18 @@ namespace SqlBulkHelpers
             string sourceTableName,
             int ordinalPosition, 
             string columnName, 
-            string dataType, 
+            string dataType,
+            bool isNullableColumn,
             bool isIdentityColumn,
-            int? charactersMaxLength,
+            long? identitySeedValue,
+            long? identityIncrementValue,
+            bool isComputedColumn,
+            string computedColumnDefinition,
+            bool isPersistedColumn,
+            bool isRowGuidColumn,
+            string characterCollationName,
+            int? characterMaxLength,
+            int? binaryMaxLength,
             int? numericPrecision,
             int? numericPrecisionRadix,
             int? numericScale,
@@ -110,12 +129,24 @@ namespace SqlBulkHelpers
             OrdinalPosition = ordinalPosition;
             ColumnName = columnName;
             DataType = dataType;
+            IsNullableColumn = isNullableColumn;
             IsIdentityColumn = isIdentityColumn;
-            CharacterMaxLength = charactersMaxLength;
+            IdentitySeedValue = identitySeedValue;
+            IdentityIncrementValue = identityIncrementValue;
+            IsComputedColumn = isComputedColumn;
+            ComputedColumnDefinition = computedColumnDefinition;
+            IsPersistedColumn = isPersistedColumn;
+            IsRowGuidColumn = isRowGuidColumn;
+            CharacterCollationName = characterCollationName;
+            CharacterMaxLength = characterMaxLength;
+            BinaryMaxLength = binaryMaxLength;
             NumericPrecision = numericPrecision;
             NumericPrecisionRadix = numericPrecisionRadix;
             NumericScale = numericScale;
             DateTimePrecision = dateTimePrecision;
+            TableScriptColumnSql = BuildTableScriptColumnSql();
+
+            IsUpdatableColumn = !IsComputedColumn;
         }
 
         public string SourceTableSchema { get; }
@@ -123,17 +154,92 @@ namespace SqlBulkHelpers
         public int OrdinalPosition { get; }
         public string ColumnName { get; }
         public string DataType { get; }
+        public bool IsNullableColumn { get; }
         public bool IsIdentityColumn { get; }
+        public long? IdentitySeedValue { get; }
+        public long? IdentityIncrementValue { get; }
+        public bool IsComputedColumn { get; }
+        public string ComputedColumnDefinition { get; }
+        public bool IsPersistedColumn { get; }
+        public bool IsRowGuidColumn { get; }
+        public string CharacterCollationName { get; }
         public int? CharacterMaxLength { get; }
+        public int? BinaryMaxLength { get; }
         public int? NumericPrecision { get; }
         public int? NumericPrecisionRadix { get; }
         public int? NumericScale { get; }
         public int? DateTimePrecision { get; }
+        public string TableScriptColumnSql { get; }
+        public bool IsUpdatableColumn { get; }
 
-        public override string ToString()
+        public override string ToString() => TableScriptColumnSql;
+
+        private string BuildTableScriptColumnSql()
         {
-            return $"{this.ColumnName} [{this.DataType}]";
+            var colDef = this;
+            var qualifiedColumnName = colDef.ColumnName.QualifySqlTerm();
+
+            //Computed Columns
+            if (colDef.IsComputedColumn)
+            {
+                return $"{qualifiedColumnName} AS ({colDef.ComputedColumnDefinition}) {(colDef.IsPersistedColumn ? " PERSISTED" : string.Empty)}";
+            }
+            //Regular Columns
+            else
+            {
+                var typeSql = BuildColumnTypeSql(colDef);
+
+                var identitySql = colDef.IsIdentityColumn
+                    ? $" IDENTITY({colDef.IdentitySeedValue ?? 1},{colDef.IdentityIncrementValue ?? 1})" 
+                    : string.Empty;
+
+                var nullabilitySql = colDef.IsNullableColumn 
+                    ? " NULL" 
+                    : " NOT NULL";
+
+                var collationSql = !string.IsNullOrEmpty(colDef.CharacterCollationName) 
+                    ? $" COLLATE {colDef.CharacterCollationName.QualifySqlTerm()}" 
+                    : string.Empty;
+
+                var rowGuidSql = (colDef.IsRowGuidColumn && colDef.DataType.Equals("uniqueidentifier", StringComparison.OrdinalIgnoreCase)) 
+                    ? " ROWGUIDCOL" 
+                    : string.Empty;
+
+                return $"{qualifiedColumnName} {typeSql}{collationSql}{identitySql}{rowGuidSql}{nullabilitySql}";
+            }
         }
+
+        private static string BuildColumnTypeSql(TableColumnDefinition colDef)
+        {
+            if (string.IsNullOrWhiteSpace(colDef.DataType))
+                return "SQL_VARIANT";
+
+            var dataTypeName = colDef.DataType.Trim().ToLowerInvariant();
+            switch (dataTypeName)
+            {
+                case "nvarchar":
+                case "nchar":
+                    return $"{dataTypeName}({FormatColumnLengthSql(colDef.CharacterMaxLength)})";
+                case "varchar":
+                case "char":
+                case "binary":
+                case "varbinary":
+                    return $"{dataTypeName}({FormatColumnLengthSql(colDef.BinaryMaxLength)})";
+                case "decimal":
+                case "numeric":
+                    return $"{dataTypeName}({colDef.NumericPrecision ?? 18},{colDef.NumericScale ?? 0})";
+                case "datetime2":
+                case "time":
+                case "datetimeoffset":
+                    //Just to be extra safe we clamp the Precision value to ensure it's between 0 & 7 for valid values supported by SQL Server...
+                    return $"{dataTypeName}({(colDef.DateTimePrecision.HasValue ? Math.Min(7, Math.Max(0, colDef.DateTimePrecision.Value)) : 7)})";
+                default:
+                    return dataTypeName; // types without parameters: int, bigint, bit, date, datetime, money, uniqueidentifier, xml, etc.
+            }
+        }
+
+        private static string FormatColumnLengthSql(int? len)
+            => (len is null || len <= 0 || len == int.MaxValue || len == -1) ? "MAX" : len.Value.ToString();
     }
 
     [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -432,7 +538,7 @@ namespace SqlBulkHelpers
             //      which is common with auto-generated constraints.
             if (mappedName.Length >= SQL_NAME_MAX_LENGTH || mappedName.Equals(originalObjectName))
             {
-                var uniqueIdSuffix = string.Concat("_", IdGenerator.NewId());
+                var uniqueIdSuffix = string.Concat("_", TokenIdGenerator.NewTokenId());
                 var truncatedMappedName = mappedName.TruncateToLength(SQL_NAME_MAX_LENGTH - uniqueIdSuffix.Length);
                 mappedName = string.Concat(truncatedMappedName, uniqueIdSuffix);
             }

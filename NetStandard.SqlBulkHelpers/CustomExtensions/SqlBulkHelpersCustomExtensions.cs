@@ -107,7 +107,7 @@ namespace SqlBulkHelpers.CustomExtensions
             if (string.IsNullOrWhiteSpace(tableNameToMakeUnique))
                 throw new ArgumentNullException(nameof(tableNameToMakeUnique));
 
-            var uniqueTokenSuffix = string.Concat("_", IdGenerator.NewId(uniqueTokenLength));
+            var uniqueTokenSuffix = string.Concat("_", TokenIdGenerator.NewTokenId(uniqueTokenLength));
             var uniqueName = string.Concat(tableNameToMakeUnique, uniqueTokenSuffix);
                 
             if (uniqueName.Length > MaxTableNameLength)

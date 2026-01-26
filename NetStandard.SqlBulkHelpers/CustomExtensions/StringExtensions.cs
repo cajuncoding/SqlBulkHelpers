@@ -12,6 +12,9 @@ namespace SqlBulkHelpers.CustomExtensions
         public static string ReplaceCaseInsensitive(this string str, string oldValue, string @newValue)
             => Replace(str, oldValue, @newValue, StringComparison.OrdinalIgnoreCase);
 
+        public static string AsString(this object obj)
+             => obj == null || obj is string ? (string)obj : obj.ToString();
+
         /// <summary>
         /// Returns a new string in which all occurrences of a specified string in the current instance are replaced with another 
         /// specified string according the type of search to use for the specified string.

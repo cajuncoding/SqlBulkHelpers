@@ -1,4 +1,4 @@
-﻿using FastMember;
+﻿using Fasterflect;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,6 +6,8 @@ using System.Reflection;
 using SqlBulkHelpers.SqlBulkHelpers.CustomExtensions;
 using LazyCacheHelpers;
 using SqlBulkHelpers.CustomExtensions;
+using System.Collections.Immutable;
+using SqlBulkHelpers.Interfaces;
 
 namespace SqlBulkHelpers
 {
@@ -16,13 +18,22 @@ namespace SqlBulkHelpers
     {
     }
 
+    internal static class RepoDbNames
+    {
+        public const string PropertyHandlerAttributeName = "PropertyHandlerAttribute";
+        public const string PropertyHandlerSetOptionsClassName = "PropertyHandlerSetOptions";
+        public const string PropertyHandlerTypePropertyName = "HandlerType";
+        public const string PropertyHandlerSetMethodName = "Set"; //The Set method is used to write value to the DB!
+    }
+
     internal static class MappingAttributeNames
     {
+        //Field/Property Name Attributes
         public const string RepoDbFieldMapAttributeName = "MapAttribute";
         public const string RepoDbFieldMapAttributePropertyName = "Name";
         public const string LinqToDbFieldMapAttributeName = "ColumnAttribute";
         public const string LinqToDbFieldMapAttributePropertyName = "Name";
-
+        //Table Name Attributes
         public const string RepoDbTableMapAttributeName = "MapAttribute";
         public const string RepoDbTableMapAttributePropertyName = "Name";
         public const string DapperTableMapAttributeName = "TableAttribute";
@@ -40,38 +51,40 @@ namespace SqlBulkHelpers
 
         public static readonly Type SkipMappingLookupType = typeof(ISkipMappingLookup);
 
-        public static SqlBulkHelpersProcessingDefinition GetProcessingDefinition<T>(TableColumnDefinition identityColumnDefinition = null)
-            => GetProcessingDefinition(typeof(T), identityColumnDefinition);
+        public static SqlBulkHelpersProcessingDefinition GetProcessingDefinition<T>()
+            => GetProcessingDefinition(typeof(T));
 
-        public static SqlBulkHelpersProcessingDefinition GetProcessingDefinition(Type type, TableColumnDefinition identityColumnDefinition = null)
+        public static SqlBulkHelpersProcessingDefinition GetProcessingDefinition(Type type)
         {
             type.AssertArgumentIsNotNull(nameof(type));
 
-            var processingDefinition = _processingDefinitionsLazyCache.GetOrAdd(
-                key: $"[Type={type.FullName}][Identity={identityColumnDefinition?.ColumnName ?? "N/A"}]",  //Cache Key
+            return _processingDefinitionsLazyCache.GetOrAdd(
+                key: type.FullName,  //Cache Key
                 cacheValueFactory: key =>
                 {
-                    var propertyInfos = type.GetProperties().Select(pi => new PropInfoDefinition(pi, identityColumnDefinition)).ToList();
+                    var propertyInfos = type.Properties().Select(pi => new PropInfoDefinition(pi)).ToList();
                     var newProcessingDefinition = new SqlBulkHelpersProcessingDefinition(propertyInfos, type);
                     return newProcessingDefinition;
                 }
             );
-
-            return processingDefinition;
         }
         
-        protected SqlBulkHelpersProcessingDefinition(List<PropInfoDefinition> propertyDefinitions, Type entityType, bool isRowNumberColumnNameEnabled = true)
+        protected SqlBulkHelpersProcessingDefinition(IList<PropInfoDefinition> propertyDefinitions, Type entityType, bool isRowNumberColumnNameEnabled = true)
         {
+            
+            //All processed property definitions can be accessed here...
+            AllPropertyDefinitions = propertyDefinitions.AssertArgumentIsNotNull(nameof(propertyDefinitions)).ToImmutableArray();
+            //But for normal processing we ONLY include properties that are valid for updating (e.g. not explicitly ignored)...
+            PropertyDefinitions = propertyDefinitions.Where(pd => !pd.IsIgnoredForUpdates).ToImmutableArray();
+
             IsMappingLookupEnabled = !SkipMappingLookupType.IsAssignableFrom(entityType);
-            PropertyDefinitions = propertyDefinitions.AssertArgumentIsNotNull(nameof(propertyDefinitions)).AsArray();
             IsRowNumberColumnNameEnabled = isRowNumberColumnNameEnabled;
             MappedDbTableName = GetMappedDbTableName(entityType);
-            IdentityPropDefinition = propertyDefinitions.FirstOrDefault(p => p.IsIdentityProperty);
 
             //Initialize Lookups for high performance processing since this will be cached and only initialized once...
             PropInfoLookupByPropNameCaseInsensitive = PropertyDefinitions.ToLookup(pi => pi.PropertyName, StringComparer.OrdinalIgnoreCase);
 
-            if (entityType.FindAttributes(nameof(SqlBulkTableAttribute)).FirstOrDefault() is SqlBulkTableAttribute tableMappingAttr)
+            if (entityType.Attribute<SqlBulkTableAttribute>() is SqlBulkTableAttribute tableMappingAttr)
                 //NOTES: Defaults to true but can be overriden by the configuration on the Table attribute.
                 UniqueMatchMergeValidationEnabled = tableMappingAttr.UniqueMatchMergeValidationEnabled;
 
@@ -93,29 +106,37 @@ namespace SqlBulkHelpers
         /// Determines if the Entity Type Mapping information is enabled or if it should be ignored (e.g. implements ISkipMappingLookup)
         /// </summary>
         public bool IsMappingLookupEnabled { get; protected set; }
-
-        public PropInfoDefinition[] PropertyDefinitions { get; protected set; }
-
+        /// <summary>
+        /// Returns only valid updatable property definitions (e.g. not ignored)
+        /// </summary>
+        public ImmutableArray<PropInfoDefinition> PropertyDefinitions { get; protected set; }
+        public ImmutableArray<PropInfoDefinition> AllPropertyDefinitions { get; protected set; }
         public string MappedDbTableName { get; protected set; }
-
         public bool IsRowNumberColumnNameEnabled { get; protected set; }
-
-        public PropInfoDefinition IdentityPropDefinition { get; protected set; }
-
         public SqlMergeMatchQualifierExpression MergeMatchQualifierExpressionFromEntityModel { get; protected set; }
-
         public bool UniqueMatchMergeValidationEnabled { get; protected set; } = true;
-
         public PropInfoDefinition this[string propName] => FindPropDefinitionByNameCaseInsensitive(propName);
-
         public PropInfoDefinition this[int index] => PropertyDefinitions[index];
-
+        
         public PropInfoDefinition FindPropDefinitionByNameCaseInsensitive(string propertyName) 
             => PropInfoLookupByPropNameCaseInsensitive[propertyName].FirstOrDefault();
 
+        //NOTE: This is an internal Cache and should NOT be static as it must be unique per ProcessingDefinition
+        private readonly LazyStaticInMemoryCache<string, PropInfoDefinition> _identityPropertyDefinitionsLazyCache = new LazyStaticInMemoryCache<string, PropInfoDefinition>();
+
+        public PropInfoDefinition FindIdentityPropertyDefinition(TableColumnDefinition identityColumnDef)
+            //TODO: Determine add Lazy Caching of this resultfor Fast processing later...
+            //NOTE: MappedDbColumnName will use annotation mapping if defined, otherwise it matches the original PropertyName...
+            => identityColumnDef == null
+                ? null
+                : _identityPropertyDefinitionsLazyCache.GetOrAdd(
+                    key: identityColumnDef.ColumnName,  //Cache Key
+                    cacheValueFactory: key => this.PropertyDefinitions.FirstOrDefault(p => p.MappedDbColumnName.Equals(key, StringComparison.OrdinalIgnoreCase))
+                );
+            
         protected string GetMappedDbTableName(Type entityType)
         {
-            var mappingAttribute = entityType.FindAttributes(
+            var mappingAttribute = entityType.FindAttributesByName(
                 nameof(SqlBulkTableAttribute),
                 MappingAttributeNames.RepoDbTableMapAttributeName, 
                 MappingAttributeNames.DapperTableMapAttributeName
@@ -132,15 +153,13 @@ namespace SqlBulkHelpers
                     return sqlBulkTableAttr.FullyQualifiedTableName;
                 default:
                 {
-                    var attrAccessor = ObjectAccessor.Create(mappingAttribute);
-
                     switch (mappingAttribute.GetType().Name)
                     {
                         case MappingAttributeNames.RepoDbTableMapAttributeName:
-                            return attrAccessor[MappingAttributeNames.RepoDbTableMapAttributePropertyName].ToString();
+                            return mappingAttribute.GetPropertyValue(MappingAttributeNames.RepoDbTableMapAttributePropertyName).AsString();
                         //NOTE: Dapper and LinqToDb actually have the SAME Attribute & Property Name so this handles both...
                         case MappingAttributeNames.DapperTableMapAttributeName:
-                            return attrAccessor[MappingAttributeNames.DapperTableMapAttributePropertyName].ToString();
+                            return mappingAttribute.GetPropertyValue(MappingAttributeNames.DapperTableMapAttributePropertyName).AsString();
                         //NOTE: Removed because this conflicts with Dapper and both will be handled above.
                         //case MappingAttributeNames.LinqToDbTableMapAttributeName:
                         //    return attrAccessor[MappingAttributeNames.LinqToDbTableMapAttributePropertyName].ToString();
@@ -154,33 +173,49 @@ namespace SqlBulkHelpers
 
     public class PropInfoDefinition
     {
-        public PropInfoDefinition(PropertyInfo propInfo, TableColumnDefinition identityColumnDef = null)
+        private readonly MemberGetter _fasterflectPropertyValueGetter;
+
+        public PropInfoDefinition(PropertyInfo propInfo)
         {
             this.PropInfo = propInfo;
             this.PropertyName = propInfo.Name;
             this.PropertyType = propInfo.PropertyType;
             this.MappedDbColumnName = GetMappedDbColumnName(propInfo);
-            this.IsMatchQualifier = propInfo.FindAttributes(nameof(SqlBulkMatchQualifierAttribute)).Any();
-            //Early determination if a Property is an Identity Property for Fast processing later...
-            //NOTE: MappedDbColumnName will use annotation mapping if defined, otherwise it matches the original PropertyName...
-            this.IsIdentityProperty = identityColumnDef?.ColumnName?.Equals(MappedDbColumnName, StringComparison.OrdinalIgnoreCase) ?? false;
+            this.IsMatchQualifier = propInfo.HasAttribute<SqlBulkMatchQualifierAttribute>();
+            
+            //First look to see if an attribute already implements our converter (via explicit interface) and use it.
+            //Second fall back to looking to see if RepoDb library might be in use (no direct dependency) and dynamically resolve the IPropertyHandler if available.
+            this.PropertyTransformer = propInfo.FindSqlBulkHelpersPropertyTransformer() ?? propInfo.FindRepoDbPropertyHandler();
+
+            //Initialize a fast Delegate based Property Value Getter for high performance access; this is now very easy with Fasterflect!
+            //NOTE: Event though Fasterflect has internal caching There is still some minor overhead in initializing the Cache Key (CallInfo) internally
+            //      which we can further avoid by initializing and keeping our Getter reference here for pure performance!
+            _fasterflectPropertyValueGetter = propInfo.DelegateForGetPropertyValue();
+            InvokePropertyValueGetter = new Func<object, object>(obj => {
+                var propValue = _fasterflectPropertyValueGetter(obj);
+                //If defined use the Property Converter, otherwise return the underlying value of the property...
+                return this.PropertyTransformer?.TransformPropValue(propValue) ?? propValue;
+            });
+
+            //Added support to explicitly Ignore Properties on Models that may be transient and/or problemmatic so this eliminates
+            //  them from consideration for any SQL Bulk processing...
+            this.IsIgnoredForUpdates = propInfo.HasAttribute<SqlBulkIgnoreAttribute>();
         }
 
-        public string PropertyName { get; private set; }
-        public string MappedDbColumnName { get; private set; }
-        public bool IsIdentityProperty { get; private set; }
-        public bool IsMatchQualifier { get; private set; }
-        public PropertyInfo PropInfo { get; private set; }
-        public Type PropertyType { get; private set; }
+        public string PropertyName { get; protected set; }
+        public bool IsIgnoredForUpdates { get; protected set; }
+        public string MappedDbColumnName { get; protected set; }
+        public bool IsMatchQualifier { get; protected set; }
+        public PropertyInfo PropInfo { get; protected set; }
+        public Type PropertyType { get; protected set; }
+        public ISqlBulkHelpersPropertyTransformer PropertyTransformer { get; protected set; }
+        public Func<object, object> InvokePropertyValueGetter { get; protected set; }
 
-        public override string ToString()
-        {
-            return $"{this.PropertyName} [{this.PropertyType.Name}]";
-        }
+        public override string ToString() => $"{this.PropertyName} [{this.PropertyType.Name}]";
 
-        protected string GetMappedDbColumnName(PropertyInfo propInfo)
+        protected static string GetMappedDbColumnName(PropertyInfo propInfo)
         {
-            var mappingAttribute = propInfo.FindAttributes(
+            var mappingAttribute = propInfo.FindAttributesByName(
                 nameof(SqlBulkColumnAttribute), 
                 MappingAttributeNames.RepoDbFieldMapAttributeName, 
                 MappingAttributeNames.LinqToDbFieldMapAttributeName
@@ -195,20 +230,18 @@ namespace SqlBulkHelpers
                     return sqlBulkColumnAttr.Name;
                 default:
                 {
-                    var attrAccessor = ObjectAccessor.Create(mappingAttribute);
-
                     object attributeNameValue = null;
                     switch (mappingAttribute.GetType().Name)
                     {
                         case MappingAttributeNames.RepoDbFieldMapAttributeName:
-                            attributeNameValue = attrAccessor[MappingAttributeNames.RepoDbFieldMapAttributePropertyName];
+                            attributeNameValue = mappingAttribute.GetPropertyValue(MappingAttributeNames.RepoDbFieldMapAttributePropertyName);
                             break;
                         case MappingAttributeNames.LinqToDbFieldMapAttributeName:
-                            attributeNameValue = attrAccessor[MappingAttributeNames.LinqToDbFieldMapAttributePropertyName];
+                            attributeNameValue = mappingAttribute.GetPropertyValue(MappingAttributeNames.LinqToDbFieldMapAttributePropertyName);
                             break;
                     }
 
-                    return attributeNameValue?.ToString() ?? propInfo.Name;
+                    return attributeNameValue.AsString() ?? propInfo.Name;
                 }
             }
         }

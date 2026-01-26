@@ -86,7 +86,7 @@ namespace SqlBulkHelpers.MaterializedData
             sourceTableDefinition.AssertArgumentIsNotNull(nameof(sourceTableDefinition));
             targetTable.AssertArgumentIsNotNull(nameof(targetTable));
 
-            CloneTableWithColumnsOnly(sourceTableDefinition.TableNameTerm, targetTable, ifExists);
+            CloneTableWithColumnsOnly(sourceTableDefinition, targetTable, ifExists);
 
             if (copyDataFromSource)
                 CopyTableDataForClone(sourceTableDefinition, targetTable);
@@ -111,10 +111,10 @@ namespace SqlBulkHelpers.MaterializedData
             sourceTableDefinition.AssertArgumentIsNotNull(nameof(sourceTableDefinition));
             targetTableDefinition.AssertArgumentIsNotNull(nameof(targetTableDefinition));
 
-            var targetColLookup = targetTableDefinition.TableColumns.ToLookup(c => new { c.ColumnName, c.DataType });
+            var targetColLookup = targetTableDefinition.UpdatableTableColumns.ToLookup(c => (c.ColumnName.ToLowerInvariant(), c.DataType.ToLowerInvariant()));
 
-            var matchingColumnDefs = sourceTableDefinition.TableColumns
-                .Where(c => targetColLookup.Contains(new { c.ColumnName, c.DataType }))
+            var matchingColumnDefs = sourceTableDefinition.UpdatableTableColumns
+                .Where(c => targetColLookup.Contains((c.ColumnName.ToLowerInvariant(), c.DataType.ToLowerInvariant())))
                 .ToArray();
 
             if (!matchingColumnDefs.Any())
@@ -142,7 +142,7 @@ namespace SqlBulkHelpers.MaterializedData
                 sourceTableDefinition.TableNameTerm, 
                 targetTable, 
                 enableIdentityInsertOnTarget: sourceTableDefinition.IdentityColumn != null, 
-                sourceTableDefinition.TableColumns.AsArray()
+                sourceTableDefinition.UpdatableTableColumns.AsArray()
             );
 
             return this;
@@ -231,9 +231,9 @@ namespace SqlBulkHelpers.MaterializedData
             return this;
         }
 
-        public MaterializedDataScriptBuilder CloneTableWithColumnsOnly(TableNameTerm sourceTable, TableNameTerm targetTable, IfExists ifExists = IfExists.Recreate)
+        public MaterializedDataScriptBuilder CloneTableWithColumnsOnly(SqlBulkHelpersTableDefinition sourceTableDef, TableNameTerm targetTable, IfExists ifExists = IfExists.Recreate)
         {
-            sourceTable.AssertArgumentIsNotNull(nameof(sourceTable));
+            sourceTableDef.AssertArgumentIsNotNull(nameof(sourceTableDef));
             targetTable.AssertArgumentIsNotNull(nameof(targetTable));
 
             CreateSchema(targetTable.SchemaName);
@@ -258,12 +258,28 @@ namespace SqlBulkHelpers.MaterializedData
             
             if (addTableCopyScript || ifExists == IfExists.ContinueProcessing)
             {
-                ScriptBuilder.Append($@"
-                    --Create the new Target Table by copying the core structure from the Source Table...
-	                --Run only if the Table doesn't Already Exist (Idempotent)
+                ScriptBuilder.AppendLine($@"
+                    --Create the new Target Table with only the Column details...
+                    --NOTE: All non-column details such as PKeys, FKeys, Constraints, etc. will be added as modifications to the table to simplify this step!
+	                --NOTE: We can not use SELECT TOP (0) * INTO because it will not correctly handle Computed Columns, etc. so we must use CREATE TABLE...
+                    --Run only if the Table doesn't Already Exist (Idempotent)
                     IF OBJECT_ID('{targetTable.FullyQualifiedTableName}') IS NULL
-                        EXEC('SELECT TOP (0) * INTO {targetTable.FullyQualifiedTableName} FROM {sourceTable.FullyQualifiedTableName}');
-                ");
+                        EXEC('
+                            CREATE TABLE {targetTable.FullyQualifiedTableName} ("
+                                                                                        
+                );
+
+                foreach (var colDef in sourceTableDef.TableColumns.OrderBy(c => c.OrdinalPosition))
+                { 
+                    bool isLastColumn = colDef.OrdinalPosition == sourceTableDef.TableColumns.Count;
+                    ScriptBuilder.AppendLine($"\t\t\t\t\t\t\t\t{EscapeExecCommand(colDef.TableScriptColumnSql)}{(isLastColumn ? string.Empty : ",")}");
+                }
+                
+                //Close the CREATE TABLE block...
+                ScriptBuilder.AppendLine("\t\t\t\t\t\t\t);");
+                
+                //Close the EXEC block...
+                ScriptBuilder.AppendLine("\t\t\t\t\t\t');");
             }
 
             return this;
@@ -401,7 +417,7 @@ namespace SqlBulkHelpers.MaterializedData
 
                 var fkeyConstraintNameQualified = fkeyConstraint.ConstraintName.QualifySqlTerm();
                 var fullyQualifiedTableName = tableName.FullyQualifiedTableName;
-                var errorMsgVariableName = $"@errorMsg_{IdGenerator.NewId()}";
+                var errorMsgVariableName = $"@errorMsg_{TokenIdGenerator.NewTokenId()}";
 
                 //We manually provide better error handling because the Messages from Sql Server are vague and it's unclear to a developer
                 //  that this FKey constraint Check was the likely cause of failures, so we provide more details in a custom error message!
@@ -451,7 +467,7 @@ namespace SqlBulkHelpers.MaterializedData
 
                 var fkeyConstraintNameQualified = referencingFKey.ConstraintName.QualifySqlTerm();
                 var fullyQualifiedTableName = referencingFKey.SourceTableNameTerm.FullyQualifiedTableName;
-                var errorMsgVariableName = $"@errorMsg_{IdGenerator.NewId()}";
+                var errorMsgVariableName = $"@errorMsg_{TokenIdGenerator.NewTokenId()}";
 
                 //We manually provide better error handling because the Messages from Sql Server are vague and it's unclear to a developer
                 //  that this FKey constraint Check was the likely cause of failures, so we provide more details in a custom error message!
@@ -680,6 +696,8 @@ namespace SqlBulkHelpers.MaterializedData
         private static string GetCheckClause(bool executeConstraintValidation) => executeConstraintValidation ? "WITH CHECK" : string.Empty;
 
         private static string GetNoCheckClause(bool executeConstraintValidation) => executeConstraintValidation ? string.Empty : "WITH NOCHECK";
+
+        private static string EscapeExecCommand(string execCommand) => execCommand.Replace("'", "''");
 
         #endregion
     }

@@ -4,72 +4,80 @@
     <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
     <RootNamespace>SqlBulkHelpers</RootNamespace>
     <AssemblyName>SqlBulkHelpers</AssemblyName>
-	<Copyright>Copyright © 2019</Copyright>
-	<PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Copyright>Copyright © 2019</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Authors>BBernard / CajunCoding</Authors>
     <Company>CajunCoding</Company>
-	<Version>2.4.6</Version>
-	<PackageProjectUrl>https://github.com/cajuncoding/SqlBulkHelpers</PackageProjectUrl>
-	<RepositoryUrl>https://github.com/cajuncoding/SqlBulkHelpers</RepositoryUrl>
+    <Version>2.5.0</Version>
+    <PackageProjectUrl>https://github.com/cajuncoding/SqlBulkHelpers</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/cajuncoding/SqlBulkHelpers</RepositoryUrl>
     <Description>A library for easy, efficient and high performance bulk insert and update of data, into a Sql Database, from .Net applications. By leveraging the power of the SqlBulkCopy classes with added support for Identity primary key table columns this library provides a greatly simplified interface to process Identity based Entities with Bulk Performance with the wide compatibility of .NetStandard 2.0.</Description>
-	<PackageTags>sql server database table bulk insert update identity column sqlbulkcopy orm dapper linq2sql materialization materialized data view materialized-data materialized-view sync replication replica readonly</PackageTags>
+    <PackageTags>sql server database table bulk insert update identity column sqlbulkcopy orm dapper linq2sql materialization materialized data view materialized-data materialized-view sync replication replica readonly</PackageTags>
     <PackageReleaseNotes>
-		- Updates to resolve security vulnerabilities in dependencies.
-		
-		Prior Relese Notes:
-		- Fix Null Reference Exception if Linq2Db Column Attribute is used but no Name mapping is specified since it is actually optional (https://github.com/cajuncoding/SqlBulkHelpers/issues/20).
-		- Fix Collation Conflict Risks -- Thanks to Contribution by @simelis
-		- Fix Security Vulnerability in System.Data.SqlClient
-		- Fix Caching bug for Processing Definitions loaded from class Attribute annotations, etc. whereby the FullName was not correctly used resulting in cache conflicts and incorrect values when classes have the same name.
-		- Add Support to manually control if Materialized Loading tables are cleaned-up/removed when using `SchemaCopyMode.OutsideTransactionAvoidSchemaLocks` via `materializeDataContext.DisableMaterializedStagingTableCleanup()`;
-		always enabled by default and throws an `InvalidOperationException` if if SchemaCopyMode.InsideTransactionAllowSchemaLocks is used. This provides support for advanced debugging and control flow support.
-		- Improved SqlBulkHelpers Configuration API to now provide Clone() and Configure() methods to more easily copy/clone existing configuration and change values is specific instances;
-		including copy/clone of the Defaults for unique exeuctions.
-		- Added support to load Table Schema for Temp Tables (basic Schema details needed for BulkInsert or Update, etc. to allow Bulk Loading Temp Tables!
-		- Improved Error message for when custom SQL Merge Match qualifiers are specified but DB Schema may have changed making them invalid or missing from Cached schema.
-		- Added new explicit CopyTableDataAsync() APIs which enable explicit copying of data between two tables on matching columns (automatically detected by column Name and Data Type).
-		- Added new Materialized Data Configuration value MaterializedDataLoadingTableDataCopyMode to control whether the materialized data process automatically copies data into the Loading Tables after cloning. This helps to greatly simplify new use cases where data must be merged (and preserved) during the materialization process.
-		- Fixed bug with Sql Bulk Insert/Update processing with Model Properties that have mapped database names via mapping attribute (e.g. [SqlBulkColumn("")], [Map("")], [Column("")], etc.).
-		- Changed default behaviour to no longer clone tables/schema inside a Transaction which creates a full Schema Lock -- as this greatly impacts Schema aware ORMs such as SqlBulkHelpers, RepoDb, etc.
-		- New separate methods is now added to handle the CleanupMaterializeDataProcessAsync() but must be explicitly called as it is no longer implicitly called with FinishMaterializeDataProcessAsync().
-		- Added new configuration value to control if Schema copying/cloning (for Loading Tables) is inside or outide the Transaction (e.g. SchemaCopyMode.InsideTransactionAllowSchemaLocks vs OutsideTransactionAvoidSchemaLocks).
-		- Fix bug in ReSeedTableIdentityValueWithMaxIdAsync() when the Table is Empty so that it now defaults to value of 1.
-		- Fixed a Bug where Identity Column Value was not correctly synced after Materialization Process is completing.
-		- Added new Helper API to quickly Sync the Identity column value with the current MAX Id value of the column (ensuring it's valid after populating additional data); This is useful if you override Identity values for a full Table refresh, but then want to later insert data into the table.
-		- Improved namespace for SqlBulkHelpers.CustomExtensions to reduce risk of conflicts with similar existing extensions.
-		- Restored support for SqlConnection Factory (simplified now as a Func&lt;SqlConnection&gt; when manually using the SqlDbSchemaLoader to dynamically retrieve Table Schema definitions for performance.
-		- Added support for other Identity column data types including (INT, BIGINT, SMALLINT, &amp; TINYINT); per feature request (https://github.com/cajuncoding/SqlBulkHelpers/issues/10).
-		- Added support to explicitly set Identity Values (aka SET IDENTITY_INSERT ON) via new `enableIdentityInsert` api parameter.
-		- Added support to retreive and re-seed (aka set) the current Identity Value on a given table via new apis in the MaterializedData helpers.
-		- Additional small bug fixes and optimiaztions.
-	    - Added additional convenience methods to the `MaterializationContext` to retreive loading table info for models mapped via annotations (ModelType; vs only ordinal or string name).
-		- Added support to cancel the materialization process via new `MaterializationContext.CancelMaterializationProcess()` method; allows passive cancelling without the need to throw an exception to safely stop the process.
-		- Fixed small configuration initialization bugs when manually setting the `IsFullTextIndexHandlingEnabled` flag.
-		- Fixed small bug where default configuration was not being used as the fallback.
-		- Improve configuration of Timeouts and add support for Default DB Schema Loader timeout setting.
-		- v2.0 provides a simplified and easier to access API as Extension Methods of the SqlTransaction class; this is a breaking change for Sql Bulk Insert/Update/etc, but shoudl be easy to migrate to!
-		- v2.0 release also includes the NEW MaterializeData Helpers to make it significantly easier to implement highly efficient loading and publishing of materialized data via Sql Server much easier via an easy C# API.
-		- The concept of Materializing data is to enable easy aysnc (background) bulk loading of data with, no impact to Live tables, until the data is switched out extremely quickly accomplishing a refresh of Live data in milliseconds.
-		- The all new APIs include (but not limited to): ExecuteMaterializeDataProcessAsync(), ClearTablesAsync(), CloneTablesAsync(), DropTablesAsync(), RemoveFullTextIndexAsync(), &amp; GetTableSchemaDefinition().
-		- v2.0 Now includes support for Model mapping attributes for Class and Properties with support for RepoDb ([Map]), Linq2Sql ([Table]/[Column]), and Dapper ([Table]/[Column]); and others that use the same Attribute notations.
-		- Add improved reliability now with use of LazyCacheHelpers for the in-memory caching of DB Schema Loaders; this now fixes an edge case issue where an Exception could be cached and re-initialization was never attempted.
-		- Added support to now clear the DB Schema cache via SqlBulkHelpersSchemaLoaderCache.ClearCache() to enable dynamic re-initialization when needed (vs applicaiton restart).
-		- Add improved support for use of SqlBulkHelpersDbSchemaCache with new SqlConnection factory func to greatly simplifying its use with optimized deferral of Sql Connection creation (if and only when needed) without having to implement the full Interface.
-		- Merge PR to enable support Fully Qualified Table Names - Thanks to @simelis
-		- Migrated the library to use `Microsoft.Data.SqlClient` vs legacy `System.Data.SqlClient` which is no longer being updated with most improvements, especially performance and edge case bugs. From v1.1 onward we will only use `Microsoft.Data.SqlClient`.
-		- Added support to optimize Identity value updates with native performance (no reflection) by implementing ISqlBulkHelperIdentitySetter on the model classes.
-		- Fix to correctly support fully qualified table names with schema.
-		- Ensure BulkCopy also uses timeout parameter.
-		- Add Overloads for easier initialization of SqlMergeMatchQualifierExpression class.
-		- Breaking change; removed internal Default static references so that I can eliminate any dependency on Configuration framework for better support in .Net Core; New Caching helper and simple constructor with Sql Connection String replace this.
-		- Added support to specify SqlCommand Timeout Seconds when initializing the Sql Bulk Helper class, instead of relying on the connection wide setting from the Connection string.
-		- Added support for custom match qualifiers to be specified even if bulk inserting/updating data with Identity columns.  This addresses some edge use cases whereby data syncing may be taking place and Identities are used to differentiate data from multiple sources, but the actual merge matches needs to occur on unique fields of the source system.
-		- Simplified initialization and constructors to provide easier use -- especially if SqlConnection/SqlTransaction already exists and ConnectionString is not available.  It's still recommended to use ISqlBulkHelpersConnectionProvider however, this may not be congruent with existin code bases so now the use of existing Sql Connection &amp; Transaction is encapsulated. 
-		- Provided in-memory cache implementation to help manage caching of Schema DB Loaders for performance.
-		- Improved pattern for Schema DB Loader management and encourage use of new Caching class; previously its possible that this was being re-loaded multiple times unnecessarily due to relying on internal behavior instead of managing it as a static/singleton.
-		- Added more Integration Tests for Constructors and Connections, as well as the new DB Schema Loader caching implementation.
-		- Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances that automtically load the connection string from the application configuration setting.
-	</PackageReleaseNotes>
+      - Fix issue with SLQ Server non-writeable fields such as Computed Columns causing failures during Bulk Insert/Update operations.
+      - Migrate from FastMember to Fasterflect for improved performance, reliability and functionality.
+      - Implement support for Property Handler interceptors to enable advanced dynamic transformation of property values during Bulk Insert/Update operations.
+      - Improve compatibility with RepoDb by implementing support for RepoDb PropertyHandler interceptors by dynamically detecting and using any registered PropertyHandlers (Annotations on Properties) if already used on models.
+      - Add Support to intentionally ignore properties on data models (for edge cases) using SqlBulkIgnoreAttribute.
+      - Add Support for property mapping/interception hanlding for dynamic conversions before writing to the DB via new ISqlBulkHelpersPropertyConverter interface that can be added to any custom Attribute (e.g. convert comples object property to Json to store in a single field).
+      - Add compatibility support to utilize RepoDb IPropertyHandler and PropertyHandlerAttribute for conversions before writing to the DB.
+      - Add Support for dynamic Json property conversion with new SqlBulkConvertToJsonAttribute now provided out-of-the-box.
+
+      Prior Relese Notes:
+      - Updates to resolve security vulnerabilities in dependencies.
+      - Fix Null Reference Exception if Linq2Db Column Attribute is used but no Name mapping is specified since it is actually optional (https://github.com/cajuncoding/SqlBulkHelpers/issues/20).
+      - Fix Collation Conflict Risks -- Thanks to Contribution by @simelis
+      - Fix Security Vulnerability in System.Data.SqlClient
+      - Fix Caching bug for Processing Definitions loaded from class Attribute annotations, etc. whereby the FullName was not correctly used resulting in cache conflicts and incorrect values when classes have the same name.
+      - Add Support to manually control if Materialized Loading tables are cleaned-up/removed when using `SchemaCopyMode.OutsideTransactionAvoidSchemaLocks` via `materializeDataContext.DisableMaterializedStagingTableCleanup()`;
+      always enabled by default and throws an `InvalidOperationException` if if SchemaCopyMode.InsideTransactionAllowSchemaLocks is used. This provides support for advanced debugging and control flow support.
+      - Improved SqlBulkHelpers Configuration API to now provide Clone() and Configure() methods to more easily copy/clone existing configuration and change values is specific instances;
+      including copy/clone of the Defaults for unique exeuctions.
+      - Added support to load Table Schema for Temp Tables (basic Schema details needed for BulkInsert or Update, etc. to allow Bulk Loading Temp Tables!
+      - Improved Error message for when custom SQL Merge Match qualifiers are specified but DB Schema may have changed making them invalid or missing from Cached schema.
+      - Added new explicit CopyTableDataAsync() APIs which enable explicit copying of data between two tables on matching columns (automatically detected by column Name and Data Type).
+      - Added new Materialized Data Configuration value MaterializedDataLoadingTableDataCopyMode to control whether the materialized data process automatically copies data into the Loading Tables after cloning. This helps to greatly simplify new use cases where data must be merged (and preserved) during the materialization process.
+      - Fixed bug with Sql Bulk Insert/Update processing with Model Properties that have mapped database names via mapping attribute (e.g. [SqlBulkColumn("")], [Map("")], [Column("")], etc.).
+      - Changed default behaviour to no longer clone tables/schema inside a Transaction which creates a full Schema Lock -- as this greatly impacts Schema aware ORMs such as SqlBulkHelpers, RepoDb, etc.
+      - New separate methods is now added to handle the CleanupMaterializeDataProcessAsync() but must be explicitly called as it is no longer implicitly called with FinishMaterializeDataProcessAsync().
+      - Added new configuration value to control if Schema copying/cloning (for Loading Tables) is inside or outide the Transaction (e.g. SchemaCopyMode.InsideTransactionAllowSchemaLocks vs OutsideTransactionAvoidSchemaLocks).
+      - Fix bug in ReSeedTableIdentityValueWithMaxIdAsync() when the Table is Empty so that it now defaults to value of 1.
+      - Fixed a Bug where Identity Column Value was not correctly synced after Materialization Process is completing.
+      - Added new Helper API to quickly Sync the Identity column value with the current MAX Id value of the column (ensuring it's valid after populating additional data); This is useful if you override Identity values for a full Table refresh, but then want to later insert data into the table.
+      - Improved namespace for SqlBulkHelpers.CustomExtensions to reduce risk of conflicts with similar existing extensions.
+      - Restored support for SqlConnection Factory (simplified now as a Func&lt;SqlConnection&gt; when manually using the SqlDbSchemaLoader to dynamically retrieve Table Schema definitions for performance.
+      - Added support for other Identity column data types including (INT, BIGINT, SMALLINT, &amp; TINYINT); per feature request (https://github.com/cajuncoding/SqlBulkHelpers/issues/10).
+      - Added support to explicitly set Identity Values (aka SET IDENTITY_INSERT ON) via new `enableIdentityInsert` api parameter.
+      - Added support to retreive and re-seed (aka set) the current Identity Value on a given table via new apis in the MaterializedData helpers.
+      - Additional small bug fixes and optimiaztions.
+      - Added additional convenience methods to the `MaterializationContext` to retreive loading table info for models mapped via annotations (ModelType; vs only ordinal or string name).
+      - Added support to cancel the materialization process via new `MaterializationContext.CancelMaterializationProcess()` method; allows passive cancelling without the need to throw an exception to safely stop the process.
+      - Fixed small configuration initialization bugs when manually setting the `IsFullTextIndexHandlingEnabled` flag.
+      - Fixed small bug where default configuration was not being used as the fallback.
+      - Improve configuration of Timeouts and add support for Default DB Schema Loader timeout setting.
+      - v2.0 provides a simplified and easier to access API as Extension Methods of the SqlTransaction class; this is a breaking change for Sql Bulk Insert/Update/etc, but shoudl be easy to migrate to!
+      - v2.0 release also includes the NEW MaterializeData Helpers to make it significantly easier to implement highly efficient loading and publishing of materialized data via Sql Server much easier via an easy C# API.
+      - The concept of Materializing data is to enable easy aysnc (background) bulk loading of data with, no impact to Live tables, until the data is switched out extremely quickly accomplishing a refresh of Live data in milliseconds.
+      - The all new APIs include (but not limited to): ExecuteMaterializeDataProcessAsync(), ClearTablesAsync(), CloneTablesAsync(), DropTablesAsync(), RemoveFullTextIndexAsync(), &amp; GetTableSchemaDefinition().
+      - v2.0 Now includes support for Model mapping attributes for Class and Properties with support for RepoDb ([Map]), Linq2Sql ([Table]/[Column]), and Dapper ([Table]/[Column]); and others that use the same Attribute notations.
+      - Add improved reliability now with use of LazyCacheHelpers for the in-memory caching of DB Schema Loaders; this now fixes an edge case issue where an Exception could be cached and re-initialization was never attempted.
+      - Added support to now clear the DB Schema cache via SqlBulkHelpersSchemaLoaderCache.ClearCache() to enable dynamic re-initialization when needed (vs applicaiton restart).
+      - Add improved support for use of SqlBulkHelpersDbSchemaCache with new SqlConnection factory func to greatly simplifying its use with optimized deferral of Sql Connection creation (if and only when needed) without having to implement the full Interface.
+      - Merge PR to enable support Fully Qualified Table Names - Thanks to @simelis
+      - Migrated the library to use `Microsoft.Data.SqlClient` vs legacy `System.Data.SqlClient` which is no longer being updated with most improvements, especially performance and edge case bugs. From v1.1 onward we will only use `Microsoft.Data.SqlClient`.
+      - Added support to optimize Identity value updates with native performance (no reflection) by implementing ISqlBulkHelperIdentitySetter on the model classes.
+      - Fix to correctly support fully qualified table names with schema.
+      - Ensure BulkCopy also uses timeout parameter.
+      - Add Overloads for easier initialization of SqlMergeMatchQualifierExpression class.
+      - Breaking change; removed internal Default static references so that I can eliminate any dependency on Configuration framework for better support in .Net Core; New Caching helper and simple constructor with Sql Connection String replace this.
+      - Added support to specify SqlCommand Timeout Seconds when initializing the Sql Bulk Helper class, instead of relying on the connection wide setting from the Connection string.
+      - Added support for custom match qualifiers to be specified even if bulk inserting/updating data with Identity columns.  This addresses some edge use cases whereby data syncing may be taking place and Identities are used to differentiate data from multiple sources, but the actual merge matches needs to occur on unique fields of the source system.
+      - Simplified initialization and constructors to provide easier use -- especially if SqlConnection/SqlTransaction already exists and ConnectionString is not available.  It's still recommended to use ISqlBulkHelpersConnectionProvider however, this may not be congruent with existin code bases so now the use of existing Sql Connection &amp; Transaction is encapsulated.
+      - Provided in-memory cache implementation to help manage caching of Schema DB Loaders for performance.
+      - Improved pattern for Schema DB Loader management and encourage use of new Caching class; previously its possible that this was being re-loaded multiple times unnecessarily due to relying on internal behavior instead of managing it as a static/singleton.
+      - Added more Integration Tests for Constructors and Connections, as well as the new DB Schema Loader caching implementation.
+      - Fixed bug in dynamic initialization of SqlBulkHelpersConnectionProvider and SqlBulkHelpersDBSchemaLoader when not using the Default instances that automtically load the connection string from the application configuration setting.
+    </PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -87,9 +95,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FastMember" Version="1.5.0" />
+    <PackageReference Include="fasterflect" Version="3.0.0" />
     <PackageReference Include="LazyCacheHelpers" Version="1.3.3" />
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.1.3" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.4" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
   </ItemGroup>

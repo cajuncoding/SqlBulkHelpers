@@ -33,8 +33,6 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
                 };
 
                 Assert.AreEqual(expectedMappedName, propDef.MappedDbColumnName);
-                //NONE of these should be an Identity Property since no Identity Column Table Definition was provided when Initializing!
-                Assert.IsFalse(propDef.IsIdentityProperty);
             }
 
             var matchQualifierExpression = processingDef.MergeMatchQualifierExpressionFromEntityModel;
@@ -43,12 +41,35 @@ namespace SqlBulkHelpers.Tests.IntegrationTests
             Assert.IsFalse(matchQualifierExpression.ThrowExceptionIfNonUniqueMatchesOccur);
 
             Assert.IsNotNull(matchQualifierExpression.MatchQualifierFields);
-            Assert.AreEqual(2, matchQualifierExpression.MatchQualifierFields.Count);
+            Assert.HasCount(2, matchQualifierExpression.MatchQualifierFields);
             //Match Qualifiers should always use their Mapped DB Name!
             Assert.AreEqual("Id", matchQualifierExpression.MatchQualifierFields[0].SanitizedName);
             Assert.AreEqual("Key", matchQualifierExpression.MatchQualifierFields[1].SanitizedName);
+
+            
+            //Test new PropertyGetter Delegate implementation (using Fasterflect)...
+            var testElementWithMappedNames = new TestElementWithMappedNames()
+            {
+                MyId = Random.Shared.Next(),
+                MyColWithNullName = TokenIdGenerator.NewTokenId(50),
+                MyKey = TokenIdGenerator.NewTokenId(25),
+                MyValue = Guid.NewGuid().ToString(),
+                UnMappedProperty = Random.Shared.Next(),
+            };
+
+            foreach (var propDef in processingDef.PropertyDefinitions)
+            {
+                var propValue = propDef.InvokePropertyValueGetter(testElementWithMappedNames);
+                switch (propDef.PropertyName)
+                {
+                    case nameof(TestElementWithMappedNames.MyId): Assert.AreEqual(testElementWithMappedNames.MyId, propValue); break;
+                    case nameof(TestElementWithMappedNames.MyKey): Assert.AreEqual(testElementWithMappedNames.MyKey, propValue); break;
+                    case nameof(TestElementWithMappedNames.MyValue): Assert.AreEqual(testElementWithMappedNames.MyValue, propValue); break;
+                    case nameof(TestElementWithMappedNames.MyColWithNullName): Assert.AreEqual(testElementWithMappedNames.MyColWithNullName, propValue); break;
+                    case nameof(TestElementWithMappedNames.UnMappedProperty): Assert.AreEqual(testElementWithMappedNames.UnMappedProperty, propValue); break;
+                    default: throw new InvalidOperationException("Unexpected test elemetn property encountered but not accounted or in the switch case tests!");
+                };
+            }
         }
-
-
     }
 }

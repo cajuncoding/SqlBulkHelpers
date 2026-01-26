@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SqlBulkHelpers
 {
@@ -51,18 +49,20 @@ namespace SqlBulkHelpers
 
     public class SqlBulkHelpersColumnDefinition
     {
-        public SqlBulkHelpersColumnDefinition(String columnName, int ordinalPosition, String dataType, bool isIdentityColumn)
+        public SqlBulkHelpersColumnDefinition(String columnName, int ordinalPosition, String dataType, bool isIdentityColumn, bool isComputedColumn)
         {
             this.ColumnName = columnName;
             this.OrdinalPosition = ordinalPosition;
             this.DataType = dataType;
             this.IsIdentityColumn = isIdentityColumn;
+            this.IsComputedColumn = isComputedColumn;
         }
 
         public String ColumnName { get; private set; }
         public int OrdinalPosition { get; private set; }
         public String DataType { get; private set; }
         public bool IsIdentityColumn { get; private set; }
+        public bool IsComputedColumn { get; private set; }
 
         public override string ToString()
         {

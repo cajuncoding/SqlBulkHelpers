@@ -8,25 +8,25 @@ namespace SqlBulkHelpers.SqlBulkHelpers.CustomExtensions
 {
     internal static class ReflectionExtensions
     {
-        public static IEnumerable<Attribute> FindAttributes(this Type type, params string[] attributeNames)
+        public static IList<Attribute> FindAttributesByName(this Type type, params string[] attributeNames)
         {
             if (type == null)
                 return null;
 
             var attributes = type.GetCustomAttributes(true).OfType<Attribute>();
-            return FindAttributes(attributes, attributeNames);
+            return FindAttributesByName(attributes, attributeNames);
         }
 
-        public static IEnumerable<Attribute> FindAttributes(this PropertyInfo propInfo, params string[] attributeNames)
+        public static IList<Attribute> FindAttributesByName(this PropertyInfo propInfo, params string[] attributeNames)
         {
             if (propInfo == null)
                 return null;
 
             var attributes = propInfo.GetCustomAttributes(true).OfType<Attribute>();
-            return FindAttributes(attributes, attributeNames);
+            return FindAttributesByName(attributes, attributeNames);
         }
 
-        public static IEnumerable<Attribute> FindAttributes(this IEnumerable<Attribute> attributes, params string[] attributeNamesToFind)
+        public static IList<Attribute> FindAttributesByName(this IEnumerable<Attribute> attributes, params string[] attributeNamesToFind)
         {
 
             if (attributeNamesToFind.IsNullOrEmpty())

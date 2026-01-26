@@ -1,9 +1,8 @@
 ﻿using System;
-using SqlBulkHelpers.Tests;
 using Microsoft.Data.SqlClient;
 using SqlBulkHelpers.MaterializedData;
 
-namespace SqlBulkHelpers.Tests.IntegrationTests.MaterializeDataTests
+namespace SqlBulkHelpers.Tests.IntegrationTests
 {
     [TestClass]
     public class BulkHelpersMetadataMethodTests : BaseTest

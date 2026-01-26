@@ -2,7 +2,7 @@
 using System.Threading.Tasks;
 using SqlBulkHelpersSample.ConsoleApp;
 
-namespace SqlBulkHelpers.SampleApp.NetCore
+namespace SqlBulkHelpers.SampleApp.Net6
 {
     class Program
     {

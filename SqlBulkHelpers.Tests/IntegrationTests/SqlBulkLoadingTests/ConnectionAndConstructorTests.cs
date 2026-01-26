@@ -1,7 +1,6 @@
-﻿using SqlBulkHelpers.Tests;
-using Microsoft.Data.SqlClient;
+﻿using Microsoft.Data.SqlClient;
 
-namespace SqlBulkHelpers.IntegrationTests
+namespace SqlBulkHelpers.Tests.IntegrationTests
 {
     [TestClass]
     public class SqlBulkHelpersConnectionAndConstructorTests : BaseTest
@@ -55,7 +54,7 @@ namespace SqlBulkHelpers.IntegrationTests
             foreach (var result in resultsSorted)
             {
                 Assert.IsNotNull(result);
-                Assert.IsTrue(result.Id > 0);
+                Assert.IsGreaterThan(0, result.Id);
                 Assert.AreEqual(result.Key, testData[i].Key);
                 Assert.AreEqual(result.Value, testData[i].Value);
                 i++;

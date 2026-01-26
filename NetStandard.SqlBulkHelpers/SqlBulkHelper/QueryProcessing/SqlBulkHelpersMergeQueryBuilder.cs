@@ -40,14 +40,14 @@ namespace SqlBulkHelpers
                 var sanitizedQualifierFields = new List<SqlMatchQualifierField>();
                 foreach (var qualifierField in matchQualifierExpression.MatchQualifierFields)
                 {
-                    if (tableDefinition.FindColumnCaseInsensitive(qualifierField.SanitizedName) != null)
+                    if (tableDefinition.FindUpdatableColumnCaseInsensitive(qualifierField.SanitizedName) != null)
                     {
                         sanitizedQualifierFields.Add(qualifierField);
                     }
                     else if (processingDefinition.IsMappingLookupEnabled)
                     {
                         var propDef = processingDefinition.FindPropDefinitionByNameCaseInsensitive(qualifierField.SanitizedName);
-                        if(propDef != null && tableDefinition.FindColumnCaseInsensitive(propDef.MappedDbColumnName) != null)
+                        if(propDef != null && tableDefinition.FindUpdatableColumnCaseInsensitive(propDef.MappedDbColumnName) != null)
                             sanitizedQualifierFields.Add(new SqlMatchQualifierField(propDef.MappedDbColumnName));
                     }
                 }
@@ -90,10 +90,10 @@ namespace SqlBulkHelpers
                 );
 
             //Initialize Identity & other Column processing references...
-            var columnNamesListWithoutIdentity = tableDefinition.GetColumnNames(includeIdentityColumn: false);
+            var columnNamesListWithoutIdentity = tableDefinition.GetUpdatableColumnNames(includeIdentityColumn: false);
             var columnNamesWithoutIdentityCsv = columnNamesListWithoutIdentity.QualifySqlTerms().ToCsv();
 
-            var columnNamesListIncludingIdentity = tableDefinition.GetColumnNames();
+            var columnNamesListIncludingIdentity = tableDefinition.GetUpdatableColumnNames();
             var columnNamesIncludingIdentityCsv = columnNamesListIncludingIdentity.QualifySqlTerms().ToCsv();
 
             var hasIdentityColumn = tableDefinition.IdentityColumn != null;

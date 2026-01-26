@@ -26,13 +26,34 @@
 				OrdinalPosition = ORDINAL_POSITION,
 				ColumnName = COLUMN_NAME,
 				DataType = DATA_TYPE,
-				IsIdentityColumn = CAST(COLUMNPROPERTY(t.ObjectId, COLUMN_NAME, 'IsIdentity') AS bit),
+				IsNullableColumn = CAST(COALESCE(sc.is_nullable, 0) AS BIT),
+				IsIdentityColumn = CAST(COALESCE(sc.is_identity, 0) AS BIT),
+				IdentitySeedValue = ic.seed_value,
+				IdentityIncrementValue = ic.increment_value,
+				IsComputedColumn = CAST(COALESCE(sc.is_computed, 0) AS BIT),
+				ComputedColumnDefinition = cc.[definition],
+				IsPersistedColumn = CAST(COALESCE(cc.is_persisted, 0) AS BIT),
+				IsRowGuidColumn = CAST(COALESCE(sc.is_rowguidcol, 0) AS BIT),
+				-- Only return a value when the column's collation differs from the DB default.
+				CharacterCollationName = CASE
+					WHEN sc.collation_name IS NULL THEN NULL  -- non-character columns (or some computed columns)
+					WHEN sc.collation_name = dbinfo.db_collation THEN NULL
+					ELSE sc.collation_name
+				END,
 				CharacterMaxLength = CHARACTER_MAXIMUM_LENGTH,
+				BinaryMaxLength = CHARACTER_OCTET_LENGTH,
 				NumericPrecision = NUMERIC_PRECISION,
 				NumericPrecisionRadix = NUMERIC_PRECISION_RADIX,
 				NumericScale = NUMERIC_SCALE,
 				DateTimePrecision = DATETIME_PRECISION
 			FROM INFORMATION_SCHEMA.COLUMNS c
+				OUTER APPLY (
+					SELECT db_collation = CAST(DATABASEPROPERTYEX(DB_NAME(), 'Collation') AS sysname)
+				) AS dbinfo
+				--NOTE: The only way to retrieve Computed Column Definition and whether is IS PERSISTED is by joining to the Sql Server sys catalog tables!
+				LEFT JOIN sys.columns sc ON (sc.[object_id] = t.ObjectId AND sc.[name] = c.COLUMN_NAME)
+				LEFT JOIN sys.computed_columns cc ON (cc.[object_id] = sc.[object_id] AND cc.column_id = sc.column_id)
+				LEFT JOIN sys.identity_columns ic ON (ic.[object_id] = sc.[object_id] AND ic.column_id = sc.column_id)
 			WHERE 
 				c.TABLE_CATALOG = t.TableCatalog
 				AND c.TABLE_SCHEMA = t.TableSchema 

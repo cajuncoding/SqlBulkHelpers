@@ -1,11 +1,10 @@
 ﻿using System;
-using System.ComponentModel.DataAnnotations;
 using SqlBulkHelpers.Tests;
 using Microsoft.Data.SqlClient;
 using RepoDb;
 using SqlBulkHelpers.MaterializedData;
 
-namespace SqlBulkHelpers.IntegrationTests
+namespace SqlBulkHelpers.Tests.IntegrationTests
 {
     [TestClass]
     public class SqlBulkHelpersBulkInsertTests : BaseTest
@@ -46,13 +45,13 @@ namespace SqlBulkHelpers.IntegrationTests
                 //  correctly by sorting on the Incrementing Identity value when Queried (e.g. ORDER BY Id)
                 //  which must then match our original order of data.
                 var resultsSorted = results.OrderBy(r => r.Id).ToList();
-                Assert.AreEqual(resultsSorted.Count(), testData.Count);
+                Assert.HasCount(resultsSorted.Count(), testData);
 
                 var i = 0;
                 foreach (var result in resultsSorted)
                 {
                     Assert.IsNotNull(result);
-                    Assert.IsTrue(result.Id > 0);
+                    Assert.IsGreaterThan(0, result.Id);
                     Assert.AreEqual(testData[i].Key, result.Key);
                     Assert.AreEqual(testData[i].Value, result.Value);
                     i++;
@@ -65,7 +64,7 @@ namespace SqlBulkHelpers.IntegrationTests
                 foreach (var childResult in childResults)
                 {
                     Assert.IsNotNull(childResult);
-                    Assert.IsTrue(childResult.ParentId > 0);
+                    Assert.IsGreaterThan(0, childResult.ParentId);
                     Assert.IsNotNull(parentTestDataLookupById[childResult.ParentId].FirstOrDefault());
                     Assert.AreEqual(childTestData[c].ChildKey, childResult.ChildKey);
                     Assert.AreEqual(childTestData[c].ChildValue, childResult.ChildValue);
@@ -110,13 +109,13 @@ namespace SqlBulkHelpers.IntegrationTests
                 //  correctly by sorting on the Incrementing Identity value when Queried (e.g. ORDER BY Id)
                 //  which must then match our original order of data.
                 var resultsSorted = results.OrderBy(r => r.Id).ToList();
-                Assert.AreEqual(resultsSorted.Count(), testData.Count);
+                Assert.HasCount(resultsSorted.Count(), testData);
 
                 var i = 0;
                 foreach (var result in resultsSorted)
                 {
                     Assert.IsNotNull(result);
-                    Assert.IsTrue(result.Id > 0);
+                    Assert.IsGreaterThan(0, result.Id);
                     Assert.AreEqual(testData[i].Key, result.Key);
                     Assert.AreEqual(testData[i].Value, result.Value);
                     i++;
@@ -129,7 +128,7 @@ namespace SqlBulkHelpers.IntegrationTests
                 foreach (var childResult in childResults)
                 {
                     Assert.IsNotNull(childResult);
-                    Assert.IsTrue(childResult.ParentId > 0);
+                    Assert.IsGreaterThan(0, childResult.ParentId);
                     Assert.IsNotNull(parentTestDataLookupById[childResult.ParentId].FirstOrDefault());
                     Assert.AreEqual(childTestData[c].ChildKey, childResult.ChildKey);
                     Assert.AreEqual(childTestData[c].ChildValue, childResult.ChildValue);
@@ -189,13 +188,13 @@ namespace SqlBulkHelpers.IntegrationTests
                 //  correctly by sorting on the Incrementing Identity value when Queried (e.g. ORDER BY Id)
                 //  which must then match our original order of data.
                 var resultsSorted = results.OrderBy(r => r.Id).ToList();
-                Assert.AreEqual(resultsSorted.Count(), newTestData.Count);
+                Assert.HasCount(resultsSorted.Count(), newTestData);
 
                 var i = 0;
                 foreach (var result in resultsSorted)
                 {
                     Assert.IsNotNull(result);
-                    Assert.IsTrue(result.Id > 0);
+                    Assert.IsGreaterThan(0, result.Id);
                     Assert.AreEqual(newTestData[i].Key, result.Key);
                     Assert.AreEqual(newTestData[i].Value, result.Value);
                     i++;
@@ -254,7 +253,7 @@ namespace SqlBulkHelpers.IntegrationTests
                 var dbDataArray = (await sqlConn.QueryAllAsync<TestElement>(TestHelpers.TestTableName).ConfigureAwait(false)).OrderBy(r => r.Id).ToArray();
                 var testDataArray = testData.OrderBy(r => r.Id).ToArray();
 
-                Assert.AreEqual(dbDataArray.Length, testDataArray.Length);
+                Assert.HasCount(dbDataArray.Length, testDataArray);
                 for (var j = 0; j < testDataArray.Length; j++)
                 {
                     var dbResult = dbDataArray[j];
@@ -338,7 +337,7 @@ namespace SqlBulkHelpers.IntegrationTests
                 var testDataArray = testData.OrderBy(r => r.Id).ToArray();
 
                 Assert.AreEqual(initialIdentityValue + results.Count, identityValueAfterInsert);
-                Assert.AreEqual(dbDataArray.Length, testDataArray.Length);
+                Assert.HasCount(dbDataArray.Length, testDataArray);
 
                 var incrementingId = initialIdentityValue + 1;
                 for (var j = 0; j < testDataArray.Length; j++)

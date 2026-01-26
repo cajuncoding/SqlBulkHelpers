@@ -32,7 +32,7 @@ namespace SqlBulkHelpers.MaterializedData
             => new CloneTableInfo(SourceTable, MakeTableNameUniqueInternal(TargetTable));
 
         private static TableNameTerm MakeTableNameUniqueInternal(TableNameTerm tableNameTerm)
-            => TableNameTerm.From(tableNameTerm.SchemaName, string.Concat(tableNameTerm.TableName, "_", IdGenerator.NewId(10)));
+            => TableNameTerm.From(tableNameTerm.SchemaName, string.Concat(tableNameTerm.TableName, "_", TokenIdGenerator.NewTokenId(10)));
 
         public static CloneTableInfo From<TSource, TTarget>(string sourceTableName = null, string targetTableName = null, string targetPrefix = null, string targetSuffix = null, bool copyDataFromSource = false)
         {

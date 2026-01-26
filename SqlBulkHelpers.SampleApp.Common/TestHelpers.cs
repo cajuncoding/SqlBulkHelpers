@@ -21,7 +21,7 @@ namespace SqlBulkHelpers.Tests
             config.SqlBulkPerBatchTimeoutSeconds = SqlTimeoutSeconds;
         });
 
-        public static List<TestElement> CreateTestData(int dataSize, string prefix = "TEST_CSHARP_DotNet6")
+        public static List<TestElement> CreateTestData(int dataSize, string prefix = "TEST_CSHARP_DotNet8")
         {
             var list = new List<TestElement>();
             var childList = new List<ChildTestElement>();
@@ -31,7 +31,9 @@ namespace SqlBulkHelpers.Tests
                 {
                     Id = default,
                     Key = $"{prefix}[{x:0000}]_GUID[{Guid.NewGuid().ToString().ToUpper()}]",
-                    Value = $"VALUE_{x:0000}"
+                    Value = $"VALUE_{x:0000}",
+                    ComputedValue = $"SHOULD_NOT_BE_SAVED::{TokenIdGenerator.NewTokenId(50)}", //NOTE: SHOULD NEVER BE SAVED!
+                    IgnoredTransientValue = $"SHOULD_BE_IGNORED::{TokenIdGenerator.NewTokenId(10)}"
                 };
 
                 list.Add(testElement);
@@ -76,7 +78,8 @@ namespace SqlBulkHelpers.Tests
             {
                 Id = t.Id,
                 Key = t.Key,
-                Value = t.Value
+                Value = t.Value,
+                ComputedValue = t.ComputedValue
             }).ToList();
 
             return list;
@@ -88,7 +91,29 @@ namespace SqlBulkHelpers.Tests
         public int Id { get; set; }
         public string Key { get; set; }
         public string Value { get; set; }
+        public string ComputedValue { get; set; }
+        [SqlBulkIgnore]
+        public string IgnoredTransientValue { get; set; }
         public override string ToString() => $"Id=[{Id}], Key=[{Key}]";
+    }
+
+    //Class for testing the PropertyHandlers implementaitons...
+    [SqlBulkTable("SqlBulkHelpersPropertyHandlerTest")]
+    public class TestElementConvertedToJson
+    {
+        public TestElementConvertedToJson(TestElement testElement)
+        {
+            this.TestElementSqlBulkConvertedJson = testElement;
+            this.TestElementRepoDbConvertedJson = testElement;
+        }
+
+        public int Id { get; set; }
+
+        [SqlBulkConvertToJson]
+        public TestElement TestElementSqlBulkConvertedJson { get; set; }
+
+        [PropertyHandler(typeof(RepoDbJsonPropertyHandler))]
+        public TestElement TestElementRepoDbConvertedJson { get; set; }
     }
 
     [SqlBulkTable(TestHelpers.TestChildTableNameFullyQualified)]

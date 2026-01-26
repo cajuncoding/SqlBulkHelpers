@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Diagnostics;
-using SqlBulkHelpers.Tests;
 using SqlBulkHelpers.MaterializedData;
 using Microsoft.Data.SqlClient;
 using RepoDb;
 using SqlBulkHelpers.Utilities;
 using SqlBulkHelpers.CustomExtensions;
 
-namespace SqlBulkHelpers.IntegrationTests
+namespace SqlBulkHelpers.Tests.IntegrationTests
 {
     [TestClass]
     public class MaterializeDataMaterializeIntoTests : BaseTest

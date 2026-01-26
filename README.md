@@ -216,6 +216,16 @@ public class TestDataService
 ## Nuget Package
 To use in your project, add the [SqlBulkHelpers NuGet package](https://www.nuget.org/packages/SqlBulkHelpers/) to your project.
 
+### v2.5.0 Release Notes:
+- Fix issue with SLQ Server non-writeable fields such as Computed Columns causing failures during Bulk Insert/Update operations.
+- Migrate from FastMember to Fasterflect for improved performance, reliability and functionality.
+- Implement support for Property Handler interceptors to enable advanced dynamic transformation of property values during Bulk Insert/Update operations.
+- Improve compatibility with RepoDb by implementing support for RepoDb PropertyHandler interceptors by dynamically detecting and using any registered PropertyHandlers (Annotations on Properties) if already used on models.
+- Add Support to intentionally ignore properties on data models (for edge cases) using SqlBulkIgnoreAttribute.
+- Add Support for property mapping/interception hanlding for dynamic conversions before writing to the DB via new ISqlBulkHelpersPropertyConverter interface that can be added to any custom Attribute (e.g. convert comples object property to Json to store in a single field).
+- Add compatibility support to utilize RepoDb IPropertyHandler and PropertyHandlerAttribute for conversions before writing to the DB.
+- Add Support for dynamic Json property conversion with new SqlBulkConvertToJsonAttribute now provided out-of-the-box.
+
 ### v2.4.6 Release Notes:
 - Updates to resolve security vulnerabilities in dependencies.
 
@@ -290,7 +300,7 @@ incorrect values when classes have the same name.
 
 NOTE: [Prior Release Notes are below...](#prior-release-notes)
 
-### Additional Examples:
+## Additional Examples:
 
 ### Simple Example for Sql Bulk Insert or Update :
 Usage is very simple if you use a lightweigth Model (e.g. ORM model via Dapper) to load data from your tables...
@@ -322,10 +332,21 @@ Usage is very simple if you use a lightweigth Model (e.g. ORM model via Dapper) 
 
 ```
 
-### Example Data Model Table/Column name mapping via Annotations
-NOTE: The fully qualified format isn't strictly required, but is encouraged; the `[dbo]` schema will be used as default if not specified.
+### Example Data Model Table/Column name & value mapping via Annotations
+The library supports the following attribute annotations and respective functionality:
+1. ` [SqlBulkTable("")]` -- Defines the Table name mapping of the class
+  - Similar attributes from Dapper & RepoDb are also fully supported for models that already utilize them. 
+2. `[SqlBulkColumn("")]` -- Defines the Column name mapping of the property
+  - Similar attributes from Dapper & RepoDb are also fully supported for models that already utilize them.
+3. `[SqlBulkIgnore]` -- Column vs Schema differences are automatically resolved, however for edge cases this allows developers to explicitly ignore/exclude a property from being used when writing to the database.
+4. `ISqlBulkHelpersPropertyTransformer` -- Any custom property attribute that implements this interface will be used for custom property transformation when writing to the database...
+  - A great use of this is when one column stores some unstructures (NoSql) data for the record/row which can be automatically serialized from the Properties Class/Object. An out-of-the-box implementation of this is now provided via `[SqlBulkConvertToJson]` attribute.
+    - Json Serialization (via System.Text.Json) can be controlled explicitly by setting the `SqlBulkJsonConverterSerializerOp tions` property via `SqlBulkHelpersConfig.ConfigureDefaults()` in your bootstrap/startup code.
+  - Similarly the `IPropertyHandler` and associated `[PropertyHandler]` attribute from RepoDb is fully supported here also for the same functionality (uses the `Set()` method of RepoDbs interface).
 
-*WARNING: Do NOT use `.` in your Schema or Table Names... this is not only a really bad sql code smell, it will break the parsing logic.*
+NOTE: For Table & Column names, the fully qualified format isn't strictly required, but is encouraged; the `[dbo]` schema will be used as default if not specified.
+
+*WARNING: Do NOT use `.` in your Schema, Table, or Column Names... this is not only a really bad sql code smell, it will break the parsing logic.*
 
 ```csharp
     [SqlBulkTable("[dbo].[TestDataModelMappedTableName]")] //Built-in
@@ -334,11 +355,24 @@ NOTE: The fully qualified format isn't strictly required, but is encouraged; the
     public class TestDataModel
     {
         [SqlBulkColumn("MyColumnMappedName")] //Built-in
-        //[Column(""MyColumnMappedName"")] -- Dapper/Linq2Sql
-        //[Map("MyColumnMappedName")] -- RepoDB
+        //[Column(""MyColumnMappedName"")] -- Dapper/Linq2Sql also Supported!
+        //[Map("MyColumnMappedName")] -- RepoDB also Supported!
         public string Column1 { get; set; }
         
+        //Ignore this Column (will not be written to the DB)
+        [SqlBulkIgnore]
         public int Column2 { get; set; }
+
+        //Implements ISqlBulkHelpersPropertyTransformer and provides an out-of-the-box JSON Column Transformer
+        //NOTE: Json Serialization (via System.Text.Json) can be controlled explicitly by setting the `SqlBulkJsonConverterSerializerOptions` 
+        //      property via `SqlBulkHelpersConfig.ConfigureDefaults()` in your bootstrap/startup code.
+        [SqlBulkConvertToJson]
+        //[PropertyHandler(typeof(RepoDbCustomJsonPropertyHandler))] -- RepoDB IPropertyHandler interface also Supported!
+        public MyObjectModel Column3StoreAsJson { get; set; }
+
+        //Attribute that implements ISqlBulkHelpersPropertyTransformer Enum converter that ensures Enums are stored as String names vs Integer IDs.
+        [MyCustomAttributeEnumConverter] // Must implement ISqlBulkHelpersPropertyTransformer
+        public Enum Column4ConvertEnumToString { get; set; }
     }
 
 ```
@@ -368,6 +402,9 @@ globally in your application startup.
         //One new optimization (mainly for Materialized Data) is to enable support for concurrent connections...
         //  via a Connection Factory which Enables Concurrent Connection Processing for Performance...
         config.EnableConcurrentSqlConnectionProcessing(sqlConnectionProvider, maxConcurrentConnections: 5);
+
+        //Explicity control the Json serialization behavior of the [SqlBulkConvertToJson] attribute (if used)...
+        config.SqlBulkJsonConverterSerializerOptions = new JsonSerializerOptions(); //Customize as needed!
     });
 ```
 

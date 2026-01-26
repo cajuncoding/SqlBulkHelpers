@@ -2,18 +2,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Data.SqlClient;
-using FastMember;
+using Fasterflect;
 using SqlBulkHelpers.CustomExtensions;
 using SqlBulkHelpers.Interfaces;
 
 namespace SqlBulkHelpers
 {
-    internal static class TypeCache
-    {
-        public static readonly Type SqlBulkHelperIdentitySetter = typeof(ISqlBulkHelperIdentitySetter);
-        public static readonly Type SqlBulkHelperBigIntIdentitySetter = typeof(ISqlBulkHelperBigIntIdentitySetter);
-    }
-
     //BBernard - Base Class for future flexibility...
     internal abstract class BaseSqlBulkHelper<T> : BaseHelper<T> where T : class
     {
@@ -105,8 +99,8 @@ namespace SqlBulkHelpers
 
             if (enableIdentityPropProcessing && !identitySetterInterfaceSupported)
             {
-                var processingDefinition = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>(identityColumnDefinition);
-                identityPropertyName = processingDefinition.IdentityPropDefinition?.PropertyName;
+                var processingDefinition = SqlBulkHelpersProcessingDefinition.GetProcessingDefinition<T>();
+                identityPropertyName = processingDefinition.FindIdentityPropertyDefinition(identityColumnDefinition)?.PropertyName;
 
                 //If there is no Identity Property (e.g. no Identity PropInfo can be found)
                 //  then we can skip any further processing of Identity values....
@@ -176,34 +170,37 @@ namespace SqlBulkHelpers
                 {
                     //Create our TypeAccessor once here, so it can be captured by scope in our Action but is NOT CREATED on each Action execution!
                     //NOTE: This also helps encapsulate our use of TypeAccessor in case we choose another approach to setting the property in the future!
-                    var fastTypeAccessor = TypeAccessor.Create(CachedEntityType);
-                    var identityPropType = fastTypeAccessor[sampleEntity, identityPropertyName]?.GetType();
+                    //NOTE: As noted above we are now migrating to using Fasterflect for better performance and flexibility so this encapsulation from before is paying dividends now.
+                    var identityProp = sampleEntity.GetType().Property(identityPropertyName);
+                    var identityPropType = identityProp?.PropertyType;
+                    var identitySetterDelegate = identityProp?.DelegateForSetPropertyValue();
+
                     if (identityPropType != null)
                     {
                         //BBernard
                         //For Performance we try to identity the primary Integer types and implement the Setter Action with explicit casting, however
                         //  as a fallback we will attempt to generically convert the type via Convert.ChangeType() for really strange edge cases where the Model type is
                         //  something awkward... (Heaven forbid a string), but hey we'll try to make it work.
-                        if (identityPropType == typeof(long)) //BIGINT Sql Type
+                        if (identityPropType == TypeCache.Long) //BIGINT Sql Type
                         {
                             //MergeResult IdentityId is already a Long to support the superset of any other Int property types by down-casting...
-                            return (entity, mergeResult) => fastTypeAccessor[entity, identityPropertyName] = mergeResult.IdentityId;
+                            return (entity, mergeResult) => identitySetterDelegate.Invoke(entity, mergeResult.IdentityId);
                         }
-                        else if (identityPropType == typeof(int)) //INT Sql Type
+                        else if (identityPropType == TypeCache.Int) //INT Sql Type
                         {
-                            return (entity, mergeResult) => fastTypeAccessor[entity, identityPropertyName] = (int)mergeResult.IdentityId;
+                            return (entity, mergeResult) => identitySetterDelegate.Invoke(entity, (int)mergeResult.IdentityId);
                         }
-                        else if (identityPropType == typeof(short)) //SMALLINT Sql Type
+                        else if (identityPropType == TypeCache.Short) //SMALLINT Sql Type
                         {
-                            return (entity, mergeResult) => fastTypeAccessor[entity, identityPropertyName] = (short)mergeResult.IdentityId;
+                            return (entity, mergeResult) => identitySetterDelegate.Invoke(entity, (short)mergeResult.IdentityId);
                         }
-                        else if (identityPropType == typeof(byte)) //TINYINT Sql Type
+                        else if (identityPropType == TypeCache.Byte) //TINYINT Sql Type
                         {
-                            return (entity, mergeResult) => fastTypeAccessor[entity, identityPropertyName] = (byte)mergeResult.IdentityId;
+                            return (entity, mergeResult) => identitySetterDelegate.Invoke(entity, (byte)mergeResult.IdentityId);
                         }
                         else //For NUMERIC(X, 0) Sql Type or any other, we attempt to generically change the type to match...
                         {
-                            return (entity, mergeResult) => fastTypeAccessor[entity, identityPropertyName] = Convert.ChangeType(mergeResult.IdentityId, identityPropType);
+                            return (entity, mergeResult) => identitySetterDelegate.Invoke(entity, Convert.ChangeType(mergeResult.IdentityId, identityPropType));
                         }
                     }
 
